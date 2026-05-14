@@ -5,6 +5,7 @@ import "./styles.css";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 const PRODUTOS_PAGE_SIZE = 25;
 const ACEITES_PAGE_SIZE = 25;
+const WHATSAPP_LOGS_PAGE_SIZE = 50;
 const DIAS_SEMANA = [
   { value: 1, label: "Segunda" },
   { value: 2, label: "Terça" },
@@ -162,6 +163,26 @@ type AceiteMedico = {
   updated_at?: string;
 };
 
+type WhatsappMessageLog = {
+  id: number;
+  created_at: string;
+  cliente_id?: number | null;
+  cliente_nome?: string | null;
+  session_id?: string | null;
+  message_id?: string | null;
+  from_phone?: string | null;
+  to_phone?: string | null;
+  direction: string;
+  status: string;
+  stage?: string | null;
+  intent?: string | null;
+  inbound_text?: string | null;
+  outbound_text?: string | null;
+  error_message?: string | null;
+  processing_seconds?: number | null;
+};
+
+
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
@@ -274,7 +295,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"clientes" | "medicos">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp">("clientes");
   const [medicos, setMedicos] = useState<Medico[]>([]);
   const [especialidadesCatalogo, setEspecialidadesCatalogo] = useState<EspecialidadeCatalogo[]>([]);
   const [medicoSearch, setMedicoSearch] = useState("");
@@ -285,6 +306,15 @@ function App() {
   const [aceitePage, setAceitePage] = useState(1);
   const [clienteConfig, setClienteConfig] = useState<ClienteConfiguracao | null>(null);
   const [clienteCadastro, setClienteCadastro] = useState<ClienteCadastroDraft | null>(null);
+  const [whatsappLogs, setWhatsappLogs] = useState<WhatsappMessageLog[]>([]);
+  const [whatsappLogFilters, setWhatsappLogFilters] = useState({
+    phone: "",
+    status: "todos",
+    startDate: "",
+    endDate: "",
+    onlyErrors: false,
+  });
+  const [whatsappLogsLoading, setWhatsappLogsLoading] = useState(false);
 
   const [novoAceite, setNovoAceite] = useState({
     convenio: "",
@@ -496,6 +526,14 @@ function App() {
     aceitesFiltrados.length,
   );
 
+
+  const whatsappLogsResumo = useMemo(() => {
+    const total = whatsappLogs.length;
+    const failed = whatsappLogs.filter((log) => log.status === "failed" || log.error_message).length;
+    const sent = whatsappLogs.filter((log) => log.status === "sent").length;
+    return { total, failed, sent };
+  }, [whatsappLogs]);
+
   function showToast(text: string, keepVisible = false) {
     setToast(text);
 
@@ -538,6 +576,7 @@ function App() {
     setProdutos([]);
     setEditingFormaId(null);
     setNovaForma(emptyFormaForm);
+    setWhatsappLogs([]);
   }
 
   async function loadEspecialidadesCatalogo() {
@@ -652,6 +691,26 @@ function App() {
     setProdutos(data.produtos);
   }
 
+
+  async function loadWhatsappLogs() {
+    setWhatsappLogsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedClienteId) params.set("clienteId", String(selectedClienteId));
+      if (whatsappLogFilters.phone.trim()) params.set("phone", whatsappLogFilters.phone.trim());
+      if (whatsappLogFilters.status !== "todos") params.set("status", whatsappLogFilters.status);
+      if (whatsappLogFilters.startDate) params.set("startDate", whatsappLogFilters.startDate);
+      if (whatsappLogFilters.endDate) params.set("endDate", whatsappLogFilters.endDate);
+      if (whatsappLogFilters.onlyErrors) params.set("onlyErrors", "true");
+      params.set("limit", String(WHATSAPP_LOGS_PAGE_SIZE));
+
+      const data = await api<WhatsappMessageLog[]>(`/api/admin/whatsapp/logs?${params.toString()}`);
+      setWhatsappLogs(data);
+    } finally {
+      setWhatsappLogsLoading(false);
+    }
+  }
+
   useEffect(() => {
     Promise.all([loadClientes(), loadEspecialidadesCatalogo()]).catch((error) =>
       showToast(error.message, true),
@@ -670,6 +729,13 @@ function App() {
       setClienteConfig(null);
     }
   }, [selectedClienteId]);
+
+
+  useEffect(() => {
+    if (activeTab === "whatsapp") {
+      loadWhatsappLogs().catch((error) => showToast(error.message, true));
+    }
+  }, [activeTab, selectedClienteId]);
 
   useEffect(() => {
     setAceitePage(1);
@@ -1192,7 +1258,12 @@ function App() {
             Médicos e aceites
           </button>
           <button disabled>Unidades</button>
-          <button disabled>WhatsApp</button>
+          <button
+            className={activeTab === "whatsapp" ? "navActive" : ""}
+            onClick={() => setActiveTab("whatsapp")}
+          >
+            WhatsApp
+          </button>
           <button disabled>Módulos</button>
         </nav>
       </aside>
@@ -1873,6 +1944,110 @@ function App() {
           </section>
         )}
           </>
+        )}
+
+
+        {activeTab === "whatsapp" && (
+          <section className="card">
+            <div className="sectionHeader">
+              <div>
+                <h3>Atendimentos WhatsApp</h3>
+                <p>
+                  Auditoria das mensagens, etapas do fluxo, respostas enviadas e erros.
+                  {selectedCliente ? ` Cliente: ${selectedCliente.nome_fantasia}` : ""}
+                </p>
+              </div>
+              <button onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
+                {whatsappLogsLoading ? "Atualizando..." : "Atualizar logs"}
+              </button>
+            </div>
+
+            <div className="toolbar">
+              <input
+                value={whatsappLogFilters.phone}
+                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, phone: event.target.value })}
+                placeholder="Buscar por telefone. Ex.: 5511999999999"
+              />
+              <select
+                value={whatsappLogFilters.status}
+                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, status: event.target.value })}
+              >
+                <option value="todos">Todos os status</option>
+                <option value="received">received</option>
+                <option value="queued">queued</option>
+                <option value="processing">processing</option>
+                <option value="processed">processed</option>
+                <option value="sent">sent</option>
+                <option value="failed">failed</option>
+                <option value="duplicate">duplicate</option>
+                <option value="ignored">ignored</option>
+              </select>
+              <input
+                type="date"
+                value={whatsappLogFilters.startDate}
+                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, startDate: event.target.value })}
+              />
+              <input
+                type="date"
+                value={whatsappLogFilters.endDate}
+                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, endDate: event.target.value })}
+              />
+              <label className="inlineCheck">
+                <input
+                  type="checkbox"
+                  checked={whatsappLogFilters.onlyErrors}
+                  onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, onlyErrors: event.target.checked })}
+                />
+                Só erros
+              </label>
+              <button className="secondary" onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
+                Filtrar
+              </button>
+            </div>
+
+            <div className="helperBox compactHelper">
+              Exibindo até {WHATSAPP_LOGS_PAGE_SIZE} registros mais recentes. Total carregado: {whatsappLogsResumo.total}. Enviadas: {whatsappLogsResumo.sent}. Erros: {whatsappLogsResumo.failed}.
+            </div>
+
+            {whatsappLogs.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data/hora</th>
+                    <th>Telefone</th>
+                    <th>Cliente</th>
+                    <th>Direção</th>
+                    <th>Status</th>
+                    <th>Etapa</th>
+                    <th>Intenção</th>
+                    <th>Mensagem</th>
+                    <th>Resposta / Erro</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {whatsappLogs.map((log) => (
+                    <tr key={log.id} className={log.status === "failed" || log.error_message ? "mutedRow" : ""}>
+                      <td>{new Date(log.created_at).toLocaleString("pt-BR")}</td>
+                      <td>{log.from_phone || "-"}</td>
+                      <td>{log.cliente_nome || (log.cliente_id ? `#${log.cliente_id}` : "-")}</td>
+                      <td>{log.direction}</td>
+                      <td>{log.status}</td>
+                      <td>{log.stage || "-"}</td>
+                      <td>{log.intent || "-"}</td>
+                      <td title={log.inbound_text || ""}>{(log.inbound_text || "-").slice(0, 120)}</td>
+                      <td title={log.error_message || log.outbound_text || ""}>
+                        {(log.error_message || log.outbound_text || "-").slice(0, 160)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="emptyState">
+                {whatsappLogsLoading ? "Carregando logs..." : "Nenhum log encontrado para os filtros atuais."}
+              </div>
+            )}
+          </section>
         )}
 
         {activeTab === "medicos" && selectedCliente && (
