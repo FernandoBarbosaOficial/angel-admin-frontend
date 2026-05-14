@@ -696,7 +696,9 @@ function App() {
     setWhatsappLogsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedClienteId) params.set("clienteId", String(selectedClienteId));
+      // Não filtrar automaticamente por cliente aqui.
+      // Os logs antigos podem estar com cliente_id nulo, e o filtro por cliente
+      // esconde a auditoria inteira ao trocar de clínica no painel.
       if (whatsappLogFilters.phone.trim()) params.set("phone", whatsappLogFilters.phone.trim());
       if (whatsappLogFilters.status !== "todos") params.set("status", whatsappLogFilters.status);
       if (whatsappLogFilters.startDate) params.set("startDate", whatsappLogFilters.startDate);
@@ -1954,7 +1956,7 @@ function App() {
                 <h3>Atendimentos WhatsApp</h3>
                 <p>
                   Auditoria das mensagens, etapas do fluxo, respostas enviadas e erros.
-                  {selectedCliente ? ` Cliente: ${selectedCliente.nome_fantasia}` : ""}
+                  A consulta é global; use o telefone, status ou período para filtrar.
                 </p>
               </div>
               <button onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
