@@ -118,6 +118,14 @@ type Medico = {
   especialidades: string;
 };
 
+type EspecialidadeCatalogo = {
+  id: number;
+  nome: string;
+  nome_normalizado: string;
+  aliases: string[];
+  ativo: boolean;
+};
+
 type PeriodoDisponibilidade = "manha" | "tarde" | "noite";
 
 type MedicoDisponibilidade = {
@@ -268,6 +276,7 @@ function App() {
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState<"clientes" | "medicos">("clientes");
   const [medicos, setMedicos] = useState<Medico[]>([]);
+  const [especialidadesCatalogo, setEspecialidadesCatalogo] = useState<EspecialidadeCatalogo[]>([]);
   const [medicoSearch, setMedicoSearch] = useState("");
   const [selectedMedicoId, setSelectedMedicoId] = useState<number | null>(null);
   const [aceites, setAceites] = useState<AceiteMedico[]>([]);
@@ -337,6 +346,32 @@ function App() {
   const clienteTemFormaConvenio = useMemo(() => {
     return formas.some((forma) => forma.ativo && forma.tipo === "convenio");
   }, [formas]);
+
+  const especialidadeOptions = useMemo(() => {
+    const items = new Set<string>();
+
+    for (const especialidade of especialidadesCatalogo) {
+      items.add(especialidade.nome);
+      for (const alias of especialidade.aliases || []) {
+        items.add(alias);
+      }
+    }
+
+    return Array.from(items).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [especialidadesCatalogo]);
+
+  function resolveEspecialidadeDigitada(rawValue: string) {
+    const q = normalizeSearch(rawValue);
+    if (!q) return null;
+
+    return (
+      especialidadesCatalogo.find((especialidade) =>
+        [especialidade.nome, especialidade.nome_normalizado, ...(especialidade.aliases || [])]
+          .filter(Boolean)
+          .some((value) => normalizeSearch(value) === q),
+      ) || null
+    );
+  }
 
   const clientesFiltrados = useMemo(() => {
     return clientes.filter((cliente) => {
@@ -505,6 +540,11 @@ function App() {
     setNovaForma(emptyFormaForm);
   }
 
+  async function loadEspecialidadesCatalogo() {
+    const data = await api<EspecialidadeCatalogo[]>("/api/admin/especialidades");
+    setEspecialidadesCatalogo(data);
+  }
+
   async function loadClientes() {
     setLoading(true);
     try {
@@ -613,7 +653,9 @@ function App() {
   }
 
   useEffect(() => {
-    loadClientes().catch((error) => showToast(error.message, true));
+    Promise.all([loadClientes(), loadEspecialidadesCatalogo()]).catch((error) =>
+      showToast(error.message, true),
+    );
   }, []);
 
   useEffect(() => {
@@ -967,10 +1009,18 @@ function App() {
     setToast("");
     setLoadingAction("medico");
 
+    const especialidadeSelecionada = resolveEspecialidadeDigitada(medicoForm.especialidade);
+
+    if (!especialidadeSelecionada) {
+      showToast("❌ Selecione uma especialidade válida da lista", true);
+      setLoadingAction(null);
+      return;
+    }
+
     const payload = {
       nome: medicoForm.nome.trim(),
       registro_profissional: medicoForm.registro_profissional.trim(),
-      especialidade: medicoForm.especialidade.trim(),
+      especialidade: especialidadeSelecionada.nome,
       dias: medicoForm.dias.trim() || null,
       andar: medicoForm.andar.trim() || null,
     };
@@ -1861,9 +1911,21 @@ function App() {
                   onChange={(event) =>
                     setMedicoForm({ ...medicoForm, especialidade: event.target.value })
                   }
-                  placeholder="Especialidade"
+                  onBlur={() => {
+                    const especialidade = resolveEspecialidadeDigitada(medicoForm.especialidade);
+                    if (especialidade) {
+                      setMedicoForm((current) => ({ ...current, especialidade: especialidade.nome }));
+                    }
+                  }}
+                  list="especialidades-catalogo"
+                  placeholder="Especialidade. Ex.: Cardiologia"
                   required
                 />
+                <datalist id="especialidades-catalogo">
+                  {especialidadeOptions.map((especialidade) => (
+                    <option key={especialidade} value={especialidade} />
+                  ))}
+                </datalist>
                 <input
                   value={medicoForm.dias}
                   onChange={(event) => setMedicoForm({ ...medicoForm, dias: event.target.value })}
