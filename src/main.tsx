@@ -3,11 +3,8 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-const ADMIN_TOKEN_STORAGE_KEY = "agendai_admin_token";
-const ADMIN_USER_STORAGE_KEY = "agendai_admin_user";
 const PRODUTOS_PAGE_SIZE = 25;
 const ACEITES_PAGE_SIZE = 25;
-const WHATSAPP_LOGS_PAGE_SIZE = 50;
 const DIAS_SEMANA = [
   { value: 1, label: "Segunda" },
   { value: 2, label: "Terça" },
@@ -121,14 +118,6 @@ type Medico = {
   especialidades: string;
 };
 
-type EspecialidadeCatalogo = {
-  id: number;
-  nome: string;
-  nome_normalizado: string;
-  aliases: string[];
-  ativo: boolean;
-};
-
 type PeriodoDisponibilidade = "manha" | "tarde" | "noite";
 
 type MedicoDisponibilidade = {
@@ -165,106 +154,22 @@ type AceiteMedico = {
   updated_at?: string;
 };
 
-type WhatsappMessageLog = {
-  id: number;
-  created_at: string;
-  cliente_id?: number | null;
-  cliente_nome?: string | null;
-  session_id?: string | null;
-  message_id?: string | null;
-  from_phone?: string | null;
-  to_phone?: string | null;
-  direction: string;
-  status: string;
-  stage?: string | null;
-  intent?: string | null;
-  inbound_text?: string | null;
-  outbound_text?: string | null;
-  error_message?: string | null;
-  processing_seconds?: number | null;
-};
-
-type AdminUser = {
-  id: number;
-  nome: string;
-  email: string;
-  perfil: "global" | "clinica";
-  ativo: boolean;
-  mfa_enabled: boolean;
-  primeiro_acesso: boolean;
-  clienteIds: number[];
-};
-
-type AdminUsuario = {
-  id: number;
-  nome: string;
-  email: string;
-  perfil: "global" | "clinica";
-  ativo: boolean;
-  mfa_enabled: boolean;
-  primeiro_acesso: boolean;
-  ultimo_acesso_at?: string | null;
-  clientes?: Array<{ id: number; nome_fantasia: string }>;
-};
-
-type AdminLoginResponse = {
-  token: string | null;
-  user: AdminUser;
-  mfaRequired: boolean;
-  mfaSetupRequired: boolean;
-};
-
-
-function getStoredAdminToken() {
-  return window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
-}
-
-function setStoredAuth(token: string, user: AdminUser) {
-  window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
-  window.localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(user));
-}
-
-function clearStoredAuth() {
-  window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-  window.localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
-}
-
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getStoredAdminToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options?.headers as Record<string, string> | undefined),
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.headers || {}),
+    },
     ...options,
-    headers,
   });
 
-  const json = await response.json().catch(() => ({}));
-
-  if (response.status === 401) {
-    clearStoredAuth();
-    throw new Error("Sessão expirada. Faça login novamente.");
-  }
+  const json = await response.json();
 
   if (!response.ok || json.ok === false) {
     throw new Error(json.details || json.error || "Erro na requisição");
   }
 
   return json.data;
-}
-
-function normalizeSearch(value: unknown): string {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
 }
 
 function Badge({ children, active = true }: { children: React.ReactNode; active?: boolean }) {
@@ -340,64 +245,6 @@ function updateAgendaConfigNumber(
 
 const SESSION_TIMEOUT_KEYS = ["sessionTimeoutMinutes", "timeoutAtendimentoMinutos"];
 
-function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => void }) {
-  const [email, setEmail] = useState("admin@agendai.local");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const result = await api<AdminLoginResponse>("/api/admin/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!result.token) {
-        setError("MFA pendente. A ativação do segundo fator entra na próxima etapa.");
-        return;
-      }
-
-      setStoredAuth(result.token, result.user);
-      onLogin(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao autenticar");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="app loginApp">
-      <main className="loginBox">
-        <h1>AgendAI</h1>
-        <p>Painel administrativo seguro</p>
-        <form onSubmit={submit} className="formCard">
-          <label>
-            Email
-            <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
-          </label>
-          <label>
-            Senha
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-            />
-          </label>
-          {error && <div className="alertError">{error}</div>}
-          <button type="submit" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
-        </form>
-      </main>
-    </div>
-  );
-}
-
 function App() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteFiltro, setClienteFiltro] = useState<"todos" | "ativos" | "inativos">("todos");
@@ -411,20 +258,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "usuarios">("clientes");
-  const [authUser, setAuthUser] = useState<AdminUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [usuarios, setUsuarios] = useState<AdminUsuario[]>([]);
-  const [usuarioForm, setUsuarioForm] = useState({
-    nome: "",
-    email: "",
-    perfil: "clinica" as "global" | "clinica",
-    senha_provisoria: "Admin@2026!",
-    cliente_ids: [] as number[],
-  });
+  const [activeTab, setActiveTab] = useState<"clientes" | "medicos">("clientes");
   const [medicos, setMedicos] = useState<Medico[]>([]);
-  const [especialidadesCatalogo, setEspecialidadesCatalogo] = useState<EspecialidadeCatalogo[]>([]);
   const [medicoSearch, setMedicoSearch] = useState("");
+  const [medicoStatusFiltro, setMedicoStatusFiltro] = useState<"ativos" | "inativos" | "todos">("ativos");
   const [selectedMedicoId, setSelectedMedicoId] = useState<number | null>(null);
   const [aceites, setAceites] = useState<AceiteMedico[]>([]);
   const [aceiteSearch, setAceiteSearch] = useState("");
@@ -432,15 +269,6 @@ function App() {
   const [aceitePage, setAceitePage] = useState(1);
   const [clienteConfig, setClienteConfig] = useState<ClienteConfiguracao | null>(null);
   const [clienteCadastro, setClienteCadastro] = useState<ClienteCadastroDraft | null>(null);
-  const [whatsappLogs, setWhatsappLogs] = useState<WhatsappMessageLog[]>([]);
-  const [whatsappLogFilters, setWhatsappLogFilters] = useState({
-    phone: "",
-    status: "todos",
-    startDate: "",
-    endDate: "",
-    onlyErrors: false,
-  });
-  const [whatsappLogsLoading, setWhatsappLogsLoading] = useState(false);
 
   const [novoAceite, setNovoAceite] = useState({
     convenio: "",
@@ -495,8 +323,6 @@ function App() {
     [medicos, selectedMedicoId],
   );
 
-  const isGlobalAdmin = authUser?.perfil === "global";
-
   const clienteUsaConvenio = useMemo(() => {
     return Boolean(clienteConfig?.usa_convenio);
   }, [clienteConfig]);
@@ -504,32 +330,6 @@ function App() {
   const clienteTemFormaConvenio = useMemo(() => {
     return formas.some((forma) => forma.ativo && forma.tipo === "convenio");
   }, [formas]);
-
-  const especialidadeOptions = useMemo(() => {
-    const items = new Set<string>();
-
-    for (const especialidade of especialidadesCatalogo) {
-      items.add(especialidade.nome);
-      for (const alias of especialidade.aliases || []) {
-        items.add(alias);
-      }
-    }
-
-    return Array.from(items).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [especialidadesCatalogo]);
-
-  function resolveEspecialidadeDigitada(rawValue: string) {
-    const q = normalizeSearch(rawValue);
-    if (!q) return null;
-
-    return (
-      especialidadesCatalogo.find((especialidade) =>
-        [especialidade.nome, especialidade.nome_normalizado, ...(especialidade.aliases || [])]
-          .filter(Boolean)
-          .some((value) => normalizeSearch(value) === q),
-      ) || null
-    );
-  }
 
   const clientesFiltrados = useMemo(() => {
     return clientes.filter((cliente) => {
@@ -542,7 +342,7 @@ function App() {
 
 
   const formasFiltradas = useMemo(() => {
-    const q = normalizeSearch(formasSearch);
+    const q = formasSearch.trim().toLowerCase();
 
     return formas
       .filter((forma) => {
@@ -555,7 +355,7 @@ function App() {
           forma.exige_plano ? "exige plano" : "nao exige plano",
         ]
           .filter(Boolean)
-          .some((value) => normalizeSearch(value).includes(q));
+          .some((value) => String(value).toLowerCase().includes(q));
       });
   }, [formas, formasSearch]);
 
@@ -563,6 +363,9 @@ function App() {
     const q = normalizeSearch(medicoSearch);
 
     return medicos.filter((medico) => {
+      if (medicoStatusFiltro === "ativos" && !medico.ativo) return false;
+      if (medicoStatusFiltro === "inativos" && medico.ativo) return false;
+
       if (!q) return true;
 
       return [
@@ -571,14 +374,15 @@ function App() {
         medico.especialidades,
         medico.dias,
         medico.andar,
+        medico.ativo ? "ativo" : "inativo",
       ]
         .filter(Boolean)
         .some((value) => normalizeSearch(value).includes(q));
     });
-  }, [medicos, medicoSearch]);
+  }, [medicos, medicoSearch, medicoStatusFiltro]);
 
   const aceitesFiltrados = useMemo(() => {
-    const q = normalizeSearch(aceiteSearch);
+    const q = aceiteSearch.trim().toLowerCase();
 
     return aceites.filter((aceite) => {
       if (!q) return true;
@@ -593,17 +397,17 @@ function App() {
         aceite.origem_regra,
       ]
         .filter(Boolean)
-        .some((value) => normalizeSearch(value).includes(q));
+        .some((value) => String(value).toLowerCase().includes(q));
     });
   }, [aceites, aceiteSearch]);
 
   const produtosFiltrados = useMemo(() => {
-    const q = normalizeSearch(produtoSearch);
+    const q = produtoSearch.trim().toLowerCase();
     if (!q) return produtos;
     return produtos.filter((produto) =>
       [produto.nome, produto.tipo, produto.codigo_operadora, produto.acomodacao_ou_uf]
         .filter(Boolean)
-        .some((value) => normalizeSearch(value).includes(q)),
+        .some((value) => String(value).toLowerCase().includes(q)),
     );
   }, [produtos, produtoSearch]);
 
@@ -654,14 +458,6 @@ function App() {
     aceitesFiltrados.length,
   );
 
-
-  const whatsappLogsResumo = useMemo(() => {
-    const total = whatsappLogs.length;
-    const failed = whatsappLogs.filter((log) => log.status === "failed" || log.error_message).length;
-    const sent = whatsappLogs.filter((log) => log.status === "sent").length;
-    return { total, failed, sent };
-  }, [whatsappLogs]);
-
   function showToast(text: string, keepVisible = false) {
     setToast(text);
 
@@ -704,12 +500,6 @@ function App() {
     setProdutos([]);
     setEditingFormaId(null);
     setNovaForma(emptyFormaForm);
-    setWhatsappLogs([]);
-  }
-
-  async function loadEspecialidadesCatalogo() {
-    const data = await api<EspecialidadeCatalogo[]>("/api/admin/especialidades");
-    setEspecialidadesCatalogo(data);
   }
 
   async function loadClientes() {
@@ -753,9 +543,6 @@ function App() {
   }
 
   async function loadFormas(clienteId: number) {
-    setFormasSearch("");
-    setProdutoSearch("");
-    setProdutoPage(1);
     const data = await api<FormaAtendimento[]>(`/api/admin/clientes/${clienteId}/formas-atendimento`);
     setFormas(data);
     setSelectedForma(null);
@@ -765,12 +552,12 @@ function App() {
   }
 
   async function loadMedicos(clienteId: number) {
-    setMedicoSearch("");
-    setAceiteSearch("");
     setMedicos([]);
     setSelectedMedicoId(null);
     setEditingMedicoId(null);
     setMedicoForm(emptyMedicoForm);
+    setMedicoSearch("");
+    setMedicoStatusFiltro("ativos");
     setAceites([]);
     setAceitePage(1);
     setDisponibilidades(buildDefaultDisponibilidades());
@@ -778,8 +565,9 @@ function App() {
     const data = await api<Medico[]>(`/api/admin/clientes/${clienteId}/medicos`);
     setMedicos(data);
 
-    if (data.length > 0) {
-      setSelectedMedicoId(data[0].id);
+    const primeiroAtivo = data.find((medico) => medico.ativo) || data[0];
+    if (primeiroAtivo) {
+      setSelectedMedicoId(primeiroAtivo.id);
     }
   }
 
@@ -819,95 +607,9 @@ function App() {
     setProdutos(data.produtos);
   }
 
-
-  async function loadUsuarios() {
-    if (!isGlobalAdmin) return;
-    const data = await api<AdminUsuario[]>("/api/admin/usuarios");
-    setUsuarios(data);
-  }
-
-  async function handleCreateUsuario(event: React.FormEvent) {
-    event.preventDefault();
-
-    try {
-      await api<AdminUsuario>("/api/admin/usuarios", {
-        method: "POST",
-        body: JSON.stringify(usuarioForm),
-      });
-      showToast("✅ Usuário salvo");
-      setUsuarioForm({
-        nome: "",
-        email: "",
-        perfil: "clinica",
-        senha_provisoria: "Admin@2026!",
-        cliente_ids: [],
-      });
-      await loadUsuarios();
-    } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar usuário", true);
-    }
-  }
-
-  function toggleUsuarioCliente(clienteId: number) {
-    setUsuarioForm((current) => {
-      const exists = current.cliente_ids.includes(clienteId);
-      return {
-        ...current,
-        cliente_ids: exists
-          ? current.cliente_ids.filter((id) => id !== clienteId)
-          : [...current.cliente_ids, clienteId],
-      };
-    });
-  }
-
-  async function loadWhatsappLogs() {
-    setWhatsappLogsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      // Não filtrar automaticamente por cliente aqui.
-      // Os logs antigos podem estar com cliente_id nulo, e o filtro por cliente
-      // esconde a auditoria inteira ao trocar de clínica no painel.
-      if (whatsappLogFilters.phone.trim()) params.set("phone", whatsappLogFilters.phone.trim());
-      if (whatsappLogFilters.status !== "todos") params.set("status", whatsappLogFilters.status);
-      if (whatsappLogFilters.startDate) params.set("startDate", whatsappLogFilters.startDate);
-      if (whatsappLogFilters.endDate) params.set("endDate", whatsappLogFilters.endDate);
-      if (whatsappLogFilters.onlyErrors) params.set("onlyErrors", "true");
-      params.set("limit", String(WHATSAPP_LOGS_PAGE_SIZE));
-
-      const data = await api<WhatsappMessageLog[]>(`/api/admin/whatsapp/logs?${params.toString()}`);
-      setWhatsappLogs(data);
-    } finally {
-      setWhatsappLogsLoading(false);
-    }
-  }
-
   useEffect(() => {
-    const token = getStoredAdminToken();
-
-    if (!token) {
-      setAuthLoading(false);
-      return;
-    }
-
-    api<AdminUser>("/api/admin/auth/me")
-      .then((user) => setAuthUser(user))
-      .catch(() => clearStoredAuth())
-      .finally(() => setAuthLoading(false));
+    loadClientes().catch((error) => showToast(error.message, true));
   }, []);
-
-  useEffect(() => {
-    if (!authUser) return;
-
-    Promise.all([loadClientes(), loadEspecialidadesCatalogo()]).catch((error) =>
-      showToast(error.message, true),
-    );
-  }, [authUser]);
-
-  useEffect(() => {
-    if (activeTab === "usuarios" && isGlobalAdmin) {
-      loadUsuarios().catch((error) => showToast(error.message, true));
-    }
-  }, [activeTab, isGlobalAdmin]);
 
   useEffect(() => {
     if (selectedClienteId) {
@@ -921,13 +623,6 @@ function App() {
       setClienteConfig(null);
     }
   }, [selectedClienteId]);
-
-
-  useEffect(() => {
-    if (activeTab === "whatsapp") {
-      loadWhatsappLogs().catch((error) => showToast(error.message, true));
-    }
-  }, [activeTab, selectedClienteId]);
 
   useEffect(() => {
     setAceitePage(1);
@@ -1267,18 +962,10 @@ function App() {
     setToast("");
     setLoadingAction("medico");
 
-    const especialidadeSelecionada = resolveEspecialidadeDigitada(medicoForm.especialidade);
-
-    if (!especialidadeSelecionada) {
-      showToast("❌ Selecione uma especialidade válida da lista", true);
-      setLoadingAction(null);
-      return;
-    }
-
     const payload = {
       nome: medicoForm.nome.trim(),
       registro_profissional: medicoForm.registro_profissional.trim(),
-      especialidade: especialidadeSelecionada.nome,
+      especialidade: medicoForm.especialidade.trim(),
       dias: medicoForm.dias.trim() || null,
       andar: medicoForm.andar.trim() || null,
     };
@@ -1428,28 +1115,12 @@ function App() {
     }
   }
 
-  if (authLoading) {
-    return <div className="app"><main className="content"><p>Carregando sessão...</p></main></div>;
-  }
-
-  if (!authUser) {
-    return <LoginScreen onLogin={(result) => setAuthUser(result.user)} />;
-  }
-
-  function logout() {
-    clearStoredAuth();
-    setAuthUser(null);
-    setClientes([]);
-    setSelectedClienteId(null);
-  }
-
   return (
     <div className="app">
       <aside className="sidebar">
         <div>
           <h1>AgendAI</h1>
-          <p>{authUser.perfil === "global" ? "Admin Global" : "Admin Clínica"}</p>
-          <small>{authUser.email}</small>
+          <p>Admin Global</p>
         </div>
 
         <nav>
@@ -1466,22 +1137,7 @@ function App() {
             Médicos e aceites
           </button>
           <button disabled>Unidades</button>
-          {isGlobalAdmin && (
-            <button
-              className={activeTab === "whatsapp" ? "navActive" : ""}
-              onClick={() => setActiveTab("whatsapp")}
-            >
-              WhatsApp
-            </button>
-          )}
-          {isGlobalAdmin && (
-            <button
-              className={activeTab === "usuarios" ? "navActive" : ""}
-              onClick={() => setActiveTab("usuarios")}
-            >
-              Usuários
-            </button>
-          )}
+          <button disabled>WhatsApp</button>
           <button disabled>Módulos</button>
         </nav>
       </aside>
@@ -1493,19 +1149,17 @@ function App() {
             <p>Cadastro multi-clínica, formas de atendimento e produtos.</p>
           </div>
 
-          <div className="headerActions">
-            <button onClick={() => loadClientes()} disabled={loading}>
-              {loading ? "Atualizando..." : "Atualizar"}
-            </button>
-            <button className="secondary" onClick={logout}>Sair</button>
-          </div>
+          <button onClick={() => loadClientes()} disabled={loading}>
+            {loading ? "Atualizando..." : "Atualizar"}
+          </button>
         </header>
 
         {toast && <div className="toast">{toast}</div>}
 
         {activeTab === "clientes" && (
           <>
-        <section className="grid">
+        <section className={isGlobalAdmin ? "grid" : "grid oneColumnGrid"}>
+          {isGlobalAdmin && (
           <div className="card">
             <h3>Novo cliente</h3>
 
@@ -1573,6 +1227,7 @@ function App() {
               </button>
             </form>
           </div>
+          )}
 
           <div className="card">
             <h3>Clientes</h3>
@@ -1631,20 +1286,22 @@ function App() {
                       </div>
                     </button>
 
-                    <div className="clientActions">
-                      <button
-                        type="button"
-                        className={clienteAtivo ? "small danger" : "small"}
-                        disabled={loadingAction === `cliente-${cliente.id}`}
-                        onClick={() => toggleCliente(cliente)}
-                      >
-                        {loadingAction === `cliente-${cliente.id}`
-                          ? "Salvando..."
-                          : clienteAtivo
-                            ? "Desativar"
-                            : "Ativar"}
-                      </button>
-                    </div>
+                    {isGlobalAdmin && (
+                      <div className="clientActions">
+                        <button
+                          type="button"
+                          className={clienteAtivo ? "small danger" : "small"}
+                          disabled={loadingAction === `cliente-${cliente.id}`}
+                          onClick={() => toggleCliente(cliente)}
+                        >
+                          {loadingAction === `cliente-${cliente.id}`
+                            ? "Salvando..."
+                            : clienteAtivo
+                              ? "Desativar"
+                              : "Ativar"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2167,200 +1824,6 @@ function App() {
           </>
         )}
 
-
-        {activeTab === "usuarios" && isGlobalAdmin && (
-          <section className="grid two">
-            <div className="card">
-              <h3>Novo usuário</h3>
-              <p>Admin Clínica pode ser vinculado a uma ou mais clínicas.</p>
-              <form className="formStack" onSubmit={handleCreateUsuario}>
-                <input
-                  placeholder="Nome do usuário"
-                  value={usuarioForm.nome}
-                  onChange={(event) => setUsuarioForm((current) => ({ ...current, nome: event.target.value }))}
-                />
-                <input
-                  placeholder="Email"
-                  value={usuarioForm.email}
-                  onChange={(event) => setUsuarioForm((current) => ({ ...current, email: event.target.value }))}
-                />
-                <select
-                  value={usuarioForm.perfil}
-                  onChange={(event) => setUsuarioForm((current) => ({
-                    ...current,
-                    perfil: event.target.value as "global" | "clinica",
-                    cliente_ids: event.target.value === "global" ? [] : current.cliente_ids,
-                  }))}
-                >
-                  <option value="clinica">Admin Clínica</option>
-                  <option value="global">Admin Global</option>
-                </select>
-                <input
-                  placeholder="Senha provisória"
-                  value={usuarioForm.senha_provisoria}
-                  onChange={(event) => setUsuarioForm((current) => ({ ...current, senha_provisoria: event.target.value }))}
-                />
-
-                {usuarioForm.perfil === "clinica" && (
-                  <div className="checkGrid">
-                    {clientes.map((cliente) => (
-                      <label key={cliente.id}>
-                        <input
-                          type="checkbox"
-                          checked={usuarioForm.cliente_ids.includes(cliente.id)}
-                          onChange={() => toggleUsuarioCliente(cliente.id)}
-                        />
-                        {cliente.nome_fantasia}
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                <button type="submit">Criar / atualizar usuário</button>
-              </form>
-            </div>
-
-            <div className="card wide">
-              <div className="cardHeader">
-                <div>
-                  <h3>Usuários administrativos</h3>
-                  <p>O MFA/TOTP obrigatório será ativado na próxima fase.</p>
-                </div>
-                <button onClick={() => loadUsuarios()}>Atualizar usuários</button>
-              </div>
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Email</th>
-                      <th>Perfil</th>
-                      <th>Clínicas</th>
-                      <th>Status</th>
-                      <th>MFA</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usuarios.map((usuario) => (
-                      <tr key={usuario.id}>
-                        <td>{usuario.nome}</td>
-                        <td>{usuario.email}</td>
-                        <td>{usuario.perfil === "global" ? "Global" : "Clínica"}</td>
-                        <td>{usuario.perfil === "global" ? "Todas" : (usuario.clientes || []).map((cliente) => cliente.nome_fantasia).join(", ") || "-"}</td>
-                        <td>{usuario.ativo ? "Ativo" : "Inativo"}</td>
-                        <td>{usuario.mfa_enabled ? "Ativo" : "Pendente"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeTab === "whatsapp" && isGlobalAdmin && (
-          <section className="card">
-            <div className="sectionHeader">
-              <div>
-                <h3>Atendimentos WhatsApp</h3>
-                <p>
-                  Auditoria das mensagens, etapas do fluxo, respostas enviadas e erros.
-                  A consulta é global; use o telefone, status ou período para filtrar.
-                </p>
-              </div>
-              <button onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
-                {whatsappLogsLoading ? "Atualizando..." : "Atualizar logs"}
-              </button>
-            </div>
-
-            <div className="toolbar">
-              <input
-                value={whatsappLogFilters.phone}
-                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, phone: event.target.value })}
-                placeholder="Buscar por telefone. Ex.: 5511999999999"
-              />
-              <select
-                value={whatsappLogFilters.status}
-                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, status: event.target.value })}
-              >
-                <option value="todos">Todos os status</option>
-                <option value="received">received</option>
-                <option value="queued">queued</option>
-                <option value="processing">processing</option>
-                <option value="processed">processed</option>
-                <option value="sent">sent</option>
-                <option value="failed">failed</option>
-                <option value="duplicate">duplicate</option>
-                <option value="ignored">ignored</option>
-              </select>
-              <input
-                type="date"
-                value={whatsappLogFilters.startDate}
-                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, startDate: event.target.value })}
-              />
-              <input
-                type="date"
-                value={whatsappLogFilters.endDate}
-                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, endDate: event.target.value })}
-              />
-              <label className="inlineCheck">
-                <input
-                  type="checkbox"
-                  checked={whatsappLogFilters.onlyErrors}
-                  onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, onlyErrors: event.target.checked })}
-                />
-                Só erros
-              </label>
-              <button className="secondary" onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
-                Filtrar
-              </button>
-            </div>
-
-            <div className="helperBox compactHelper">
-              Exibindo até {WHATSAPP_LOGS_PAGE_SIZE} registros mais recentes. Total carregado: {whatsappLogsResumo.total}. Enviadas: {whatsappLogsResumo.sent}. Erros: {whatsappLogsResumo.failed}.
-            </div>
-
-            {whatsappLogs.length > 0 ? (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Data/hora</th>
-                    <th>Telefone</th>
-                    <th>Cliente</th>
-                    <th>Direção</th>
-                    <th>Status</th>
-                    <th>Etapa</th>
-                    <th>Intenção</th>
-                    <th>Mensagem</th>
-                    <th>Resposta / Erro</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {whatsappLogs.map((log) => (
-                    <tr key={log.id} className={log.status === "failed" || log.error_message ? "mutedRow" : ""}>
-                      <td>{new Date(log.created_at).toLocaleString("pt-BR")}</td>
-                      <td>{log.from_phone || "-"}</td>
-                      <td>{log.cliente_nome || (log.cliente_id ? `#${log.cliente_id}` : "-")}</td>
-                      <td>{log.direction}</td>
-                      <td>{log.status}</td>
-                      <td>{log.stage || "-"}</td>
-                      <td>{log.intent || "-"}</td>
-                      <td title={log.inbound_text || ""}>{(log.inbound_text || "-").slice(0, 120)}</td>
-                      <td title={log.error_message || log.outbound_text || ""}>
-                        {(log.error_message || log.outbound_text || "-").slice(0, 160)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="emptyState">
-                {whatsappLogsLoading ? "Carregando logs..." : "Nenhum log encontrado para os filtros atuais."}
-              </div>
-            )}
-          </section>
-        )}
-
         {activeTab === "medicos" && selectedCliente && (
           <section className="grid medicosGrid">
             <div className="card">
@@ -2397,21 +1860,9 @@ function App() {
                   onChange={(event) =>
                     setMedicoForm({ ...medicoForm, especialidade: event.target.value })
                   }
-                  onBlur={() => {
-                    const especialidade = resolveEspecialidadeDigitada(medicoForm.especialidade);
-                    if (especialidade) {
-                      setMedicoForm((current) => ({ ...current, especialidade: especialidade.nome }));
-                    }
-                  }}
-                  list="especialidades-catalogo"
-                  placeholder="Especialidade. Ex.: Cardiologia"
+                  placeholder="Especialidade"
                   required
                 />
-                <datalist id="especialidades-catalogo">
-                  {especialidadeOptions.map((especialidade) => (
-                    <option key={especialidade} value={especialidade} />
-                  ))}
-                </datalist>
                 <input
                   value={medicoForm.dias}
                   onChange={(event) => setMedicoForm({ ...medicoForm, dias: event.target.value })}
@@ -2438,20 +1889,43 @@ function App() {
                 </div>
               </form>
 
-              <div className="toolbar single">
+              <div className="toolbar single medicoToolbar">
                 <input
                   value={medicoSearch}
                   onChange={(event) => setMedicoSearch(event.target.value)}
                   placeholder="Buscar médico, CRM, especialidade, dia..."
                 />
+                <div className="clientFilter medicoStatusFilter">
+                  <button
+                    type="button"
+                    className={medicoStatusFiltro === "ativos" ? "active" : ""}
+                    onClick={() => setMedicoStatusFiltro("ativos")}
+                  >
+                    Ativos
+                  </button>
+                  <button
+                    type="button"
+                    className={medicoStatusFiltro === "inativos" ? "active" : ""}
+                    onClick={() => setMedicoStatusFiltro("inativos")}
+                  >
+                    Inativos
+                  </button>
+                  <button
+                    type="button"
+                    className={medicoStatusFiltro === "todos" ? "active" : ""}
+                    onClick={() => setMedicoStatusFiltro("todos")}
+                  >
+                    Todos
+                  </button>
+                </div>
               </div>
 
-              <div className="list">
+              <div className="list doctorList">
                 {medicosFiltrados.map((medico) => (
                   <button
                     key={medico.id}
                     className={
-                      (medico.id === selectedMedicoId ? "listItem selected" : "listItem") +
+                      (medico.id === selectedMedicoId ? "listItem doctorListItem selected" : "listItem doctorListItem") +
                       (!medico.ativo ? " mutedRow" : "")
                     }
                     type="button"
