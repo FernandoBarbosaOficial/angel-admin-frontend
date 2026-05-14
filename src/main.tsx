@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const ADMIN_TOKEN_STORAGE_KEY = "agendai_admin_token";
+const ADMIN_USER_STORAGE_KEY = "agendai_admin_user";
 const PRODUTOS_PAGE_SIZE = 25;
 const ACEITES_PAGE_SIZE = 25;
 const WHATSAPP_LOGS_PAGE_SIZE = 50;
@@ -182,17 +184,73 @@ type WhatsappMessageLog = {
   processing_seconds?: number | null;
 };
 
+type AdminUser = {
+  id: number;
+  nome: string;
+  email: string;
+  perfil: "global" | "clinica";
+  ativo: boolean;
+  mfa_enabled: boolean;
+  primeiro_acesso: boolean;
+  clienteIds: number[];
+};
+
+type AdminUsuario = {
+  id: number;
+  nome: string;
+  email: string;
+  perfil: "global" | "clinica";
+  ativo: boolean;
+  mfa_enabled: boolean;
+  primeiro_acesso: boolean;
+  ultimo_acesso_at?: string | null;
+  clientes?: Array<{ id: number; nome_fantasia: string }>;
+};
+
+type AdminLoginResponse = {
+  token: string | null;
+  user: AdminUser;
+  mfaRequired: boolean;
+  mfaSetupRequired: boolean;
+};
+
+
+function getStoredAdminToken() {
+  return window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
+}
+
+function setStoredAuth(token: string, user: AdminUser) {
+  window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
+  window.localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(user));
+}
+
+function clearStoredAuth() {
+  window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
+}
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getStoredAdminToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers || {}),
-    },
     ...options,
+    headers,
   });
 
-  const json = await response.json();
+  const json = await response.json().catch(() => ({}));
+
+  if (response.status === 401) {
+    clearStoredAuth();
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
 
   if (!response.ok || json.ok === false) {
     throw new Error(json.details || json.error || "Erro na requisição");
@@ -282,6 +340,64 @@ function updateAgendaConfigNumber(
 
 const SESSION_TIMEOUT_KEYS = ["sessionTimeoutMinutes", "timeoutAtendimentoMinutos"];
 
+function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => void }) {
+  const [email, setEmail] = useState("admin@agendai.local");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await api<AdminLoginResponse>("/api/admin/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!result.token) {
+        setError("MFA pendente. A ativação do segundo fator entra na próxima etapa.");
+        return;
+      }
+
+      setStoredAuth(result.token, result.user);
+      onLogin(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao autenticar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="app loginApp">
+      <main className="loginBox">
+        <h1>AgendAI</h1>
+        <p>Painel administrativo seguro</p>
+        <form onSubmit={submit} className="formCard">
+          <label>
+            Email
+            <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
+          </label>
+          <label>
+            Senha
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+          {error && <div className="alertError">{error}</div>}
+          <button type="submit" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
+        </form>
+      </main>
+    </div>
+  );
+}
+
 function App() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteFiltro, setClienteFiltro] = useState<"todos" | "ativos" | "inativos">("todos");
@@ -295,7 +411,17 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "usuarios">("clientes");
+  const [authUser, setAuthUser] = useState<AdminUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [usuarios, setUsuarios] = useState<AdminUsuario[]>([]);
+  const [usuarioForm, setUsuarioForm] = useState({
+    nome: "",
+    email: "",
+    perfil: "clinica" as "global" | "clinica",
+    senha_provisoria: "Admin@2026!",
+    cliente_ids: [] as number[],
+  });
   const [medicos, setMedicos] = useState<Medico[]>([]);
   const [especialidadesCatalogo, setEspecialidadesCatalogo] = useState<EspecialidadeCatalogo[]>([]);
   const [medicoSearch, setMedicoSearch] = useState("");
@@ -368,6 +494,8 @@ function App() {
     () => medicos.find((medico) => medico.id === selectedMedicoId) || null,
     [medicos, selectedMedicoId],
   );
+
+  const isGlobalAdmin = authUser?.perfil === "global";
 
   const clienteUsaConvenio = useMemo(() => {
     return Boolean(clienteConfig?.usa_convenio);
@@ -692,6 +820,46 @@ function App() {
   }
 
 
+  async function loadUsuarios() {
+    if (!isGlobalAdmin) return;
+    const data = await api<AdminUsuario[]>("/api/admin/usuarios");
+    setUsuarios(data);
+  }
+
+  async function handleCreateUsuario(event: React.FormEvent) {
+    event.preventDefault();
+
+    try {
+      await api<AdminUsuario>("/api/admin/usuarios", {
+        method: "POST",
+        body: JSON.stringify(usuarioForm),
+      });
+      showToast("✅ Usuário salvo");
+      setUsuarioForm({
+        nome: "",
+        email: "",
+        perfil: "clinica",
+        senha_provisoria: "Admin@2026!",
+        cliente_ids: [],
+      });
+      await loadUsuarios();
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar usuário", true);
+    }
+  }
+
+  function toggleUsuarioCliente(clienteId: number) {
+    setUsuarioForm((current) => {
+      const exists = current.cliente_ids.includes(clienteId);
+      return {
+        ...current,
+        cliente_ids: exists
+          ? current.cliente_ids.filter((id) => id !== clienteId)
+          : [...current.cliente_ids, clienteId],
+      };
+    });
+  }
+
   async function loadWhatsappLogs() {
     setWhatsappLogsLoading(true);
     try {
@@ -714,10 +882,32 @@ function App() {
   }
 
   useEffect(() => {
+    const token = getStoredAdminToken();
+
+    if (!token) {
+      setAuthLoading(false);
+      return;
+    }
+
+    api<AdminUser>("/api/admin/auth/me")
+      .then((user) => setAuthUser(user))
+      .catch(() => clearStoredAuth())
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!authUser) return;
+
     Promise.all([loadClientes(), loadEspecialidadesCatalogo()]).catch((error) =>
       showToast(error.message, true),
     );
-  }, []);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (activeTab === "usuarios" && isGlobalAdmin) {
+      loadUsuarios().catch((error) => showToast(error.message, true));
+    }
+  }, [activeTab, isGlobalAdmin]);
 
   useEffect(() => {
     if (selectedClienteId) {
@@ -1238,12 +1428,28 @@ function App() {
     }
   }
 
+  if (authLoading) {
+    return <div className="app"><main className="content"><p>Carregando sessão...</p></main></div>;
+  }
+
+  if (!authUser) {
+    return <LoginScreen onLogin={(result) => setAuthUser(result.user)} />;
+  }
+
+  function logout() {
+    clearStoredAuth();
+    setAuthUser(null);
+    setClientes([]);
+    setSelectedClienteId(null);
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
         <div>
           <h1>AgendAI</h1>
-          <p>Admin Global</p>
+          <p>{authUser.perfil === "global" ? "Admin Global" : "Admin Clínica"}</p>
+          <small>{authUser.email}</small>
         </div>
 
         <nav>
@@ -1260,12 +1466,22 @@ function App() {
             Médicos e aceites
           </button>
           <button disabled>Unidades</button>
-          <button
-            className={activeTab === "whatsapp" ? "navActive" : ""}
-            onClick={() => setActiveTab("whatsapp")}
-          >
-            WhatsApp
-          </button>
+          {isGlobalAdmin && (
+            <button
+              className={activeTab === "whatsapp" ? "navActive" : ""}
+              onClick={() => setActiveTab("whatsapp")}
+            >
+              WhatsApp
+            </button>
+          )}
+          {isGlobalAdmin && (
+            <button
+              className={activeTab === "usuarios" ? "navActive" : ""}
+              onClick={() => setActiveTab("usuarios")}
+            >
+              Usuários
+            </button>
+          )}
           <button disabled>Módulos</button>
         </nav>
       </aside>
@@ -1277,9 +1493,12 @@ function App() {
             <p>Cadastro multi-clínica, formas de atendimento e produtos.</p>
           </div>
 
-          <button onClick={() => loadClientes()} disabled={loading}>
-            {loading ? "Atualizando..." : "Atualizar"}
-          </button>
+          <div className="headerActions">
+            <button onClick={() => loadClientes()} disabled={loading}>
+              {loading ? "Atualizando..." : "Atualizar"}
+            </button>
+            <button className="secondary" onClick={logout}>Sair</button>
+          </div>
         </header>
 
         {toast && <div className="toast">{toast}</div>}
@@ -1949,7 +2168,97 @@ function App() {
         )}
 
 
-        {activeTab === "whatsapp" && (
+        {activeTab === "usuarios" && isGlobalAdmin && (
+          <section className="grid two">
+            <div className="card">
+              <h3>Novo usuário</h3>
+              <p>Admin Clínica pode ser vinculado a uma ou mais clínicas.</p>
+              <form className="formStack" onSubmit={handleCreateUsuario}>
+                <input
+                  placeholder="Nome do usuário"
+                  value={usuarioForm.nome}
+                  onChange={(event) => setUsuarioForm((current) => ({ ...current, nome: event.target.value }))}
+                />
+                <input
+                  placeholder="Email"
+                  value={usuarioForm.email}
+                  onChange={(event) => setUsuarioForm((current) => ({ ...current, email: event.target.value }))}
+                />
+                <select
+                  value={usuarioForm.perfil}
+                  onChange={(event) => setUsuarioForm((current) => ({
+                    ...current,
+                    perfil: event.target.value as "global" | "clinica",
+                    cliente_ids: event.target.value === "global" ? [] : current.cliente_ids,
+                  }))}
+                >
+                  <option value="clinica">Admin Clínica</option>
+                  <option value="global">Admin Global</option>
+                </select>
+                <input
+                  placeholder="Senha provisória"
+                  value={usuarioForm.senha_provisoria}
+                  onChange={(event) => setUsuarioForm((current) => ({ ...current, senha_provisoria: event.target.value }))}
+                />
+
+                {usuarioForm.perfil === "clinica" && (
+                  <div className="checkGrid">
+                    {clientes.map((cliente) => (
+                      <label key={cliente.id}>
+                        <input
+                          type="checkbox"
+                          checked={usuarioForm.cliente_ids.includes(cliente.id)}
+                          onChange={() => toggleUsuarioCliente(cliente.id)}
+                        />
+                        {cliente.nome_fantasia}
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                <button type="submit">Criar / atualizar usuário</button>
+              </form>
+            </div>
+
+            <div className="card wide">
+              <div className="cardHeader">
+                <div>
+                  <h3>Usuários administrativos</h3>
+                  <p>O MFA/TOTP obrigatório será ativado na próxima fase.</p>
+                </div>
+                <button onClick={() => loadUsuarios()}>Atualizar usuários</button>
+              </div>
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Email</th>
+                      <th>Perfil</th>
+                      <th>Clínicas</th>
+                      <th>Status</th>
+                      <th>MFA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuarios.map((usuario) => (
+                      <tr key={usuario.id}>
+                        <td>{usuario.nome}</td>
+                        <td>{usuario.email}</td>
+                        <td>{usuario.perfil === "global" ? "Global" : "Clínica"}</td>
+                        <td>{usuario.perfil === "global" ? "Todas" : (usuario.clientes || []).map((cliente) => cliente.nome_fantasia).join(", ") || "-"}</td>
+                        <td>{usuario.ativo ? "Ativo" : "Inativo"}</td>
+                        <td>{usuario.mfa_enabled ? "Ativo" : "Pendente"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "whatsapp" && isGlobalAdmin && (
           <section className="card">
             <div className="sectionHeader">
               <div>
