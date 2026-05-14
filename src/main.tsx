@@ -310,6 +310,14 @@ function compactJson(value: unknown) {
   }
 }
 
+function formatJsonPretty(value: unknown) {
+  if (!value) return "-";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
 
 function buildDefaultDisponibilidades(): MedicoDisponibilidade[] {
   return DIAS_SEMANA.flatMap((dia) =>
@@ -491,6 +499,7 @@ function App() {
     startDate: "",
     endDate: "",
   });
+  const [selectedAuditLog, setSelectedAuditLog] = useState<AdminAuditLog | null>(null);
 
   const [novoAceite, setNovoAceite] = useState({
     convenio: "",
@@ -546,6 +555,12 @@ function App() {
   );
 
   const isGlobalAdmin = authUser?.perfil === "global";
+
+  const getClienteNomeById = (clienteId?: number | null) => {
+    if (!clienteId) return "-";
+    const cliente = clientes.find((item) => item.id === clienteId);
+    return cliente ? cliente.nome_fantasia : `Clínica #${clienteId}`;
+  };
 
   const clienteUsaConvenio = useMemo(() => {
     return Boolean(clienteConfig?.usa_convenio);
@@ -2496,14 +2511,19 @@ function App() {
                           {prettyAuditLabel(log.entidade)}
                           {log.entidade_id ? <span className="tableHint">ID {log.entidade_id}</span> : null}
                         </td>
-                        <td>{log.cliente_id ? `#${log.cliente_id}` : "-"}</td>
+                        <td>
+                          <strong>{getClienteNomeById(log.cliente_id)}</strong>
+                          {log.cliente_id ? <span className="tableHint">ID {log.cliente_id}</span> : null}
+                        </td>
                         <td>{log.resumo || "-"}</td>
                         <td className="auditJsonCell">
-                          <details>
-                            <summary>Ver JSON</summary>
-                            <div><strong>Antes:</strong> {compactJson(log.antes_json)}</div>
-                            <div><strong>Depois:</strong> {compactJson(log.depois_json)}</div>
-                          </details>
+                          <button
+                            className="small auditJsonButton"
+                            type="button"
+                            onClick={() => setSelectedAuditLog(log)}
+                          >
+                            Ver antes/depois
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2516,6 +2536,42 @@ function App() {
               </div>
             )}
           </section>
+        )}
+
+        {selectedAuditLog && (
+          <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Detalhes da auditoria">
+            <div className="auditModal">
+              <div className="auditModalHeader">
+                <div>
+                  <h3>Detalhes da auditoria</h3>
+                  <p>
+                    {formatAdminDate(selectedAuditLog.created_at)} · {selectedAuditLog.usuario_email || "Usuário não identificado"}
+                  </p>
+                </div>
+                <button className="secondary" type="button" onClick={() => setSelectedAuditLog(null)}>
+                  Fechar
+                </button>
+              </div>
+
+              <div className="auditModalMeta">
+                <span><strong>Ação:</strong> {prettyAuditLabel(selectedAuditLog.acao)}</span>
+                <span><strong>Entidade:</strong> {prettyAuditLabel(selectedAuditLog.entidade)}{selectedAuditLog.entidade_id ? ` #${selectedAuditLog.entidade_id}` : ""}</span>
+                <span><strong>Clínica:</strong> {getClienteNomeById(selectedAuditLog.cliente_id)}</span>
+                <span><strong>Perfil:</strong> {selectedAuditLog.usuario_perfil || "-"}</span>
+              </div>
+
+              <div className="auditModalGrid">
+                <div>
+                  <h4>Antes</h4>
+                  <pre>{formatJsonPretty(selectedAuditLog.antes_json)}</pre>
+                </div>
+                <div>
+                  <h4>Depois</h4>
+                  <pre>{formatJsonPretty(selectedAuditLog.depois_json)}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === "whatsapp" && isGlobalAdmin && (
