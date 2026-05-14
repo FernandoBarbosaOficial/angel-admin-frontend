@@ -172,6 +172,14 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
   return json.data;
 }
 
+function normalizeSearch(value: unknown): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function Badge({ children, active = true }: { children: React.ReactNode; active?: boolean }) {
   return <span className={active ? "badge badgeOn" : "badge"}>{children}</span>;
 }
@@ -341,7 +349,7 @@ function App() {
 
 
   const formasFiltradas = useMemo(() => {
-    const q = formasSearch.trim().toLowerCase();
+    const q = normalizeSearch(formasSearch);
 
     return formas
       .filter((forma) => {
@@ -354,12 +362,12 @@ function App() {
           forma.exige_plano ? "exige plano" : "nao exige plano",
         ]
           .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(q));
+          .some((value) => normalizeSearch(value).includes(q));
       });
   }, [formas, formasSearch]);
 
   const medicosFiltrados = useMemo(() => {
-    const q = medicoSearch.trim().toLowerCase();
+    const q = normalizeSearch(medicoSearch);
 
     return medicos.filter((medico) => {
       if (!q) return true;
@@ -372,12 +380,12 @@ function App() {
         medico.andar,
       ]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q));
+        .some((value) => normalizeSearch(value).includes(q));
     });
   }, [medicos, medicoSearch]);
 
   const aceitesFiltrados = useMemo(() => {
-    const q = aceiteSearch.trim().toLowerCase();
+    const q = normalizeSearch(aceiteSearch);
 
     return aceites.filter((aceite) => {
       if (!q) return true;
@@ -392,17 +400,17 @@ function App() {
         aceite.origem_regra,
       ]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q));
+        .some((value) => normalizeSearch(value).includes(q));
     });
   }, [aceites, aceiteSearch]);
 
   const produtosFiltrados = useMemo(() => {
-    const q = produtoSearch.trim().toLowerCase();
+    const q = normalizeSearch(produtoSearch);
     if (!q) return produtos;
     return produtos.filter((produto) =>
       [produto.nome, produto.tipo, produto.codigo_operadora, produto.acomodacao_ou_uf]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q)),
+        .some((value) => normalizeSearch(value).includes(q)),
     );
   }, [produtos, produtoSearch]);
 
@@ -538,6 +546,9 @@ function App() {
   }
 
   async function loadFormas(clienteId: number) {
+    setFormasSearch("");
+    setProdutoSearch("");
+    setProdutoPage(1);
     const data = await api<FormaAtendimento[]>(`/api/admin/clientes/${clienteId}/formas-atendimento`);
     setFormas(data);
     setSelectedForma(null);
@@ -547,6 +558,8 @@ function App() {
   }
 
   async function loadMedicos(clienteId: number) {
+    setMedicoSearch("");
+    setAceiteSearch("");
     setMedicos([]);
     setSelectedMedicoId(null);
     setEditingMedicoId(null);
