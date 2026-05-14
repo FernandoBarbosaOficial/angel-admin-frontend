@@ -1133,3 +1133,124 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* PATCH auditoria: leitura amigável para operadores */
+.auditHumanSummaryBlock {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.auditHumanIntro {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+}
+
+.auditHumanIntro strong {
+  font-size: 14px;
+}
+
+.auditHumanIntro span {
+  color: #334155;
+  line-height: 1.45;
+}
+
+.auditHumanGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.auditHumanPanel {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.auditHumanPanel h4 {
+  margin: 0 0 10px;
+  color: #0f172a;
+}
+
+.auditHumanList {
+  display: grid;
+  gap: 8px;
+}
+
+.auditHumanItem {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.auditHumanItem strong {
+  color: #172033;
+}
+
+.auditHumanItem span {
+  color: #475569;
+  font-size: 13px;
+}
+
+.auditHumanEmpty,
+.auditHumanEmptyBox {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+}
+
+.auditDiffTableWrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.auditDiffTable {
+  min-width: 720px;
+}
+
+.auditDiffTable th {
+  background: #f8fafc;
+}
+
+.auditDiffTable td {
+  color: #334155;
+}
+
+.auditTechnicalDetails {
+  margin-top: 16px;
+}
+
+.auditTechnicalDetails summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.auditTechnicalDetails[open] summary {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .auditHumanGrid {
+    grid-template-columns: 1fr;
+  }
+}

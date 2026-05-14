@@ -319,6 +319,239 @@ function formatJsonPretty(value: unknown) {
   }
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function toArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (value === null || value === undefined) return [];
+  return [value];
+}
+
+function auditFieldLabel(field: string) {
+  const labels: Record<string, string> = {
+    nome: "Nome",
+    nome_fantasia: "Nome fantasia",
+    registro_profissional: "CRM / registro",
+    especialidades: "Especialidade",
+    especialidade: "Especialidade",
+    dias: "Dias/observações",
+    andar: "Andar/sala",
+    ativo: "Status",
+    tipo: "Tipo",
+    convenio: "Convênio",
+    plano: "Plano",
+    produto: "Produto",
+    rede: "Rede",
+    hora_inicio: "Início",
+    hora_fim: "Fim",
+    intervalo_minutos: "Intervalo",
+    periodo: "Período",
+    dia_semana: "Dia",
+    telefone_contato: "Telefone",
+    whatsapp_contato: "WhatsApp",
+    email_contato: "E-mail",
+    site: "Site",
+    cep: "CEP",
+    logradouro: "Logradouro",
+    numero: "Número",
+    complemento: "Complemento",
+    bairro: "Bairro",
+    cidade: "Cidade",
+    estado: "Estado",
+    perfil: "Perfil",
+    mfa_enabled: "MFA",
+    primeiro_acesso: "Primeiro acesso",
+  };
+
+  return labels[field] || field.replace(/_/g, " ");
+}
+
+function auditValueToText(field: string, value: unknown) {
+  if (value === null || value === undefined || value === "") return "Não informado";
+
+  if (field === "ativo") return value ? "Ativo" : "Inativo";
+  if (field === "mfa_enabled") return value ? "Ativado" : "Pendente";
+  if (field === "primeiro_acesso") return value ? "Sim" : "Não";
+  if (field === "dia_semana") {
+    const dia = DIAS_SEMANA.find((item) => item.value === Number(value));
+    return dia?.label || String(value);
+  }
+  if (field === "periodo") {
+    const periodo = PERIODOS_DISPONIBILIDADE.find((item) => item.value === String(value));
+    return periodo?.label || String(value);
+  }
+  if (field === "intervalo_minutos") return `${value} min`;
+
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "object") {
+    try {
+      const text = JSON.stringify(value);
+      return text === "{}" ? "Não informado" : text;
+    } catch {
+      return String(value);
+    }
+  }
+
+  return String(value);
+}
+
+function isAvailabilityPayload(value: unknown) {
+  return toArray(value).some(
+    (item) =>
+      isPlainObject(item) &&
+      ("dia_semana" in item || "periodo" in item || "hora_inicio" in item || "hora_fim" in item),
+  );
+}
+
+function getAvailabilityRows(value: unknown) {
+  return toArray(value)
+    .filter(isPlainObject)
+    .filter((item) => item.ativo !== false)
+    .map((item) => {
+      const dia = DIAS_SEMANA.find((diaItem) => diaItem.value === Number(item.dia_semana));
+      const periodo = PERIODOS_DISPONIBILIDADE.find((periodoItem) => periodoItem.value === String(item.periodo));
+
+      return {
+        key: [
+          item.id,
+          item.dia_semana,
+          item.periodo,
+          item.hora_inicio,
+          item.hora_fim,
+          item.intervalo_minutos,
+        ].join("-"),
+        dia: dia?.label || auditValueToText("dia_semana", item.dia_semana),
+        periodo: periodo?.label || auditValueToText("periodo", item.periodo),
+        inicio: auditValueToText("hora_inicio", item.hora_inicio),
+        fim: auditValueToText("hora_fim", item.hora_fim),
+        intervalo: auditValueToText("intervalo_minutos", item.intervalo_minutos),
+        ativo: item.ativo !== false,
+      };
+    })
+    .sort((a, b) => {
+      const diaA = DIAS_SEMANA.findIndex((dia) => dia.label === a.dia);
+      const diaB = DIAS_SEMANA.findIndex((dia) => dia.label === b.dia);
+      const periodoA = PERIODOS_DISPONIBILIDADE.findIndex((periodo) => periodo.label === a.periodo);
+      const periodoB = PERIODOS_DISPONIBILIDADE.findIndex((periodo) => periodo.label === b.periodo);
+
+      return diaA - diaB || periodoA - periodoB || a.inicio.localeCompare(b.inicio);
+    });
+}
+
+function getObjectDiffRows(before: unknown, after: unknown) {
+  if (!isPlainObject(before) && !isPlainObject(after)) return [];
+
+  const ignored = new Set(["id", "cliente_id", "medico_id", "created_at", "updated_at"]);
+  const beforeObj = isPlainObject(before) ? before : {};
+  const afterObj = isPlainObject(after) ? after : {};
+  const keys = Array.from(new Set([...Object.keys(beforeObj), ...Object.keys(afterObj)]))
+    .filter((key) => !ignored.has(key))
+    .sort();
+
+  return keys
+    .map((key) => {
+      const beforeValue = beforeObj[key];
+      const afterValue = afterObj[key];
+      const beforeText = auditValueToText(key, beforeValue);
+      const afterText = auditValueToText(key, afterValue);
+      return {
+        key,
+        label: auditFieldLabel(key),
+        beforeText,
+        afterText,
+        changed: beforeText !== afterText,
+      };
+    })
+    .filter((row) => row.changed);
+}
+
+function AvailabilityHumanList({ title, value }: { title: string; value: unknown }) {
+  const rows = getAvailabilityRows(value);
+
+  return (
+    <div className="auditHumanPanel">
+      <h4>{title}</h4>
+      {rows.length ? (
+        <div className="auditHumanList">
+          {rows.map((row) => (
+            <div className="auditHumanItem" key={row.key}>
+              <strong>
+                {row.dia} · {row.periodo}
+              </strong>
+              <span>
+                {row.inicio} às {row.fim} · intervalo de {row.intervalo}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="auditHumanEmpty">Nenhuma disponibilidade ativa registrada.</p>
+      )}
+    </div>
+  );
+}
+
+function GenericHumanDiff({ before, after }: { before: unknown; after: unknown }) {
+  const rows = getObjectDiffRows(before, after);
+
+  if (!rows.length) {
+    return (
+      <div className="auditHumanEmptyBox">
+        Não encontrei diferenças simples para traduzir. Use os dados técnicos abaixo para conferência.
+      </div>
+    );
+  }
+
+  return (
+    <div className="auditDiffTableWrap">
+      <table className="auditDiffTable">
+        <thead>
+          <tr>
+            <th>Campo</th>
+            <th>Antes</th>
+            <th>Depois</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key}>
+              <td>
+                <strong>{row.label}</strong>
+              </td>
+              <td>{row.beforeText}</td>
+              <td>{row.afterText}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AuditHumanSummary({ log }: { log: AdminAuditLog }) {
+  const isAvailability = log.entidade.includes("disponibilidade") || isAvailabilityPayload(log.antes_json) || isAvailabilityPayload(log.depois_json);
+
+  return (
+    <div className="auditHumanSummaryBlock">
+      <div className="auditHumanIntro">
+        <strong>Resumo da alteração</strong>
+        <span>{log.resumo || prettyAuditLabel(log.acao)}</span>
+      </div>
+
+      {isAvailability ? (
+        <div className="auditHumanGrid">
+          <AvailabilityHumanList title="Antes" value={log.antes_json} />
+          <AvailabilityHumanList title="Depois" value={log.depois_json} />
+        </div>
+      ) : (
+        <GenericHumanDiff before={log.antes_json} after={log.depois_json} />
+      )}
+    </div>
+  );
+}
+
 function buildDefaultDisponibilidades(): MedicoDisponibilidade[] {
   return DIAS_SEMANA.flatMap((dia) =>
     PERIODOS_DISPONIBILIDADE.map((periodo) => ({
@@ -2560,16 +2793,21 @@ function App() {
                 <span><strong>Perfil:</strong> {selectedAuditLog.usuario_perfil || "-"}</span>
               </div>
 
-              <div className="auditModalGrid">
-                <div>
-                  <h4>Antes</h4>
-                  <pre>{formatJsonPretty(selectedAuditLog.antes_json)}</pre>
+              <AuditHumanSummary log={selectedAuditLog} />
+
+              <details className="auditTechnicalDetails">
+                <summary>Ver dados técnicos em JSON</summary>
+                <div className="auditModalGrid">
+                  <div>
+                    <h4>Antes</h4>
+                    <pre>{formatJsonPretty(selectedAuditLog.antes_json)}</pre>
+                  </div>
+                  <div>
+                    <h4>Depois</h4>
+                    <pre>{formatJsonPretty(selectedAuditLog.depois_json)}</pre>
+                  </div>
                 </div>
-                <div>
-                  <h4>Depois</h4>
-                  <pre>{formatJsonPretty(selectedAuditLog.depois_json)}</pre>
-                </div>
-              </div>
+              </details>
             </div>
           </div>
         )}
