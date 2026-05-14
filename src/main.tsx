@@ -8,6 +8,7 @@ const ADMIN_USER_STORAGE_KEY = "agendai_admin_user";
 const PRODUTOS_PAGE_SIZE = 25;
 const ACEITES_PAGE_SIZE = 25;
 const WHATSAPP_LOGS_PAGE_SIZE = 50;
+const ADMIN_AUDIT_PAGE_SIZE = 80;
 const DIAS_SEMANA = [
   { value: 1, label: "Segunda" },
   { value: 2, label: "Terça" },
@@ -184,6 +185,23 @@ type WhatsappMessageLog = {
   processing_seconds?: number | null;
 };
 
+type AdminAuditLog = {
+  id: number;
+  usuario_id?: number | null;
+  usuario_email?: string | null;
+  usuario_perfil?: string | null;
+  acao: string;
+  entidade: string;
+  entidade_id?: number | null;
+  cliente_id?: number | null;
+  resumo?: string | null;
+  antes_json?: unknown;
+  depois_json?: unknown;
+  ip?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+};
+
 type AdminUser = {
   id: number;
   nome: string;
@@ -269,6 +287,27 @@ function normalizeSearch(value: unknown): string {
 
 function Badge({ children, active = true }: { children: React.ReactNode; active?: boolean }) {
   return <span className={active ? "badge badgeOn" : "badge"}>{children}</span>;
+}
+
+function formatAdminDate(value?: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("pt-BR");
+}
+
+function prettyAuditLabel(value?: string | null) {
+  return String(value || "-")
+    .replace(/_/g, " ")
+    .replace(/\./g, " · ");
+}
+
+function compactJson(value: unknown) {
+  if (!value) return "-";
+  try {
+    const text = JSON.stringify(value);
+    return text.length > 220 ? `${text.slice(0, 220)}...` : text;
+  } catch {
+    return String(value);
+  }
 }
 
 
@@ -411,7 +450,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "usuarios">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "usuarios" | "auditoria">("clientes");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [usuarios, setUsuarios] = useState<AdminUsuario[]>([]);
@@ -442,6 +481,16 @@ function App() {
     onlyErrors: false,
   });
   const [whatsappLogsLoading, setWhatsappLogsLoading] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [auditFilters, setAuditFilters] = useState({
+    usuarioEmail: "",
+    clienteId: "todos",
+    acao: "",
+    entidade: "",
+    startDate: "",
+    endDate: "",
+  });
 
   const [novoAceite, setNovoAceite] = useState({
     convenio: "",
@@ -667,6 +716,21 @@ function App() {
     return { total, failed, sent };
   }, [whatsappLogs]);
 
+  const auditLogsResumo = useMemo(() => {
+    const total = auditLogs.length;
+    const usuarios = new Set(auditLogs.map((log) => log.usuario_email).filter(Boolean)).size;
+    const clinicas = new Set(auditLogs.map((log) => log.cliente_id).filter(Boolean)).size;
+    return { total, usuarios, clinicas };
+  }, [auditLogs]);
+
+  const auditActionOptions = useMemo(() => {
+    return Array.from(new Set(auditLogs.map((log) => log.acao).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [auditLogs]);
+
+  const auditEntityOptions = useMemo(() => {
+    return Array.from(new Set(auditLogs.map((log) => log.entidade).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [auditLogs]);
+
   function showToast(text: string, keepVisible = false) {
     setToast(text);
 
@@ -887,6 +951,26 @@ function App() {
     }
   }
 
+  async function loadAdminAuditLogs() {
+    if (!isGlobalAdmin) return;
+    setAuditLogsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (auditFilters.usuarioEmail.trim()) params.set("usuarioEmail", auditFilters.usuarioEmail.trim());
+      if (auditFilters.clienteId !== "todos") params.set("clienteId", auditFilters.clienteId);
+      if (auditFilters.acao.trim()) params.set("acao", auditFilters.acao.trim());
+      if (auditFilters.entidade.trim()) params.set("entidade", auditFilters.entidade.trim());
+      if (auditFilters.startDate) params.set("startDate", auditFilters.startDate);
+      if (auditFilters.endDate) params.set("endDate", auditFilters.endDate);
+      params.set("limit", String(ADMIN_AUDIT_PAGE_SIZE));
+
+      const data = await api<AdminAuditLog[]>(`/api/admin/auditoria?${params.toString()}`);
+      setAuditLogs(data);
+    } finally {
+      setAuditLogsLoading(false);
+    }
+  }
+
   useEffect(() => {
     const token = getStoredAdminToken();
 
@@ -934,6 +1018,12 @@ function App() {
       loadWhatsappLogs().catch((error) => showToast(error.message, true));
     }
   }, [activeTab, selectedClienteId]);
+
+  useEffect(() => {
+    if (activeTab === "auditoria" && isGlobalAdmin) {
+      loadAdminAuditLogs().catch((error) => showToast(error.message, true));
+    }
+  }, [activeTab, isGlobalAdmin]);
 
   useEffect(() => {
     setAceitePage(1);
@@ -1486,6 +1576,14 @@ function App() {
               onClick={() => setActiveTab("usuarios")}
             >
               Usuários
+            </button>
+          )}
+          {isGlobalAdmin && (
+            <button
+              className={activeTab === "auditoria" ? "navActive" : ""}
+              onClick={() => setActiveTab("auditoria")}
+            >
+              Auditoria
             </button>
           )}
           <button disabled>Módulos</button>
@@ -2179,50 +2277,74 @@ function App() {
 
 
         {activeTab === "usuarios" && isGlobalAdmin && (
-          <section className="grid two">
-            <div className="card">
-              <h3>Novo usuário</h3>
-              <p>Admin Clínica pode ser vinculado a uma ou mais clínicas.</p>
-              <form className="formStack" onSubmit={handleCreateUsuario}>
-                <input
-                  placeholder="Nome do usuário"
-                  value={usuarioForm.nome}
-                  onChange={(event) => setUsuarioForm((current) => ({ ...current, nome: event.target.value }))}
-                />
-                <input
-                  placeholder="Email"
-                  value={usuarioForm.email}
-                  onChange={(event) => setUsuarioForm((current) => ({ ...current, email: event.target.value }))}
-                />
-                <select
-                  value={usuarioForm.perfil}
-                  onChange={(event) => setUsuarioForm((current) => ({
-                    ...current,
-                    perfil: event.target.value as "global" | "clinica",
-                    cliente_ids: event.target.value === "global" ? [] : current.cliente_ids,
-                  }))}
-                >
-                  <option value="clinica">Admin Clínica</option>
-                  <option value="global">Admin Global</option>
-                </select>
-                <input
-                  placeholder="Senha provisória"
-                  value={usuarioForm.senha_provisoria}
-                  onChange={(event) => setUsuarioForm((current) => ({ ...current, senha_provisoria: event.target.value }))}
-                />
+          <section className="usersAdminGrid">
+            <div className="card userFormCard">
+              <div className="cardHeader stackedHeader">
+                <div>
+                  <h3>Novo usuário</h3>
+                  <p>Crie operadores e vincule Admin Clínica a uma ou mais clínicas.</p>
+                </div>
+              </div>
+
+              <form className="userForm" onSubmit={handleCreateUsuario}>
+                <label>
+                  Nome
+                  <input
+                    placeholder="Ex.: Operador Baronesa"
+                    value={usuarioForm.nome}
+                    onChange={(event) => setUsuarioForm((current) => ({ ...current, nome: event.target.value }))}
+                  />
+                </label>
+
+                <label>
+                  Email
+                  <input
+                    placeholder="usuario@clinica.com.br"
+                    value={usuarioForm.email}
+                    onChange={(event) => setUsuarioForm((current) => ({ ...current, email: event.target.value }))}
+                  />
+                </label>
+
+                <label>
+                  Perfil
+                  <select
+                    value={usuarioForm.perfil}
+                    onChange={(event) => setUsuarioForm((current) => ({
+                      ...current,
+                      perfil: event.target.value as "global" | "clinica",
+                      cliente_ids: event.target.value === "global" ? [] : current.cliente_ids,
+                    }))}
+                  >
+                    <option value="clinica">Admin Clínica</option>
+                    <option value="global">Admin Global</option>
+                  </select>
+                </label>
+
+                <label>
+                  Senha provisória
+                  <input
+                    placeholder="Senha provisória"
+                    value={usuarioForm.senha_provisoria}
+                    onChange={(event) => setUsuarioForm((current) => ({ ...current, senha_provisoria: event.target.value }))}
+                  />
+                </label>
 
                 {usuarioForm.perfil === "clinica" && (
-                  <div className="checkGrid">
-                    {clientes.map((cliente) => (
-                      <label key={cliente.id}>
-                        <input
-                          type="checkbox"
-                          checked={usuarioForm.cliente_ids.includes(cliente.id)}
-                          onChange={() => toggleUsuarioCliente(cliente.id)}
-                        />
-                        {cliente.nome_fantasia}
-                      </label>
-                    ))}
+                  <div className="clinicSelectorBox">
+                    <strong>Clínicas permitidas</strong>
+                    <span>Selecione uma ou mais unidades que este operador poderá acessar.</span>
+                    <div className="checkGrid userClinicGrid">
+                      {clientes.map((cliente) => (
+                        <label key={cliente.id}>
+                          <input
+                            type="checkbox"
+                            checked={usuarioForm.cliente_ids.includes(cliente.id)}
+                            onChange={() => toggleUsuarioCliente(cliente.id)}
+                          />
+                          {cliente.nome_fantasia}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -2230,20 +2352,26 @@ function App() {
               </form>
             </div>
 
-            <div className="card wide">
-              <div className="cardHeader">
+            <div className="card usersListCard">
+              <div className="cardHeader usersHeader">
                 <div>
                   <h3>Usuários administrativos</h3>
-                  <p>O MFA/TOTP obrigatório será ativado na próxima fase.</p>
+                  <p>MFA/TOTP obrigatório entra na próxima fase. Alterações já ficam auditadas.</p>
                 </div>
                 <button onClick={() => loadUsuarios()}>Atualizar usuários</button>
               </div>
-              <div className="tableWrap">
+
+              <div className="usersSummary">
+                <span>{usuarios.length} usuários</span>
+                <span>{usuarios.filter((usuario) => usuario.perfil === "clinica").length} clínicas</span>
+                <span>{usuarios.filter((usuario) => usuario.perfil === "global").length} globais</span>
+              </div>
+
+              <div className="tableWrap usersTableWrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>Nome</th>
-                      <th>Email</th>
+                      <th>Usuário</th>
                       <th>Perfil</th>
                       <th>Clínicas</th>
                       <th>Status</th>
@@ -2253,18 +2381,140 @@ function App() {
                   <tbody>
                     {usuarios.map((usuario) => (
                       <tr key={usuario.id}>
-                        <td>{usuario.nome}</td>
-                        <td>{usuario.email}</td>
-                        <td>{usuario.perfil === "global" ? "Global" : "Clínica"}</td>
-                        <td>{usuario.perfil === "global" ? "Todas" : (usuario.clientes || []).map((cliente) => cliente.nome_fantasia).join(", ") || "-"}</td>
-                        <td>{usuario.ativo ? "Ativo" : "Inativo"}</td>
-                        <td>{usuario.mfa_enabled ? "Ativo" : "Pendente"}</td>
+                        <td>
+                          <strong>{usuario.nome}</strong>
+                          <span className="tableHint">{usuario.email}</span>
+                        </td>
+                        <td>
+                          <Badge active={usuario.perfil === "global"}>{usuario.perfil === "global" ? "Global" : "Clínica"}</Badge>
+                        </td>
+                        <td className="clinicCell">
+                          {usuario.perfil === "global"
+                            ? "Todas"
+                            : (usuario.clientes || []).map((cliente) => cliente.nome_fantasia).join(", ") || "-"}
+                        </td>
+                        <td><Badge active={usuario.ativo}>{usuario.ativo ? "Ativo" : "Inativo"}</Badge></td>
+                        <td><Badge active={usuario.mfa_enabled}>{usuario.mfa_enabled ? "Ativo" : "Pendente"}</Badge></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
+          </section>
+        )}
+
+        {activeTab === "auditoria" && isGlobalAdmin && (
+          <section className="card auditCard">
+            <div className="sectionHeader">
+              <div>
+                <h3>Auditoria administrativa</h3>
+                <p>Rastro das alterações feitas no painel: usuários, médicos, clientes, formas de atendimento e disponibilidade.</p>
+              </div>
+              <button onClick={() => loadAdminAuditLogs()} disabled={auditLogsLoading}>
+                {auditLogsLoading ? "Atualizando..." : "Atualizar auditoria"}
+              </button>
+            </div>
+
+            <div className="auditToolbar">
+              <input
+                value={auditFilters.usuarioEmail}
+                onChange={(event) => setAuditFilters({ ...auditFilters, usuarioEmail: event.target.value })}
+                placeholder="Filtrar por e-mail do usuário"
+              />
+              <select
+                value={auditFilters.clienteId}
+                onChange={(event) => setAuditFilters({ ...auditFilters, clienteId: event.target.value })}
+              >
+                <option value="todos">Todas as clínicas</option>
+                {clientes.map((cliente) => (
+                  <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>
+                ))}
+              </select>
+              <input
+                value={auditFilters.acao}
+                onChange={(event) => setAuditFilters({ ...auditFilters, acao: event.target.value })}
+                list="audit-acoes"
+                placeholder="Ação. Ex.: medico.atualizado"
+              />
+              <datalist id="audit-acoes">
+                {auditActionOptions.map((acao) => <option key={acao} value={acao} />)}
+              </datalist>
+              <input
+                value={auditFilters.entidade}
+                onChange={(event) => setAuditFilters({ ...auditFilters, entidade: event.target.value })}
+                list="audit-entidades"
+                placeholder="Entidade. Ex.: medico"
+              />
+              <datalist id="audit-entidades">
+                {auditEntityOptions.map((entidade) => <option key={entidade} value={entidade} />)}
+              </datalist>
+              <input
+                type="date"
+                value={auditFilters.startDate}
+                onChange={(event) => setAuditFilters({ ...auditFilters, startDate: event.target.value })}
+              />
+              <input
+                type="date"
+                value={auditFilters.endDate}
+                onChange={(event) => setAuditFilters({ ...auditFilters, endDate: event.target.value })}
+              />
+              <button className="secondary" onClick={() => loadAdminAuditLogs()} disabled={auditLogsLoading}>Filtrar</button>
+            </div>
+
+            <div className="auditSummary">
+              <span>Exibindo até {ADMIN_AUDIT_PAGE_SIZE} registros</span>
+              <span>Total carregado: {auditLogsResumo.total}</span>
+              <span>Usuários: {auditLogsResumo.usuarios}</span>
+              <span>Clínicas: {auditLogsResumo.clinicas}</span>
+            </div>
+
+            {auditLogs.length > 0 ? (
+              <div className="tableWrap auditTableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data/hora</th>
+                      <th>Usuário</th>
+                      <th>Ação</th>
+                      <th>Entidade</th>
+                      <th>Clínica</th>
+                      <th>Resumo</th>
+                      <th>Antes / Depois</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td>{formatAdminDate(log.created_at)}</td>
+                        <td>
+                          <strong>{log.usuario_email || "-"}</strong>
+                          <span className="tableHint">{log.usuario_perfil || "-"}</span>
+                        </td>
+                        <td><Badge active>{prettyAuditLabel(log.acao)}</Badge></td>
+                        <td>
+                          {prettyAuditLabel(log.entidade)}
+                          {log.entidade_id ? <span className="tableHint">ID {log.entidade_id}</span> : null}
+                        </td>
+                        <td>{log.cliente_id ? `#${log.cliente_id}` : "-"}</td>
+                        <td>{log.resumo || "-"}</td>
+                        <td className="auditJsonCell">
+                          <details>
+                            <summary>Ver JSON</summary>
+                            <div><strong>Antes:</strong> {compactJson(log.antes_json)}</div>
+                            <div><strong>Depois:</strong> {compactJson(log.depois_json)}</div>
+                          </details>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="emptyState">
+                {auditLogsLoading ? "Carregando auditoria..." : "Nenhum registro encontrado para os filtros atuais."}
+              </div>
+            )}
           </section>
         )}
 

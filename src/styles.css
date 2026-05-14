@@ -883,3 +883,157 @@ button:disabled {
     padding: 24px;
   }
 }
+
+
+/* ================================
+   PATCH UI — Usuários + Auditoria
+   ================================ */
+.usersAdminGrid {
+  display: grid;
+  grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.userFormCard,
+.usersListCard,
+.auditCard {
+  border-radius: 22px;
+}
+
+.stackedHeader {
+  align-items: flex-start;
+}
+
+.userForm {
+  display: grid;
+  gap: 14px;
+}
+
+.userForm label {
+  font-weight: 700;
+}
+
+.userForm input,
+.userForm select {
+  min-height: 44px;
+}
+
+.clinicSelectorBox {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.clinicSelectorBox span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.userClinicGrid {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.userClinicGrid label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #edf2f7;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.usersHeader {
+  align-items: flex-start;
+}
+
+.usersSummary,
+.auditSummary {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0 16px;
+}
+
+.usersSummary span,
+.auditSummary span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.usersTableWrap,
+.auditTableWrap {
+  overflow-x: auto;
+}
+
+.clinicCell {
+  max-width: 460px;
+  line-height: 1.35;
+}
+
+.auditToolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1fr) minmax(180px, 1fr) minmax(160px, 1fr) 150px 150px auto;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0 16px;
+}
+
+.auditToolbar input,
+.auditToolbar select {
+  min-height: 42px;
+}
+
+.auditTableWrap table {
+  min-width: 1180px;
+}
+
+.auditJsonCell {
+  max-width: 280px;
+}
+
+.auditJsonCell details {
+  cursor: pointer;
+}
+
+.auditJsonCell summary {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.auditJsonCell div {
+  margin-top: 6px;
+  color: #475569;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+@media (max-width: 1300px) {
+  .usersAdminGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .auditToolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .auditToolbar {
+    grid-template-columns: 1fr;
+  }
+}
