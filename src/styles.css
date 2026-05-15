@@ -1387,3 +1387,37 @@ button:disabled {
     width: 100%;
   }
 }
+
+/* Ajustes pequenos — gestão de usuários */
+.fieldHint {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.userFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 14px;
+}
+
+.userFilters button {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+}
+
+.filterActive {
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid #2563eb;
+}
+
+.userActionsCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

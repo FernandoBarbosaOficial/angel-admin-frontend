@@ -917,11 +917,14 @@ function App() {
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [usuarios, setUsuarios] = useState<AdminUsuario[]>([]);
+  const [usuarioStatusFiltro, setUsuarioStatusFiltro] = useState<"ativos" | "inativos" | "todos">("ativos");
+  const [editingUsuarioId, setEditingUsuarioId] = useState<number | null>(null);
   const [usuarioForm, setUsuarioForm] = useState({
     nome: "",
     email: "",
     perfil: "clinica" as "global" | "clinica",
     senha_provisoria: "Admin@2026!",
+    ativo: true,
     cliente_ids: [] as number[],
   });
   const [medicos, setMedicos] = useState<Medico[]>([]);
@@ -1202,6 +1205,14 @@ function App() {
     return { total, failed, sent };
   }, [whatsappLogs]);
 
+  const usuariosFiltrados = useMemo(() => {
+    return usuarios.filter((usuario) => {
+      if (usuarioStatusFiltro === "ativos") return usuario.ativo;
+      if (usuarioStatusFiltro === "inativos") return !usuario.ativo;
+      return true;
+    });
+  }, [usuarios, usuarioStatusFiltro]);
+
   const auditLogsResumo = useMemo(() => {
     const total = auditLogs.length;
     const usuarios = new Set(auditLogs.map((log) => log.usuario_email).filter(Boolean)).size;
@@ -1378,29 +1389,103 @@ function App() {
 
   async function loadUsuarios() {
     if (!isGlobalAdmin) return;
-    const data = await api<AdminUsuario[]>("/api/admin/usuarios");
-    setUsuarios(data);
+    setLoadingAction("usuarios.refresh");
+    try {
+      const data = await api<AdminUsuario[]>("/api/admin/usuarios");
+      setUsuarios(data);
+    } finally {
+      setLoadingAction((current) => (current === "usuarios.refresh" ? null : current));
+    }
+  }
+
+  function resetUsuarioForm() {
+    setEditingUsuarioId(null);
+    setUsuarioForm({
+      nome: "",
+      email: "",
+      perfil: "clinica",
+      senha_provisoria: "Admin@2026!",
+      ativo: true,
+      cliente_ids: [],
+    });
+  }
+
+  function handleEditUsuario(usuario: AdminUsuario) {
+    setEditingUsuarioId(usuario.id);
+    setUsuarioForm({
+      nome: usuario.nome || "",
+      email: usuario.email || "",
+      perfil: usuario.perfil,
+      senha_provisoria: "",
+      ativo: usuario.ativo,
+      cliente_ids: usuario.perfil === "clinica" ? (usuario.clientes || []).map((cliente) => cliente.id) : [],
+    });
   }
 
   async function handleCreateUsuario(event: React.FormEvent) {
     event.preventDefault();
 
+    const isEditing = Boolean(editingUsuarioId);
+    const payload: Record<string, unknown> = {
+      nome: usuarioForm.nome,
+      perfil: usuarioForm.perfil,
+      ativo: usuarioForm.ativo,
+      cliente_ids: usuarioForm.perfil === "clinica" ? usuarioForm.cliente_ids : [],
+    };
+
+    if (!isEditing) {
+      payload.email = usuarioForm.email;
+      payload.senha_provisoria = usuarioForm.senha_provisoria;
+    } else if (usuarioForm.senha_provisoria.trim()) {
+      payload.senha_provisoria = usuarioForm.senha_provisoria.trim();
+    }
+
+    setLoadingAction(isEditing ? "usuarios.save" : "usuarios.create");
     try {
-      await api<AdminUsuario>("/api/admin/usuarios", {
-        method: "POST",
-        body: JSON.stringify(usuarioForm),
-      });
-      showToast("✅ Usuário salvo");
-      setUsuarioForm({
-        nome: "",
-        email: "",
-        perfil: "clinica",
-        senha_provisoria: "Admin@2026!",
-        cliente_ids: [],
-      });
+      if (isEditing && editingUsuarioId) {
+        await api<AdminUsuario>(`/api/admin/usuarios/${editingUsuarioId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        showToast("✅ Usuário atualizado");
+      } else {
+        await api<AdminUsuario>("/api/admin/usuarios", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        showToast("✅ Usuário criado");
+      }
+
+      resetUsuarioForm();
       await loadUsuarios();
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar usuário", true);
+    } finally {
+      setLoadingAction((current) => (current === "usuarios.save" || current === "usuarios.create" ? null : current));
+    }
+  }
+
+  async function handleToggleUsuarioAtivo(usuario: AdminUsuario) {
+    const nextAtivo = !usuario.ativo;
+    const acao = nextAtivo ? "ativar" : "inativar";
+    const confirmed = window.confirm(`${acao.charAt(0).toUpperCase() + acao.slice(1)} usuário ${usuario.nome}?`);
+    if (!confirmed) return;
+
+    setLoadingAction(`usuarios.toggle.${usuario.id}`);
+    try {
+      await api<AdminUsuario>(`/api/admin/usuarios/${usuario.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ ativo: nextAtivo }),
+      });
+      showToast(nextAtivo ? "✅ Usuário ativado" : "✅ Usuário inativado");
+      await loadUsuarios();
+      if (editingUsuarioId === usuario.id) {
+        setUsuarioForm((current) => ({ ...current, ativo: nextAtivo }));
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao alterar status do usuário", true);
+    } finally {
+      setLoadingAction((current) => (current === `usuarios.toggle.${usuario.id}` ? null : current));
     }
   }
 
@@ -1411,6 +1496,7 @@ function App() {
 
     if (!confirmed) return;
 
+    setLoadingAction(`usuarios.mfa.${usuario.id}`);
     try {
       await api<AdminUsuario>(`/api/admin/usuarios/${usuario.id}/reset-mfa`, {
         method: "POST",
@@ -1420,6 +1506,8 @@ function App() {
       await loadUsuarios();
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao resetar MFA", true);
+    } finally {
+      setLoadingAction((current) => (current === `usuarios.mfa.${usuario.id}` ? null : current));
     }
   }
 
@@ -3007,8 +3095,8 @@ function App() {
             <div className="card userFormCard">
               <div className="cardHeader stackedHeader">
                 <div>
-                  <h3>Novo usuário</h3>
-                  <p>Crie operadores e vincule Admin Clínica a uma ou mais clínicas.</p>
+                  <h3>{editingUsuarioId ? "Editar usuário" : "Novo usuário"}</h3>
+                  <p>Crie operadores, altere status e vincule Admin Clínica a uma ou mais clínicas.</p>
                 </div>
               </div>
 
@@ -3027,8 +3115,10 @@ function App() {
                   <input
                     placeholder="usuario@clinica.com.br"
                     value={usuarioForm.email}
+                    disabled={Boolean(editingUsuarioId)}
                     onChange={(event) => setUsuarioForm((current) => ({ ...current, email: event.target.value }))}
                   />
+                  {editingUsuarioId && <span className="fieldHint">O e-mail identifica o usuário e não é alterado por esta tela.</span>}
                 </label>
 
                 <label>
@@ -3047,12 +3137,24 @@ function App() {
                 </label>
 
                 <label>
+                  Status
+                  <select
+                    value={usuarioForm.ativo ? "ativo" : "inativo"}
+                    onChange={(event) => setUsuarioForm((current) => ({ ...current, ativo: event.target.value === "ativo" }))}
+                  >
+                    <option value="ativo">Ativo</option>
+                    <option value="inativo">Inativo</option>
+                  </select>
+                </label>
+
+                <label>
                   Senha provisória
                   <input
-                    placeholder="Senha provisória"
+                    placeholder={editingUsuarioId ? "Deixe em branco para manter a senha atual" : "Senha provisória"}
                     value={usuarioForm.senha_provisoria}
                     onChange={(event) => setUsuarioForm((current) => ({ ...current, senha_provisoria: event.target.value }))}
                   />
+                  {editingUsuarioId && <span className="fieldHint">Preencha somente se também quiser resetar a senha.</span>}
                 </label>
 
                 {usuarioForm.perfil === "clinica" && (
@@ -3074,7 +3176,22 @@ function App() {
                   </div>
                 )}
 
-                <button type="submit">Criar / atualizar usuário</button>
+                <div className="formActions">
+                  <button type="submit" disabled={Boolean(loadingAction)}>
+                    {loadingAction === "usuarios.create"
+                      ? "Criando usuário..."
+                      : loadingAction === "usuarios.save"
+                        ? "Salvando usuário..."
+                        : editingUsuarioId
+                          ? "Salvar usuário"
+                          : "Criar usuário"}
+                  </button>
+                  {editingUsuarioId && (
+                    <button className="secondaryButton" type="button" onClick={resetUsuarioForm} disabled={Boolean(loadingAction)}>
+                      Cancelar edição
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
 
@@ -3084,13 +3201,41 @@ function App() {
                   <h3>Usuários administrativos</h3>
                   <p>MFA/TOTP obrigatório ativo. Admin Global pode resetar o segundo fator dos usuários.</p>
                 </div>
-                <button onClick={() => loadUsuarios()}>Atualizar usuários</button>
+                <button onClick={() => loadUsuarios()} disabled={loadingAction === "usuarios.refresh"}>
+                  {loadingAction === "usuarios.refresh" ? "Atualizando..." : "Atualizar usuários"}
+                </button>
               </div>
 
               <div className="usersSummary">
                 <span>{usuarios.length} usuários</span>
+                <span>{usuarios.filter((usuario) => usuario.ativo).length} ativos</span>
+                <span>{usuarios.filter((usuario) => !usuario.ativo).length} inativos</span>
                 <span>{usuarios.filter((usuario) => usuario.perfil === "clinica").length} clínicas</span>
                 <span>{usuarios.filter((usuario) => usuario.perfil === "global").length} globais</span>
+              </div>
+
+              <div className="userFilters">
+                <button
+                  className={usuarioStatusFiltro === "ativos" ? "filterActive" : "secondary"}
+                  type="button"
+                  onClick={() => setUsuarioStatusFiltro("ativos")}
+                >
+                  Ativos
+                </button>
+                <button
+                  className={usuarioStatusFiltro === "inativos" ? "filterActive" : "secondary"}
+                  type="button"
+                  onClick={() => setUsuarioStatusFiltro("inativos")}
+                >
+                  Inativos
+                </button>
+                <button
+                  className={usuarioStatusFiltro === "todos" ? "filterActive" : "secondary"}
+                  type="button"
+                  onClick={() => setUsuarioStatusFiltro("todos")}
+                >
+                  Todos
+                </button>
               </div>
 
               <div className="tableWrap usersTableWrap">
@@ -3106,8 +3251,8 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {usuarios.map((usuario) => (
-                      <tr key={usuario.id}>
+                    {usuariosFiltrados.map((usuario) => (
+                      <tr key={usuario.id} className={usuario.ativo ? "" : "mutedRow"}>
                         <td>
                           <strong>{usuario.nome}</strong>
                           <span className="tableHint">{usuario.email}</span>
@@ -3126,9 +3271,30 @@ function App() {
                           <button
                             className="tableActionButton"
                             type="button"
-                            onClick={() => handleResetUsuarioMfa(usuario)}
+                            onClick={() => handleEditUsuario(usuario)}
+                            disabled={Boolean(loadingAction)}
                           >
-                            Resetar MFA
+                            Editar
+                          </button>
+                          <button
+                            className="tableActionButton"
+                            type="button"
+                            onClick={() => handleToggleUsuarioAtivo(usuario)}
+                            disabled={loadingAction === `usuarios.toggle.${usuario.id}`}
+                          >
+                            {loadingAction === `usuarios.toggle.${usuario.id}`
+                              ? "Salvando..."
+                              : usuario.ativo
+                                ? "Inativar"
+                                : "Ativar"}
+                          </button>
+                          <button
+                            className="tableActionButton"
+                            type="button"
+                            onClick={() => handleResetUsuarioMfa(usuario)}
+                            disabled={loadingAction === `usuarios.mfa.${usuario.id}`}
+                          >
+                            {loadingAction === `usuarios.mfa.${usuario.id}` ? "Resetando..." : "Resetar MFA"}
                           </button>
                         </td>
                       </tr>
