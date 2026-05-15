@@ -900,6 +900,103 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
   );
 }
 
+
+function ChangePasswordScreen({ user, onChanged, onLogout }: { user: AdminUser; onChanged: (user: AdminUser) => void; onLogout: () => void }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submitPasswordChange(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      if (newPassword.length < 8) {
+        throw new Error("A nova senha precisa ter pelo menos 8 caracteres.");
+      }
+
+      if (newPassword !== confirmPassword) {
+        throw new Error("A confirmação da senha não confere.");
+      }
+
+      if (newPassword === currentPassword) {
+        throw new Error("A nova senha deve ser diferente da senha provisória/atual.");
+      }
+
+      const updatedUser = await api<AdminUser>("/api/admin/auth/password", {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const token = getStoredAdminToken();
+      if (token) setStoredAuth(token, updatedUser);
+      onChanged(updatedUser);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao alterar senha");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="app loginApp">
+      <main className="loginBox passwordChangeBox">
+        <h1>Trocar senha</h1>
+        <p>Antes de acessar o painel, altere a senha provisória do usuário <strong>{user.email}</strong>.</p>
+
+        <form onSubmit={submitPasswordChange} className="form">
+          <label>
+            Senha atual/provisória
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </label>
+
+          <label>
+            Nova senha
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+          </label>
+
+          <label>
+            Confirmar nova senha
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+          </label>
+
+          {error && <div className="errorBox">{error}</div>}
+
+          <button type="submit" disabled={loading}>
+            {loading ? "Alterando senha..." : "Alterar senha e entrar"}
+          </button>
+          <button type="button" className="secondary fullWidthButton" onClick={onLogout} disabled={loading}>
+            Sair
+          </button>
+        </form>
+      </main>
+    </div>
+  );
+}
+
 function App() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteFiltro, setClienteFiltro] = useState<"todos" | "ativos" | "inativos">("todos");
@@ -2176,15 +2273,19 @@ function App() {
     return <div className="app"><main className="content"><p>Carregando sessão...</p></main></div>;
   }
 
-  if (!authUser) {
-    return <LoginScreen onLogin={(result) => setAuthUser(result.user)} />;
-  }
-
   function logout() {
     clearStoredAuth();
     setAuthUser(null);
     setClientes([]);
     setSelectedClienteId(null);
+  }
+
+  if (!authUser) {
+    return <LoginScreen onLogin={(result) => setAuthUser(result.user)} />;
+  }
+
+  if (authUser.primeiro_acesso) {
+    return <ChangePasswordScreen user={authUser} onChanged={(user) => setAuthUser(user)} onLogout={logout} />;
   }
 
   return (

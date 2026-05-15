@@ -1421,3 +1421,11 @@ button:disabled {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.passwordChangeBox p strong {
+  color: #111827;
+}
+
+.fullWidthButton {
+  width: 100%;
+}
