@@ -83,6 +83,43 @@ type ClienteCadastroDraft = {
   estado: string;
 };
 
+type NovoClienteDraft = {
+  cnpj: string;
+  nome_fantasia: string;
+  razao_social: string;
+  telefone_contato: string;
+  whatsapp_contato: string;
+  email_contato: string;
+  site: string;
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  usa_convenio: boolean;
+  usa_particular: boolean;
+  usa_cartao: boolean;
+  exige_plano: boolean;
+};
+
+type BrasilApiCnpjResponse = {
+  cnpj?: string;
+  razao_social?: string | null;
+  nome_fantasia?: string | null;
+  ddd_telefone_1?: string | null;
+  ddd_telefone_2?: string | null;
+  email?: string | null;
+  cep?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
+  municipio?: string | null;
+  uf?: string | null;
+};
+
 type FormaAtendimento = {
   id: number;
   cliente_id: number;
@@ -292,6 +329,40 @@ function normalizeSearch(value: unknown): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function formatCnpj(value: string): string {
+  const digits = onlyDigits(value).slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function formatCep(value: string): string {
+  const digits = onlyDigits(value).slice(0, 8);
+  return digits.replace(/^(\d{5})(\d)/, "$1-$2");
+}
+
+function formatPhone(value: string): string {
+  const digits = onlyDigits(value).slice(0, 11);
+  if (digits.length <= 10) {
+    return digits
+      .replace(/^(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+  return digits
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+function getApiText(value?: string | null): string {
+  return String(value || "").trim();
 }
 
 function Badge({ children, active = true }: { children: React.ReactNode; active?: boolean }) {
@@ -902,13 +973,29 @@ function App() {
   const [editingMedicoId, setEditingMedicoId] = useState<number | null>(null);
   const [disponibilidades, setDisponibilidades] = useState<MedicoDisponibilidade[]>(buildDefaultDisponibilidades());
 
-  const [novoCliente, setNovoCliente] = useState({
+  const emptyNovoCliente: NovoClienteDraft = {
+    cnpj: "",
     nome_fantasia: "",
+    razao_social: "",
+    telefone_contato: "",
+    whatsapp_contato: "",
+    email_contato: "",
+    site: "",
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade: "",
+    estado: "",
     usa_convenio: false,
     usa_particular: true,
     usa_cartao: true,
     exige_plano: false,
-  });
+  };
+
+  const [novoCliente, setNovoCliente] = useState<NovoClienteDraft>(emptyNovoCliente);
+  const [loadingCnpj, setLoadingCnpj] = useState(false);
 
   const emptyFormaForm = {
     tipo: "particular",
@@ -1590,6 +1677,52 @@ function App() {
     }
   }
 
+  async function consultarCnpjNovoCliente() {
+    const cnpjDigits = onlyDigits(novoCliente.cnpj);
+
+    if (cnpjDigits.length !== 14) {
+      showToast("❌ Informe um CNPJ com 14 dígitos", true);
+      return;
+    }
+
+    setLoadingCnpj(true);
+    setToast("");
+
+    try {
+      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjDigits}`);
+      const data = (await response.json().catch(() => ({}))) as BrasilApiCnpjResponse & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(data.message || "CNPJ não encontrado");
+      }
+
+      const telefone = getApiText(data.ddd_telefone_1 || data.ddd_telefone_2);
+
+      setNovoCliente((current) => ({
+        ...current,
+        cnpj: formatCnpj(data.cnpj || cnpjDigits),
+        nome_fantasia: getApiText(data.nome_fantasia) || getApiText(data.razao_social) || current.nome_fantasia,
+        razao_social: getApiText(data.razao_social) || current.razao_social,
+        telefone_contato: telefone ? formatPhone(telefone) : current.telefone_contato,
+        whatsapp_contato: current.whatsapp_contato || (telefone ? formatPhone(telefone) : ""),
+        email_contato: getApiText(data.email) || current.email_contato,
+        cep: data.cep ? formatCep(data.cep) : current.cep,
+        logradouro: getApiText(data.logradouro) || current.logradouro,
+        numero: getApiText(data.numero) || current.numero,
+        complemento: getApiText(data.complemento) || current.complemento,
+        bairro: getApiText(data.bairro) || current.bairro,
+        cidade: getApiText(data.municipio) || current.cidade,
+        estado: getApiText(data.uf).toUpperCase() || current.estado,
+      }));
+
+      showToast("✅ Dados do CNPJ preenchidos");
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao consultar CNPJ", true);
+    } finally {
+      setLoadingCnpj(false);
+    }
+  }
+
   async function criarCliente(event: React.FormEvent) {
     event.preventDefault();
     setToast("");
@@ -1600,6 +1733,21 @@ function App() {
         method: "POST",
         body: JSON.stringify({
           nome_fantasia: novoCliente.nome_fantasia,
+          razao_social: novoCliente.razao_social || null,
+          documento_tipo: novoCliente.cnpj ? "CNPJ" : null,
+          documento: novoCliente.cnpj ? onlyDigits(novoCliente.cnpj) : null,
+          cnpj: novoCliente.cnpj ? onlyDigits(novoCliente.cnpj) : null,
+          email_contato: novoCliente.email_contato || null,
+          telefone_contato: novoCliente.telefone_contato || null,
+          whatsapp_contato: novoCliente.whatsapp_contato || novoCliente.telefone_contato || null,
+          site: novoCliente.site || null,
+          cep: novoCliente.cep ? onlyDigits(novoCliente.cep) : null,
+          logradouro: novoCliente.logradouro || null,
+          numero: novoCliente.numero || null,
+          complemento: novoCliente.complemento || null,
+          bairro: novoCliente.bairro || null,
+          cidade: novoCliente.cidade || null,
+          estado: novoCliente.estado || null,
           configuracao: {
             usa_convenio: novoCliente.usa_convenio,
             usa_particular: novoCliente.usa_particular,
@@ -1611,13 +1759,7 @@ function App() {
       });
 
       showToast("✅ Cliente criado com sucesso");
-      setNovoCliente({
-        nome_fantasia: "",
-        usa_convenio: false,
-        usa_particular: true,
-        usa_cartao: true,
-        exige_plano: false,
-      });
+      setNovoCliente(emptyNovoCliente);
 
       await loadClientes();
       setSelectedClienteId(cliente.id);
@@ -2034,16 +2176,182 @@ function App() {
 
             <form onSubmit={criarCliente} className="form">
               <label>
+                CNPJ
+                <div className="fieldWithButton">
+                  <input
+                    value={novoCliente.cnpj}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, cnpj: formatCnpj(event.target.value) })
+                    }
+                    onBlur={() => {
+                      if (onlyDigits(novoCliente.cnpj).length === 14 && !novoCliente.nome_fantasia) {
+                        void consultarCnpjNovoCliente();
+                      }
+                    }}
+                    placeholder="Ex.: 12.345.678/0001-90"
+                    inputMode="numeric"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={consultarCnpjNovoCliente}
+                    disabled={loadingCnpj}
+                  >
+                    {loadingCnpj ? "Buscando..." : "Buscar CNPJ"}
+                  </button>
+                </div>
+              </label>
+
+              <label>
                 Nome fantasia
                 <input
                   value={novoCliente.nome_fantasia}
                   onChange={(event) =>
                     setNovoCliente({ ...novoCliente, nome_fantasia: event.target.value })
                   }
-                  placeholder="Ex.: Amor e Saúde Osasco"
+                  placeholder="Preenchido pela consulta do CNPJ"
                   required
                 />
               </label>
+
+              <label>
+                Razão social
+                <input
+                  value={novoCliente.razao_social}
+                  onChange={(event) =>
+                    setNovoCliente({ ...novoCliente, razao_social: event.target.value })
+                  }
+                  placeholder="Preenchido pela consulta do CNPJ"
+                />
+              </label>
+
+              <div className="twoColumns">
+                <label>
+                  Telefone
+                  <input
+                    value={novoCliente.telefone_contato}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, telefone_contato: formatPhone(event.target.value) })
+                    }
+                    placeholder="Ex.: (11) 3681-1290"
+                  />
+                </label>
+
+                <label>
+                  WhatsApp
+                  <input
+                    value={novoCliente.whatsapp_contato}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, whatsapp_contato: formatPhone(event.target.value) })
+                    }
+                    placeholder="Ex.: (11) 99999-9999"
+                  />
+                </label>
+              </div>
+
+              <label>
+                E-mail
+                <input
+                  type="email"
+                  value={novoCliente.email_contato}
+                  onChange={(event) =>
+                    setNovoCliente({ ...novoCliente, email_contato: event.target.value })
+                  }
+                  placeholder="contato@clinica.com.br"
+                />
+              </label>
+
+              <label>
+                Site
+                <input
+                  value={novoCliente.site}
+                  onChange={(event) =>
+                    setNovoCliente({ ...novoCliente, site: event.target.value })
+                  }
+                  placeholder="https://..."
+                />
+              </label>
+
+              <div className="twoColumns">
+                <label>
+                  CEP
+                  <input
+                    value={novoCliente.cep}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, cep: formatCep(event.target.value) })
+                    }
+                    placeholder="00000-000"
+                  />
+                </label>
+
+                <label>
+                  Estado
+                  <input
+                    value={novoCliente.estado}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, estado: event.target.value.toUpperCase().slice(0, 2) })
+                    }
+                    placeholder="SP"
+                    maxLength={2}
+                  />
+                </label>
+              </div>
+
+              <label>
+                Logradouro
+                <input
+                  value={novoCliente.logradouro}
+                  onChange={(event) =>
+                    setNovoCliente({ ...novoCliente, logradouro: event.target.value })
+                  }
+                  placeholder="Rua, avenida..."
+                />
+              </label>
+
+              <div className="twoColumns">
+                <label>
+                  Número
+                  <input
+                    value={novoCliente.numero}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, numero: event.target.value })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Complemento
+                  <input
+                    value={novoCliente.complemento}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, complemento: event.target.value })
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="twoColumns">
+                <label>
+                  Bairro
+                  <input
+                    value={novoCliente.bairro}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, bairro: event.target.value })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Cidade
+                  <input
+                    value={novoCliente.cidade}
+                    onChange={(event) =>
+                      setNovoCliente({ ...novoCliente, cidade: event.target.value })
+                    }
+                  />
+                </label>
+              </div>
 
               <div className="checks">
                 <label>
