@@ -40,6 +40,38 @@ select {
   color: #aeb7c7;
 }
 
+.sidebarProfile {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebarPasswordButton {
+  margin-top: 14px;
+  width: 100%;
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  color: #eff6ff;
+  text-align: left;
+}
+
+.sidebarPasswordButton:hover {
+  background: rgba(37, 99, 235, 0.32);
+}
+
+.passwordTopButton {
+  background: #0f172a;
+}
+
+.forgotPasswordButton {
+  width: 100%;
+  margin-top: 2px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  text-align: center;
+}
+
+
 nav {
   display: grid;
   gap: 10px;
@@ -1420,12 +1452,4 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.passwordChangeBox p strong {
-  color: #111827;
-}
-
-.fullWidthButton {
-  width: 100%;
 }

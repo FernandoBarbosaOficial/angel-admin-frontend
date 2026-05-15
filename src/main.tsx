@@ -365,6 +365,86 @@ function getApiText(value?: string | null): string {
   return String(value || "").trim();
 }
 
+
+type ChangePasswordScreenProps = {
+  user: AdminUser;
+  required?: boolean;
+  onChanged: (user: AdminUser) => void;
+  onCancel?: () => void;
+  onLogout: () => void;
+};
+
+function ChangePasswordScreen({ user, required = false, onChanged, onCancel, onLogout }: ChangePasswordScreenProps) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submitPasswordChange(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      if (newPassword.length < 8) throw new Error("A nova senha precisa ter pelo menos 8 caracteres.");
+      if (newPassword !== confirmPassword) throw new Error("A confirmação da senha não confere.");
+      if (newPassword === currentPassword) throw new Error("A nova senha deve ser diferente da senha atual.");
+
+      const updatedUser = await api<AdminUser>("/api/admin/auth/password", {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const token = getStoredAdminToken();
+      if (token) setStoredAuth(token, updatedUser);
+      onChanged(updatedUser);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao alterar senha");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="app loginApp">
+      <main className="loginBox passwordChangeBox">
+        <h1>Trocar senha</h1>
+        <p>
+          {required
+            ? <>Antes de acessar o painel, altere a senha provisória do usuário <strong>{user.email}</strong>.</>
+            : <>Altere a senha do usuário <strong>{user.email}</strong>.</>}
+        </p>
+
+        <form onSubmit={submitPasswordChange} className="formCard">
+          <label>
+            Senha atual
+            <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required />
+          </label>
+          <label>
+            Nova senha
+            <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
+          </label>
+          <label>
+            Confirmar nova senha
+            <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
+          </label>
+
+          {error && <div className="alertError">{error}</div>}
+
+          <button type="submit" disabled={loading}>{loading ? "Alterando senha..." : "Alterar senha"}</button>
+          {!required && onCancel && (
+            <button className="secondaryButton" type="button" onClick={onCancel} disabled={loading}>Cancelar</button>
+          )}
+          {required && (
+            <button className="secondaryButton" type="button" onClick={onLogout} disabled={loading}>Sair</button>
+          )}
+        </form>
+      </main>
+    </div>
+  );
+}
+
 function Badge({ children, active = true }: { children: React.ReactNode; active?: boolean }) {
   return <span className={active ? "badge badgeOn" : "badge"}>{children}</span>;
 }
@@ -709,6 +789,12 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
   const [mfaChallengeActive, setMfaChallengeActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryToken, setRecoveryToken] = useState("");
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryResetMfa, setRecoveryResetMfa] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState("");
 
   const loginStepLabel = mfaSetup
     ? "Configurar segundo fator"
@@ -721,6 +807,37 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
     setSetupToken(null);
     setMfaSetup(null);
     setMfaChallengeActive(false);
+  }
+
+  async function submitRecoveryReset(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setRecoveryMessage("");
+
+    try {
+      if (!recoveryEmail.includes("@")) throw new Error("Informe o e-mail do usuário.");
+      if (recoveryPassword.length < 8) throw new Error("A nova senha provisória precisa ter pelo menos 8 caracteres.");
+      if (!recoveryToken.trim()) throw new Error("Informe o token técnico de recuperação configurado no Railway.");
+
+      await api<AdminUser>("/api/admin/auth/recovery-reset", {
+        method: "POST",
+        body: JSON.stringify({
+          email: recoveryEmail,
+          recoveryToken,
+          newPassword: recoveryPassword,
+          resetMfa: recoveryResetMfa,
+        }),
+      });
+
+      setRecoveryMessage("Senha provisória definida. Faça login com a nova senha; o sistema exigirá troca de senha no próximo acesso.");
+      setPassword(recoveryPassword);
+      setEmail(recoveryEmail);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao recuperar senha");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function finishLogin(result: AdminLoginResponse) {
@@ -819,7 +936,53 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
         <h1>AgendAI</h1>
         <p>Painel administrativo seguro</p>
 
-        {!mfaSetup && !mfaChallengeActive && (
+        {showRecovery && !mfaSetup && !mfaChallengeActive && (
+          <form onSubmit={submitRecoveryReset} className="formCard recoveryCard">
+            <div className="mfaIntro">
+              <strong>Recuperar senha</strong>
+              <span>Admin Clínica deve solicitar reset ao Admin Global. Admin Global/TI pode usar o token técnico configurado em ADMIN_PASSWORD_RECOVERY_TOKEN no Railway.</span>
+            </div>
+            <label>
+              E-mail
+              <input value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} autoComplete="username" />
+            </label>
+            <label>
+              Nova senha provisória
+              <input
+                type="password"
+                value={recoveryPassword}
+                onChange={(event) => setRecoveryPassword(event.target.value)}
+                autoComplete="new-password"
+                minLength={8}
+              />
+            </label>
+            <label>
+              Token técnico de recuperação
+              <input
+                type="password"
+                value={recoveryToken}
+                onChange={(event) => setRecoveryToken(event.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <label className="inlineCheck">
+              <input
+                type="checkbox"
+                checked={recoveryResetMfa}
+                onChange={(event) => setRecoveryResetMfa(event.target.checked)}
+              />
+              Resetar MFA junto com a senha
+            </label>
+            {error && <div className="alertError">{error}</div>}
+            {recoveryMessage && <div className="alertSuccess">{recoveryMessage}</div>}
+            <button type="submit" disabled={loading}>{loading ? "Recuperando..." : "Definir senha provisória"}</button>
+            <button className="secondaryButton" type="button" onClick={() => { setShowRecovery(false); setError(""); }} disabled={loading}>
+              Voltar ao login
+            </button>
+          </form>
+        )}
+
+        {!showRecovery && !mfaSetup && !mfaChallengeActive && (
           <form onSubmit={submitCredentials} className="formCard">
             <label>
               Email
@@ -836,6 +999,14 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
             </label>
             {error && <div className="alertError">{error}</div>}
             <button type="submit" disabled={loading}>{loading ? "Entrando..." : loginStepLabel}</button>
+            <button
+              className="linkButton forgotPasswordButton"
+              type="button"
+              onClick={() => { setShowRecovery(true); setRecoveryEmail(email); setError(""); }}
+              disabled={loading}
+            >
+              Esqueci minha senha
+            </button>
           </form>
         )}
 
@@ -900,103 +1071,6 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
   );
 }
 
-
-function ChangePasswordScreen({ user, onChanged, onLogout }: { user: AdminUser; onChanged: (user: AdminUser) => void; onLogout: () => void }) {
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function submitPasswordChange(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      if (newPassword.length < 8) {
-        throw new Error("A nova senha precisa ter pelo menos 8 caracteres.");
-      }
-
-      if (newPassword !== confirmPassword) {
-        throw new Error("A confirmação da senha não confere.");
-      }
-
-      if (newPassword === currentPassword) {
-        throw new Error("A nova senha deve ser diferente da senha provisória/atual.");
-      }
-
-      const updatedUser = await api<AdminUser>("/api/admin/auth/password", {
-        method: "PATCH",
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-
-      const token = getStoredAdminToken();
-      if (token) setStoredAuth(token, updatedUser);
-      onChanged(updatedUser);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao alterar senha");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="app loginApp">
-      <main className="loginBox passwordChangeBox">
-        <h1>Trocar senha</h1>
-        <p>Antes de acessar o painel, altere a senha provisória do usuário <strong>{user.email}</strong>.</p>
-
-        <form onSubmit={submitPasswordChange} className="form">
-          <label>
-            Senha atual/provisória
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </label>
-
-          <label>
-            Nova senha
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              autoComplete="new-password"
-              minLength={8}
-              required
-            />
-          </label>
-
-          <label>
-            Confirmar nova senha
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              autoComplete="new-password"
-              minLength={8}
-              required
-            />
-          </label>
-
-          {error && <div className="errorBox">{error}</div>}
-
-          <button type="submit" disabled={loading}>
-            {loading ? "Alterando senha..." : "Alterar senha e entrar"}
-          </button>
-          <button type="button" className="secondary fullWidthButton" onClick={onLogout} disabled={loading}>
-            Sair
-          </button>
-        </form>
-      </main>
-    </div>
-  );
-}
-
 function App() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteFiltro, setClienteFiltro] = useState<"todos" | "ativos" | "inativos">("todos");
@@ -1013,6 +1087,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "usuarios" | "auditoria">("clientes");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [usuarios, setUsuarios] = useState<AdminUsuario[]>([]);
   const [usuarioStatusFiltro, setUsuarioStatusFiltro] = useState<"ativos" | "inativos" | "todos">("ativos");
   const [editingUsuarioId, setEditingUsuarioId] = useState<number | null>(null);
@@ -2273,28 +2348,36 @@ function App() {
     return <div className="app"><main className="content"><p>Carregando sessão...</p></main></div>;
   }
 
+  if (!authUser) {
+    return <LoginScreen onLogin={(result) => setAuthUser(result.user)} />;
+  }
+
   function logout() {
     clearStoredAuth();
     setAuthUser(null);
     setClientes([]);
     setSelectedClienteId(null);
-  }
-
-  if (!authUser) {
-    return <LoginScreen onLogin={(result) => setAuthUser(result.user)} />;
+    setShowChangePassword(false);
   }
 
   if (authUser.primeiro_acesso) {
-    return <ChangePasswordScreen user={authUser} onChanged={(user) => setAuthUser(user)} onLogout={logout} />;
+    return <ChangePasswordScreen user={authUser} required onChanged={(user) => setAuthUser(user)} onLogout={logout} />;
+  }
+
+  if (showChangePassword) {
+    return <ChangePasswordScreen user={authUser} onChanged={(user) => { setAuthUser(user); setShowChangePassword(false); }} onCancel={() => setShowChangePassword(false)} onLogout={logout} />;
   }
 
   return (
     <div className="app">
       <aside className="sidebar">
-        <div>
+        <div className="sidebarProfile">
           <h1>AgendAI</h1>
           <p>{authUser.perfil === "global" ? "Admin Global" : "Admin Clínica"}</p>
           <small>{authUser.email}</small>
+          <button className="sidebarPasswordButton" type="button" onClick={() => setShowChangePassword(true)}>
+            Trocar minha senha
+          </button>
         </div>
 
         <nav>
@@ -2350,6 +2433,7 @@ function App() {
             <button onClick={() => loadClientes()} disabled={loading}>
               {loading ? "Atualizando..." : "Atualizar"}
             </button>
+            <button className="passwordTopButton" type="button" onClick={() => setShowChangePassword(true)}>Trocar senha</button>
             <button className="secondary" onClick={logout}>Sair</button>
           </div>
         </header>
