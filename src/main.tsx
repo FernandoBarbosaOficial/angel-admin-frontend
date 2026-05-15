@@ -312,8 +312,10 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const json = await response.json().catch(() => ({}));
 
   if (response.status === 401) {
-    clearStoredAuth();
-    throw new Error("Sessão expirada. Faça login novamente.");
+    const hasToken = Boolean(token);
+    const message = json.details || json.error || (hasToken ? "Sessão expirada. Faça login novamente." : "Não foi possível autenticar.");
+    if (hasToken) clearStoredAuth();
+    throw new Error(message);
   }
 
   if (!response.ok || json.ok === false) {
@@ -440,6 +442,107 @@ function ChangePasswordScreen({ user, required = false, onChanged, onCancel, onL
             <button className="secondaryButton" type="button" onClick={onLogout} disabled={loading}>Sair</button>
           )}
         </form>
+      </main>
+    </div>
+  );
+}
+
+
+type EmailTokenPasswordScreenProps = {
+  kind: "activation" | "password_reset";
+};
+
+function EmailTokenPasswordScreen({ kind }: EmailTokenPasswordScreenProps) {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token") || "";
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [validating, setValidating] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [tokenInfo, setTokenInfo] = useState<{ email: string; nome: string } | null>(null);
+
+  const isActivation = kind === "activation";
+
+  useEffect(() => {
+    async function validateToken() {
+      if (!token) {
+        setError("Link inválido ou ausente.");
+        setValidating(false);
+        return;
+      }
+
+      try {
+        const data = await api<{ email: string; nome: string }>(`/api/admin/auth/token/validate?tipo=${isActivation ? "activation" : "password_reset"}&token=${encodeURIComponent(token)}`);
+        setTokenInfo(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Link inválido ou expirado.");
+      } finally {
+        setValidating(false);
+      }
+    }
+
+    validateToken();
+  }, [token, isActivation]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      if (newPassword.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+      if (newPassword !== confirmPassword) throw new Error("A confirmação da senha não confere.");
+
+      await api<AdminUser>(isActivation ? "/api/admin/auth/activate" : "/api/admin/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, newPassword }),
+      });
+
+      setSuccess(isActivation
+        ? "Conta ativada. Agora faça login com sua senha e configure o MFA."
+        : "Senha redefinida. Agora faça login com sua nova senha.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível concluir a operação.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="app loginApp">
+      <main className="loginBox passwordChangeBox publicTokenBox">
+        <h1>{isActivation ? "Ativar conta" : "Redefinir senha"}</h1>
+        <p>
+          {validating
+            ? "Validando link seguro..."
+            : tokenInfo
+              ? <>Link válido para <strong>{tokenInfo.email}</strong>.</>
+              : "Não foi possível validar este link."}
+        </p>
+
+        {error && <div className="alertError">{error}</div>}
+        {success && <div className="alertSuccess">{success}</div>}
+
+        {!success && tokenInfo && (
+          <form onSubmit={submit} className="formCard">
+            <label>
+              Nova senha
+              <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
+            </label>
+            <label>
+              Confirmar nova senha
+              <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
+            </label>
+            <button type="submit" disabled={loading || validating}>{loading ? "Salvando..." : isActivation ? "Ativar conta" : "Redefinir senha"}</button>
+          </form>
+        )}
+
+        <button className="secondaryButton" type="button" onClick={() => { window.location.href = "/"; }}>
+          Ir para login
+        </button>
       </main>
     </div>
   );
@@ -791,9 +894,6 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
   const [error, setError] = useState("");
   const [showRecovery, setShowRecovery] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState("");
-  const [recoveryToken, setRecoveryToken] = useState("");
-  const [recoveryPassword, setRecoveryPassword] = useState("");
-  const [recoveryResetMfa, setRecoveryResetMfa] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState("");
 
   const loginStepLabel = mfaSetup
@@ -817,24 +917,16 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
 
     try {
       if (!recoveryEmail.includes("@")) throw new Error("Informe o e-mail do usuário.");
-      if (recoveryPassword.length < 8) throw new Error("A nova senha provisória precisa ter pelo menos 8 caracteres.");
-      if (!recoveryToken.trim()) throw new Error("Informe o token técnico de recuperação configurado no Railway.");
 
-      await api<AdminUser>("/api/admin/auth/recovery-reset", {
+      const result = await api<{ message: string }>("/api/admin/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({
-          email: recoveryEmail,
-          recoveryToken,
-          newPassword: recoveryPassword,
-          resetMfa: recoveryResetMfa,
-        }),
+        body: JSON.stringify({ email: recoveryEmail }),
       });
 
-      setRecoveryMessage("Senha provisória definida. Faça login com a nova senha; o sistema exigirá troca de senha no próximo acesso.");
-      setPassword(recoveryPassword);
+      setRecoveryMessage(result.message || "Se o e-mail estiver cadastrado, enviaremos um link de recuperação.");
       setEmail(recoveryEmail);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao recuperar senha");
+      setError(err instanceof Error ? err.message : "Erro ao solicitar recuperação de senha");
     } finally {
       setLoading(false);
     }
@@ -940,42 +1032,18 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
           <form onSubmit={submitRecoveryReset} className="formCard recoveryCard">
             <div className="mfaIntro">
               <strong>Recuperar senha</strong>
-              <span>Admin Clínica deve solicitar reset ao Admin Global. Admin Global/TI pode usar o token técnico configurado em ADMIN_PASSWORD_RECOVERY_TOKEN no Railway.</span>
+              <span>Informe o e-mail cadastrado. Se ele existir, enviaremos um link seguro para redefinir a senha.</span>
             </div>
             <label>
-              E-mail
+              E-mail cadastrado
               <input value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} autoComplete="username" />
             </label>
-            <label>
-              Nova senha provisória
-              <input
-                type="password"
-                value={recoveryPassword}
-                onChange={(event) => setRecoveryPassword(event.target.value)}
-                autoComplete="new-password"
-                minLength={8}
-              />
-            </label>
-            <label>
-              Token técnico de recuperação
-              <input
-                type="password"
-                value={recoveryToken}
-                onChange={(event) => setRecoveryToken(event.target.value)}
-                autoComplete="off"
-              />
-            </label>
-            <label className="inlineCheck">
-              <input
-                type="checkbox"
-                checked={recoveryResetMfa}
-                onChange={(event) => setRecoveryResetMfa(event.target.checked)}
-              />
-              Resetar MFA junto com a senha
-            </label>
+            <div className="infoBox">
+              O link é enviado somente para o e-mail cadastrado, expira em poucos minutos e só pode ser usado uma vez.
+            </div>
             {error && <div className="alertError">{error}</div>}
             {recoveryMessage && <div className="alertSuccess">{recoveryMessage}</div>}
-            <button type="submit" disabled={loading}>{loading ? "Recuperando..." : "Definir senha provisória"}</button>
+            <button type="submit" disabled={loading}>{loading ? "Enviando..." : "Enviar link de recuperação"}</button>
             <button className="secondaryButton" type="button" onClick={() => { setShowRecovery(false); setError(""); }} disabled={loading}>
               Voltar ao login
             </button>
@@ -1072,6 +1140,16 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
 }
 
 function App() {
+  const currentPath = window.location.pathname;
+
+  if (currentPath === "/ativar-conta") {
+    return <EmailTokenPasswordScreen kind="activation" />;
+  }
+
+  if (currentPath === "/reset-password") {
+    return <EmailTokenPasswordScreen kind="password_reset" />;
+  }
+
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteFiltro, setClienteFiltro] = useState<"todos" | "ativos" | "inativos">("todos");
   const [selectedClienteId, setSelectedClienteId] = useState<number | null>(null);
@@ -1095,7 +1173,7 @@ function App() {
     nome: "",
     email: "",
     perfil: "clinica" as "global" | "clinica",
-    senha_provisoria: "Admin@2026!",
+    senha_provisoria: "",
     ativo: true,
     cliente_ids: [] as number[],
   });
@@ -1576,7 +1654,7 @@ function App() {
       nome: "",
       email: "",
       perfil: "clinica",
-      senha_provisoria: "Admin@2026!",
+      senha_provisoria: "",
       ativo: true,
       cliente_ids: [],
     });
@@ -1607,9 +1685,6 @@ function App() {
 
     if (!isEditing) {
       payload.email = usuarioForm.email;
-      payload.senha_provisoria = usuarioForm.senha_provisoria;
-    } else if (usuarioForm.senha_provisoria.trim()) {
-      payload.senha_provisoria = usuarioForm.senha_provisoria.trim();
     }
 
     setLoadingAction(isEditing ? "usuarios.save" : "usuarios.create");
@@ -1625,7 +1700,7 @@ function App() {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        showToast("✅ Usuário criado");
+        showToast("✅ Usuário criado e convite enviado por e-mail");
       }
 
       resetUsuarioForm();
@@ -1680,6 +1755,42 @@ function App() {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao resetar MFA", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.mfa.${usuario.id}` ? null : current));
+    }
+  }
+
+  async function handleSendUsuarioInvite(usuario: AdminUsuario) {
+    const confirmed = window.confirm(`Enviar convite de ativação para ${usuario.email}?`);
+    if (!confirmed) return;
+
+    setLoadingAction(`usuarios.invite.${usuario.id}`);
+    try {
+      await api<AdminUsuario>(`/api/admin/usuarios/${usuario.id}/send-invite`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      showToast("✅ Convite enviado por e-mail");
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao enviar convite", true);
+    } finally {
+      setLoadingAction((current) => (current === `usuarios.invite.${usuario.id}` ? null : current));
+    }
+  }
+
+  async function handleSendUsuarioPasswordReset(usuario: AdminUsuario) {
+    const confirmed = window.confirm(`Enviar link de redefinição de senha para ${usuario.email}?`);
+    if (!confirmed) return;
+
+    setLoadingAction(`usuarios.resetmail.${usuario.id}`);
+    try {
+      await api<AdminUsuario>(`/api/admin/usuarios/${usuario.id}/send-password-reset`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      showToast("✅ Link de redefinição enviado por e-mail");
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao enviar reset de senha", true);
+    } finally {
+      setLoadingAction((current) => (current === `usuarios.resetmail.${usuario.id}` ? null : current));
     }
   }
 
@@ -3332,15 +3443,11 @@ function App() {
                   </select>
                 </label>
 
-                <label>
-                  Senha provisória
-                  <input
-                    placeholder={editingUsuarioId ? "Deixe em branco para manter a senha atual" : "Senha provisória"}
-                    value={usuarioForm.senha_provisoria}
-                    onChange={(event) => setUsuarioForm((current) => ({ ...current, senha_provisoria: event.target.value }))}
-                  />
-                  {editingUsuarioId && <span className="fieldHint">Preencha somente se também quiser resetar a senha.</span>}
-                </label>
+                <div className="infoBox">
+                  {editingUsuarioId
+                    ? "Para resetar senha, use o botão Enviar reset por e-mail na tabela."
+                    : "Ao criar o usuário, o sistema enviará um convite para o e-mail cadastrado. O usuário definirá a própria senha e configurará MFA no primeiro acesso."}
+                </div>
 
                 {usuarioForm.perfil === "clinica" && (
                   <div className="clinicSelectorBox">
@@ -3369,7 +3476,7 @@ function App() {
                         ? "Salvando usuário..."
                         : editingUsuarioId
                           ? "Salvar usuário"
-                          : "Criar usuário"}
+                          : "Criar usuário e enviar convite"}
                   </button>
                   {editingUsuarioId && (
                     <button className="secondaryButton" type="button" onClick={resetUsuarioForm} disabled={Boolean(loadingAction)}>
@@ -3472,6 +3579,22 @@ function App() {
                               : usuario.ativo
                                 ? "Inativar"
                                 : "Ativar"}
+                          </button>
+                          <button
+                            className="tableActionButton"
+                            type="button"
+                            onClick={() => handleSendUsuarioInvite(usuario)}
+                            disabled={loadingAction === `usuarios.invite.${usuario.id}` || !usuario.ativo}
+                          >
+                            {loadingAction === `usuarios.invite.${usuario.id}` ? "Enviando..." : "Reenviar convite"}
+                          </button>
+                          <button
+                            className="tableActionButton"
+                            type="button"
+                            onClick={() => handleSendUsuarioPasswordReset(usuario)}
+                            disabled={loadingAction === `usuarios.resetmail.${usuario.id}` || !usuario.ativo}
+                          >
+                            {loadingAction === `usuarios.resetmail.${usuario.id}` ? "Enviando..." : "Enviar reset senha"}
                           </button>
                           <button
                             className="tableActionButton"
