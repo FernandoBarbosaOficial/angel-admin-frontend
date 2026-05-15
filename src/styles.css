@@ -1254,3 +1254,107 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* ================================
+   PATCH MFA FRONTEND — Login TOTP + reset usuário
+   ================================ */
+.mfaCard {
+  gap: 16px;
+}
+
+.mfaIntro {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.mfaIntro strong {
+  font-size: 15px;
+}
+
+.mfaIntro span {
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.mfaQrBox {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.mfaQrBox img {
+  width: min(240px, 100%);
+  height: auto;
+  border-radius: 12px;
+}
+
+.mfaManualSecret {
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.mfaManualSecret summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.mfaManualSecret span {
+  display: block;
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.mfaManualSecret code {
+  display: block;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  word-break: break-all;
+  font-size: 12px;
+}
+
+.loginBox .secondaryButton,
+.secondaryButton {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.loginBox .secondaryButton:hover,
+.secondaryButton:hover {
+  background: #eef2f7;
+}
+
+.userActionsCell {
+  min-width: 130px;
+}
+
+.tableActionButton {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tableActionButton:hover {
+  background: #f1f5f9;
+}

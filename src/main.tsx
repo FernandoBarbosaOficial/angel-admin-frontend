@@ -230,6 +230,15 @@ type AdminLoginResponse = {
   user: AdminUser;
   mfaRequired: boolean;
   mfaSetupRequired: boolean;
+  setupToken?: string | null;
+  challengeToken?: string | null;
+};
+
+type AdminMfaSetupResponse = {
+  qrCodeDataUrl: string;
+  manualSecret: string;
+  issuer: string;
+  accountName: string;
 };
 
 
@@ -623,10 +632,48 @@ const SESSION_TIMEOUT_KEYS = ["sessionTimeoutMinutes", "timeoutAtendimentoMinuto
 function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [setupToken, setSetupToken] = useState<string | null>(null);
+  const [mfaSetup, setMfaSetup] = useState<AdminMfaSetupResponse | null>(null);
+  const [mfaChallengeActive, setMfaChallengeActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function submit(event: React.FormEvent) {
+  const loginStepLabel = mfaSetup
+    ? "Configurar segundo fator"
+    : mfaChallengeActive
+      ? "Confirmar segundo fator"
+      : "Entrar";
+
+  function resetMfaState() {
+    setMfaCode("");
+    setSetupToken(null);
+    setMfaSetup(null);
+    setMfaChallengeActive(false);
+  }
+
+  function finishLogin(result: AdminLoginResponse) {
+    if (!result.token) {
+      throw new Error("Login incompleto. O backend não retornou token final.");
+    }
+
+    setStoredAuth(result.token, result.user);
+    onLogin(result);
+  }
+
+  async function startMfaSetup(token: string) {
+    const setup = await api<AdminMfaSetupResponse>("/api/admin/auth/mfa/setup", {
+      method: "POST",
+      body: JSON.stringify({ setupToken: token }),
+    });
+
+    setSetupToken(token);
+    setMfaSetup(setup);
+    setMfaChallengeActive(false);
+    setMfaCode("");
+  }
+
+  async function submitCredentials(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError("");
@@ -637,15 +684,59 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
         body: JSON.stringify({ email, password }),
       });
 
-      if (!result.token) {
-        setError("MFA pendente. A ativação do segundo fator entra na próxima etapa.");
+      if (result.token) {
+        finishLogin(result);
         return;
       }
 
-      setStoredAuth(result.token, result.user);
-      onLogin(result);
+      if (result.mfaSetupRequired && result.setupToken) {
+        await startMfaSetup(result.setupToken);
+        return;
+      }
+
+      if (result.mfaRequired) {
+        setMfaChallengeActive(true);
+        setMfaSetup(null);
+        setSetupToken(null);
+        setMfaCode("");
+        return;
+      }
+
+      throw new Error("Resposta de autenticação inesperada.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao autenticar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitMfaCode(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const code = mfaCode.trim();
+      if (!/^\d{6}$/.test(code)) {
+        throw new Error("Informe o código de 6 dígitos do Authenticator.");
+      }
+
+      if (mfaSetup && setupToken) {
+        const result = await api<AdminLoginResponse>("/api/admin/auth/mfa/verify-setup", {
+          method: "POST",
+          body: JSON.stringify({ setupToken, code }),
+        });
+        finishLogin(result);
+        return;
+      }
+
+      const result = await api<AdminLoginResponse>("/api/admin/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password, mfaCode: code }),
+      });
+      finishLogin(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao validar MFA");
     } finally {
       setLoading(false);
     }
@@ -656,23 +747,83 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
       <main className="loginBox">
         <h1>AgendAI</h1>
         <p>Painel administrativo seguro</p>
-        <form onSubmit={submit} className="formCard">
-          <label>
-            Email
-            <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
-          </label>
-          <label>
-            Senha
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-            />
-          </label>
-          {error && <div className="alertError">{error}</div>}
-          <button type="submit" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
-        </form>
+
+        {!mfaSetup && !mfaChallengeActive && (
+          <form onSubmit={submitCredentials} className="formCard">
+            <label>
+              Email
+              <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
+            </label>
+            <label>
+              Senha
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+            {error && <div className="alertError">{error}</div>}
+            <button type="submit" disabled={loading}>{loading ? "Entrando..." : loginStepLabel}</button>
+          </form>
+        )}
+
+        {mfaSetup && (
+          <form onSubmit={submitMfaCode} className="formCard mfaCard">
+            <div className="mfaIntro">
+              <strong>Ative o segundo fator</strong>
+              <span>Escaneie o QR Code no Google Authenticator ou Microsoft Authenticator.</span>
+            </div>
+            <div className="mfaQrBox">
+              <img src={mfaSetup.qrCodeDataUrl} alt="QR Code MFA" />
+            </div>
+            <details className="mfaManualSecret">
+              <summary>Configurar manualmente</summary>
+              <span>Conta: {mfaSetup.accountName}</span>
+              <code>{mfaSetup.manualSecret}</code>
+            </details>
+            <label>
+              Código do Authenticator
+              <input
+                value={mfaCode}
+                onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000000"
+              />
+            </label>
+            {error && <div className="alertError">{error}</div>}
+            <button type="submit" disabled={loading}>{loading ? "Validando..." : "Validar e entrar"}</button>
+            <button className="secondaryButton" type="button" onClick={resetMfaState} disabled={loading}>
+              Voltar ao login
+            </button>
+          </form>
+        )}
+
+        {mfaChallengeActive && (
+          <form onSubmit={submitMfaCode} className="formCard mfaCard">
+            <div className="mfaIntro">
+              <strong>Confirme o segundo fator</strong>
+              <span>Digite o código de 6 dígitos do seu Authenticator.</span>
+            </div>
+            <label>
+              Código do Authenticator
+              <input
+                value={mfaCode}
+                onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000000"
+                autoFocus
+              />
+            </label>
+            {error && <div className="alertError">{error}</div>}
+            <button type="submit" disabled={loading}>{loading ? "Validando..." : "Entrar com MFA"}</button>
+            <button className="secondaryButton" type="button" onClick={resetMfaState} disabled={loading}>
+              Trocar usuário ou senha
+            </button>
+          </form>
+        )}
       </main>
     </div>
   );
@@ -1163,6 +1314,25 @@ function App() {
       await loadUsuarios();
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar usuário", true);
+    }
+  }
+
+  async function handleResetUsuarioMfa(usuario: AdminUsuario) {
+    const confirmed = window.confirm(
+      `Resetar MFA de ${usuario.nome}? No próximo login, esse usuário precisará cadastrar novo QR Code.`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api<AdminUsuario>(`/api/admin/usuarios/${usuario.id}/reset-mfa`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      showToast("✅ MFA resetado. O usuário deverá configurar o Authenticator no próximo login.");
+      await loadUsuarios();
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao resetar MFA", true);
     }
   }
 
@@ -2604,7 +2774,7 @@ function App() {
               <div className="cardHeader usersHeader">
                 <div>
                   <h3>Usuários administrativos</h3>
-                  <p>MFA/TOTP obrigatório entra na próxima fase. Alterações já ficam auditadas.</p>
+                  <p>MFA/TOTP obrigatório ativo. Admin Global pode resetar o segundo fator dos usuários.</p>
                 </div>
                 <button onClick={() => loadUsuarios()}>Atualizar usuários</button>
               </div>
@@ -2624,6 +2794,7 @@ function App() {
                       <th>Clínicas</th>
                       <th>Status</th>
                       <th>MFA</th>
+                      <th>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2643,6 +2814,15 @@ function App() {
                         </td>
                         <td><Badge active={usuario.ativo}>{usuario.ativo ? "Ativo" : "Inativo"}</Badge></td>
                         <td><Badge active={usuario.mfa_enabled}>{usuario.mfa_enabled ? "Ativo" : "Pendente"}</Badge></td>
+                        <td className="userActionsCell">
+                          <button
+                            className="tableActionButton"
+                            type="button"
+                            onClick={() => handleResetUsuarioMfa(usuario)}
+                          >
+                            Resetar MFA
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
