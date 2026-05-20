@@ -24,16 +24,6 @@ const PERIODOS_DISPONIBILIDADE: Array<{ value: PeriodoDisponibilidade; label: st
   { value: "noite", label: "Noite", inicio: "18:00", fim: "21:00" },
 ];
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function normalizeEmail(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function isValidEmail(value: string) {
-  return EMAIL_REGEX.test(normalizeEmail(value));
-}
-
 type Cliente = {
   id: number;
   nome_fantasia: string;
@@ -341,6 +331,16 @@ function normalizeSearch(value: unknown): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+
+function normalizeEmail(value: string): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isValidEmail(value: string): boolean {
+  const email = normalizeEmail(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
 
 function onlyDigits(value: string): string {
@@ -926,15 +926,17 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
     setRecoveryMessage("");
 
     try {
-      if (!recoveryEmail.includes("@")) throw new Error("Informe o e-mail do usuário.");
+      const normalizedRecoveryEmail = normalizeEmail(recoveryEmail);
+      if (!isValidEmail(normalizedRecoveryEmail)) throw new Error("Informe um e-mail válido.");
 
       const result = await api<{ message: string }>("/api/admin/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email: recoveryEmail }),
+        body: JSON.stringify({ email: normalizedRecoveryEmail }),
       });
 
+      setRecoveryEmail(normalizedRecoveryEmail);
       setRecoveryMessage(result.message || "Se o e-mail estiver cadastrado, enviaremos um link de recuperação.");
-      setEmail(recoveryEmail);
+      setEmail(normalizedRecoveryEmail);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao solicitar recuperação de senha");
     } finally {
@@ -971,7 +973,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
     try {
       const result = await api<AdminLoginResponse>("/api/admin/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: normalizeEmail(email), password }),
       });
 
       if (result.token) {
@@ -1022,7 +1024,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
 
       const result = await api<AdminLoginResponse>("/api/admin/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password, mfaCode: code }),
+        body: JSON.stringify({ email: normalizeEmail(email), password, mfaCode: code }),
       });
       finishLogin(result);
     } catch (err) {
@@ -1064,7 +1066,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
           <form onSubmit={submitCredentials} className="formCard">
             <label>
               Email
-              <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
             </label>
             <label>
               Senha
@@ -1695,7 +1697,7 @@ function App() {
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      showToast("❌ Informe um e-mail válido para o usuário", true);
+      showToast("❌ Informe um e-mail válido", true);
       return;
     }
 
@@ -2529,7 +2531,8 @@ function App() {
           >
             Médicos e aceites
           </button>
-          <button disabled>Unidades</button>
+          {/* Unidades fica reservado para futura modelagem de redes multiunidade.
+              No piloto, cada cliente já representa uma unidade operacional com endereço próprio. */}
           {isGlobalAdmin && (
             <button
               className={activeTab === "whatsapp" ? "navActive" : ""}
@@ -2554,7 +2557,8 @@ function App() {
               Auditoria
             </button>
           )}
-          <button disabled>Módulos</button>
+          {/* Módulos fica reservado para feature flags avançadas por cliente.
+              No piloto, os controles ficam dentro do cadastro/configuração do cliente. */}
         </nav>
       </aside>
 
@@ -3438,9 +3442,6 @@ function App() {
                     placeholder="usuario@clinica.com.br"
                     value={usuarioForm.email}
                     onChange={(event) => setUsuarioForm((current) => ({ ...current, email: event.target.value }))}
-                    onBlur={(event) =>
-                      setUsuarioForm((current) => ({ ...current, email: normalizeEmail(event.target.value) }))
-                    }
                   />
                   {editingUsuarioId && (
                     <span className="fieldHint">
@@ -3477,7 +3478,7 @@ function App() {
 
                 <div className="infoBox">
                   {editingUsuarioId
-                    ? "Para resetar senha, use o botão Enviar reset por e-mail na tabela."
+                    ? "Ao salvar, o e-mail informado passa a ser usado para login, convite e recuperação de senha. Para resetar senha, use o botão Enviar reset por e-mail na tabela."
                     : "Ao criar o usuário, o sistema enviará um convite para o e-mail cadastrado. O usuário definirá a própria senha e configurará MFA no primeiro acesso."}
                 </div>
 
