@@ -3236,7 +3236,8 @@ function App() {
                 onChange={(event) => setNovaForma({ ...novaForma, tipo: event.target.value })}
               >
                 <option value="particular">Particular</option>
-                <option value="cartao">Cartão próprio / benefício</option>
+                <option value="beneficio">Cartão próprio / benefício</option>
+                <option value="cartao">Cartão próprio / benefício legado</option>
                 <option value="convenio">Convênio</option>
                 <option value="assinatura">Assinatura</option>
                 <option value="parceria">Parceria</option>
