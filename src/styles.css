@@ -1471,3 +1471,24 @@ button:disabled {
 .userActionsCell {
   min-width: 230px;
 }
+
+/* PATCH idade por médico/especialidade */
+.ageRuleBox {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.ageRuleBox strong {
+  color: #172033;
+  font-size: 14px;
+}
+
+.ageRuleBox span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+}

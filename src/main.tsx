@@ -157,6 +157,13 @@ type Medico = {
   andar?: string | null;
   ativo: boolean;
   especialidades: string;
+  regras_idade?: Array<{
+    especialidade: string;
+    idade_minima: number | null;
+    idade_maxima: number | null;
+    regra_idade_texto?: string | null;
+    ativo?: boolean;
+  }>;
 };
 
 type EspecialidadeCatalogo = {
@@ -1232,6 +1239,9 @@ function App() {
     especialidade: "",
     dias: "",
     andar: "",
+    idade_minima: "",
+    idade_maxima: "",
+    regra_idade_texto: "",
   };
 
   const [medicoForm, setMedicoForm] = useState(emptyMedicoForm);
@@ -2297,6 +2307,11 @@ function App() {
     }
   }
 
+  function getPrimeiraRegraIdade(medico: Medico) {
+    const regras = Array.isArray(medico.regras_idade) ? medico.regras_idade : [];
+    return regras.find((regra) => regra?.ativo !== false) || regras[0] || null;
+  }
+
   function editarMedico(medico: Medico) {
     setSelectedMedicoId(medico.id);
     setEditingMedicoId(medico.id);
@@ -2306,6 +2321,9 @@ function App() {
       especialidade: medico.especialidades || "",
       dias: medico.dias || "",
       andar: medico.andar || "",
+      idade_minima: getPrimeiraRegraIdade(medico)?.idade_minima != null ? String(getPrimeiraRegraIdade(medico)?.idade_minima) : "",
+      idade_maxima: getPrimeiraRegraIdade(medico)?.idade_maxima != null ? String(getPrimeiraRegraIdade(medico)?.idade_maxima) : "",
+      regra_idade_texto: getPrimeiraRegraIdade(medico)?.regra_idade_texto || "",
     });
   }
 
@@ -2329,12 +2347,36 @@ function App() {
       return;
     }
 
+    const idadeMinima = medicoForm.idade_minima.trim() === "" ? null : Number(medicoForm.idade_minima);
+    const idadeMaxima = medicoForm.idade_maxima.trim() === "" ? null : Number(medicoForm.idade_maxima);
+
+    if (idadeMinima !== null && (!Number.isInteger(idadeMinima) || idadeMinima < 0 || idadeMinima > 130)) {
+      showToast("❌ Idade mínima inválida", true);
+      setLoadingAction(null);
+      return;
+    }
+
+    if (idadeMaxima !== null && (!Number.isInteger(idadeMaxima) || idadeMaxima < 0 || idadeMaxima > 130)) {
+      showToast("❌ Idade máxima inválida", true);
+      setLoadingAction(null);
+      return;
+    }
+
+    if (idadeMinima !== null && idadeMaxima !== null && idadeMinima > idadeMaxima) {
+      showToast("❌ Idade mínima não pode ser maior que a idade máxima", true);
+      setLoadingAction(null);
+      return;
+    }
+
     const payload = {
       nome: medicoForm.nome.trim(),
       registro_profissional: medicoForm.registro_profissional.trim(),
       especialidade: especialidadeSelecionada.nome,
       dias: medicoForm.dias.trim() || null,
       andar: medicoForm.andar.trim() || null,
+      idade_minima: idadeMinima,
+      idade_maxima: idadeMaxima,
+      regra_idade_texto: medicoForm.regra_idade_texto.trim() || null,
     };
 
     try {
@@ -3971,6 +4013,33 @@ function App() {
                   onChange={(event) => setMedicoForm({ ...medicoForm, andar: event.target.value })}
                   placeholder="Andar/sala"
                 />
+                <div className="ageRuleBox">
+                  <strong>Faixa etária de atendimento</strong>
+                  <span>Use em branco quando o médico atender qualquer idade. Para casos como “confirmar idade”, preencha a observação.</span>
+                  <div className="twoColumns">
+                    <input
+                      type="number"
+                      min="0"
+                      max="130"
+                      value={medicoForm.idade_minima}
+                      onChange={(event) => setMedicoForm({ ...medicoForm, idade_minima: event.target.value })}
+                      placeholder="Idade mínima"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="130"
+                      value={medicoForm.idade_maxima}
+                      onChange={(event) => setMedicoForm({ ...medicoForm, idade_maxima: event.target.value })}
+                      placeholder="Idade máxima"
+                    />
+                  </div>
+                  <input
+                    value={medicoForm.regra_idade_texto}
+                    onChange={(event) => setMedicoForm({ ...medicoForm, regra_idade_texto: event.target.value })}
+                    placeholder="Observação. Ex.: Qualquer idade, confirmar idade, 0 a 14"
+                  />
+                </div>
                 <div className="formActions">
                   <button type="submit" disabled={loadingAction === "medico"}>
                     {loadingAction === "medico"
