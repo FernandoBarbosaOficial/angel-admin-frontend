@@ -333,6 +333,16 @@ function normalizeSearch(value: unknown): string {
     .trim();
 }
 
+
+function normalizeEmail(value: string): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isValidEmail(value: string): boolean {
+  const email = normalizeEmail(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
 function onlyDigits(value: string): string {
   return value.replace(/\D/g, "");
 }
@@ -365,15 +375,6 @@ function formatPhone(value: string): string {
 
 function getApiText(value?: string | null): string {
   return String(value || "").trim();
-}
-
-function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function isValidEmail(value: string): boolean {
-  const email = normalizeEmail(value);
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 
@@ -502,13 +503,12 @@ function EmailTokenPasswordScreen({ kind }: EmailTokenPasswordScreenProps) {
     setSuccess("");
 
     try {
-      const password = newPassword.trim();
-      if (password.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
-      if (password !== confirmPassword.trim()) throw new Error("A confirmação da senha não confere.");
+      if (newPassword.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+      if (newPassword !== confirmPassword) throw new Error("A confirmação da senha não confere.");
 
       await api<AdminUser>(isActivation ? "/api/admin/auth/activate" : "/api/admin/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({ token, newPassword: password }),
+        body: JSON.stringify({ token, newPassword }),
       });
 
       setSuccess(isActivation
@@ -926,17 +926,17 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
     setRecoveryMessage("");
 
     try {
-      const emailToRecover = normalizeEmail(recoveryEmail);
-      if (!isValidEmail(emailToRecover)) throw new Error("Informe um e-mail válido.");
+      const normalizedRecoveryEmail = normalizeEmail(recoveryEmail);
+      if (!isValidEmail(normalizedRecoveryEmail)) throw new Error("Informe um e-mail válido.");
 
-      const result = await api<{ message?: string }>("/api/admin/auth/forgot-password", {
+      const result = await api<{ message: string }>("/api/admin/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email: emailToRecover }),
+        body: JSON.stringify({ email: normalizedRecoveryEmail }),
       });
 
-      setRecoveryEmail(emailToRecover);
-      setRecoveryMessage(result?.message || "Se o e-mail estiver cadastrado, enviaremos um link de recuperação.");
-      setEmail(emailToRecover);
+      setRecoveryEmail(normalizedRecoveryEmail);
+      setRecoveryMessage(result.message || "Se o e-mail estiver cadastrado, enviaremos um link de recuperação.");
+      setEmail(normalizedRecoveryEmail);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao solicitar recuperação de senha");
     } finally {
@@ -971,14 +971,9 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
     setError("");
 
     try {
-      const loginEmail = normalizeEmail(email);
-      if (!isValidEmail(loginEmail)) throw new Error("Informe um e-mail válido.");
-      if (!password) throw new Error("Informe a senha.");
-      setEmail(loginEmail);
-
       const result = await api<AdminLoginResponse>("/api/admin/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email: loginEmail, password }),
+        body: JSON.stringify({ email: normalizeEmail(email), password }),
       });
 
       if (result.token) {
@@ -1053,14 +1048,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
             </div>
             <label>
               E-mail cadastrado
-              <input
-                type="email"
-                value={recoveryEmail}
-                onChange={(event) => setRecoveryEmail(event.target.value)}
-                onBlur={() => setRecoveryEmail((current) => normalizeEmail(current))}
-                autoComplete="username"
-                placeholder="usuario@dominio.com.br"
-              />
+              <input value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} autoComplete="username" />
             </label>
             <div className="infoBox">
               O link é enviado somente para o e-mail cadastrado, expira em poucos minutos e só pode ser usado uma vez.
@@ -1077,15 +1065,8 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
         {!showRecovery && !mfaSetup && !mfaChallengeActive && (
           <form onSubmit={submitCredentials} className="formCard">
             <label>
-              E-mail
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                onBlur={() => setEmail((current) => normalizeEmail(current))}
-                autoComplete="username"
-                placeholder="usuario@dominio.com.br"
-              />
+              Email
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
             </label>
             <label>
               Senha
@@ -1707,33 +1688,31 @@ function App() {
     event.preventDefault();
 
     const isEditing = Boolean(editingUsuarioId);
-    const normalizedUserEmail = normalizeEmail(usuarioForm.email);
+    const normalizedEmail = normalizeEmail(usuarioForm.email);
+    const normalizedNome = usuarioForm.nome.trim();
 
-    if (!usuarioForm.nome.trim()) {
+    if (!normalizedNome) {
       showToast("❌ Informe o nome do usuário", true);
       return;
     }
 
-    if (!isEditing && !isValidEmail(normalizedUserEmail)) {
-      showToast("❌ Informe um e-mail válido para o convite", true);
+    if (!isValidEmail(normalizedEmail)) {
+      showToast("❌ Informe um e-mail válido", true);
       return;
     }
 
     if (usuarioForm.perfil === "clinica" && usuarioForm.cliente_ids.length === 0) {
-      showToast("❌ Vincule pelo menos uma clínica ao Admin Clínica", true);
+      showToast("❌ Selecione pelo menos uma clínica para o Admin Clínica", true);
       return;
     }
 
     const payload: Record<string, unknown> = {
-      nome: usuarioForm.nome.trim(),
+      nome: normalizedNome,
+      email: normalizedEmail,
       perfil: usuarioForm.perfil,
       ativo: usuarioForm.ativo,
       cliente_ids: usuarioForm.perfil === "clinica" ? usuarioForm.cliente_ids : [],
     };
-
-    if (!isEditing) {
-      payload.email = normalizedUserEmail;
-    }
 
     setLoadingAction(isEditing ? "usuarios.save" : "usuarios.create");
     try {
@@ -3455,17 +3434,18 @@ function App() {
                 </label>
 
                 <label>
-                  E-mail
+                  Email
                   <input
                     type="email"
                     placeholder="usuario@clinica.com.br"
                     value={usuarioForm.email}
-                    disabled={Boolean(editingUsuarioId)}
                     onChange={(event) => setUsuarioForm((current) => ({ ...current, email: event.target.value }))}
-                    onBlur={() => setUsuarioForm((current) => ({ ...current, email: normalizeEmail(current.email) }))}
-                    required={!editingUsuarioId}
                   />
-                  {editingUsuarioId && <span className="fieldHint">O e-mail identifica o usuário e não é alterado por esta tela.</span>}
+                  {editingUsuarioId && (
+                    <span className="fieldHint">
+                      Alterar o e-mail muda o login, os convites e os links de recuperação deste usuário.
+                    </span>
+                  )}
                 </label>
 
                 <label>
@@ -3496,7 +3476,7 @@ function App() {
 
                 <div className="infoBox">
                   {editingUsuarioId
-                    ? "Para resetar senha, use o botão Enviar reset por e-mail na tabela."
+                    ? "Ao salvar, o e-mail informado passa a ser usado para login, convite e recuperação de senha. Para resetar senha, use o botão Enviar reset por e-mail na tabela."
                     : "Ao criar o usuário, o sistema enviará um convite para o e-mail cadastrado. O usuário definirá a própria senha e configurará MFA no primeiro acesso."}
                 </div>
 
@@ -3589,7 +3569,6 @@ function App() {
                       <th>Perfil</th>
                       <th>Clínicas</th>
                       <th>Status</th>
-                      <th>Conta</th>
                       <th>MFA</th>
                       <th>Ações</th>
                     </tr>
@@ -3610,7 +3589,6 @@ function App() {
                             : (usuario.clientes || []).map((cliente) => cliente.nome_fantasia).join(", ") || "-"}
                         </td>
                         <td><Badge active={usuario.ativo}>{usuario.ativo ? "Ativo" : "Inativo"}</Badge></td>
-                        <td><Badge active={!usuario.primeiro_acesso}>{usuario.primeiro_acesso ? "Convite/1º acesso" : "Senha definida"}</Badge></td>
                         <td><Badge active={usuario.mfa_enabled}>{usuario.mfa_enabled ? "Ativo" : "Pendente"}</Badge></td>
                         <td className="userActionsCell">
                           <button
