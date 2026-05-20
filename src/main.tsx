@@ -24,6 +24,16 @@ const PERIODOS_DISPONIBILIDADE: Array<{ value: PeriodoDisponibilidade; label: st
   { value: "noite", label: "Noite", inicio: "18:00", fim: "21:00" },
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return EMAIL_REGEX.test(normalizeEmail(value));
+}
+
 type Cliente = {
   id: number;
   nome_fantasia: string;
@@ -331,16 +341,6 @@ function normalizeSearch(value: unknown): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
-}
-
-
-function normalizeEmail(value: string): string {
-  return String(value || "").trim().toLowerCase();
-}
-
-function isValidEmail(value: string): boolean {
-  const email = normalizeEmail(value);
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
 
 function onlyDigits(value: string): string {
@@ -926,17 +926,15 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
     setRecoveryMessage("");
 
     try {
-      const normalizedRecoveryEmail = normalizeEmail(recoveryEmail);
-      if (!isValidEmail(normalizedRecoveryEmail)) throw new Error("Informe um e-mail válido.");
+      if (!recoveryEmail.includes("@")) throw new Error("Informe o e-mail do usuário.");
 
       const result = await api<{ message: string }>("/api/admin/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email: normalizedRecoveryEmail }),
+        body: JSON.stringify({ email: recoveryEmail }),
       });
 
-      setRecoveryEmail(normalizedRecoveryEmail);
       setRecoveryMessage(result.message || "Se o e-mail estiver cadastrado, enviaremos um link de recuperação.");
-      setEmail(normalizedRecoveryEmail);
+      setEmail(recoveryEmail);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao solicitar recuperação de senha");
     } finally {
@@ -973,7 +971,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
     try {
       const result = await api<AdminLoginResponse>("/api/admin/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email: normalizeEmail(email), password }),
+        body: JSON.stringify({ email, password }),
       });
 
       if (result.token) {
@@ -1024,7 +1022,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
 
       const result = await api<AdminLoginResponse>("/api/admin/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email: normalizeEmail(email), password, mfaCode: code }),
+        body: JSON.stringify({ email, password, mfaCode: code }),
       });
       finishLogin(result);
     } catch (err) {
@@ -1066,7 +1064,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
           <form onSubmit={submitCredentials} className="formCard">
             <label>
               Email
-              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
+              <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
             </label>
             <label>
               Senha
@@ -1697,7 +1695,7 @@ function App() {
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      showToast("❌ Informe um e-mail válido", true);
+      showToast("❌ Informe um e-mail válido para o usuário", true);
       return;
     }
 
@@ -3440,6 +3438,9 @@ function App() {
                     placeholder="usuario@clinica.com.br"
                     value={usuarioForm.email}
                     onChange={(event) => setUsuarioForm((current) => ({ ...current, email: event.target.value }))}
+                    onBlur={(event) =>
+                      setUsuarioForm((current) => ({ ...current, email: normalizeEmail(event.target.value) }))
+                    }
                   />
                   {editingUsuarioId && (
                     <span className="fieldHint">
@@ -3476,7 +3477,7 @@ function App() {
 
                 <div className="infoBox">
                   {editingUsuarioId
-                    ? "Ao salvar, o e-mail informado passa a ser usado para login, convite e recuperação de senha. Para resetar senha, use o botão Enviar reset por e-mail na tabela."
+                    ? "Para resetar senha, use o botão Enviar reset por e-mail na tabela."
                     : "Ao criar o usuário, o sistema enviará um convite para o e-mail cadastrado. O usuário definirá a própria senha e configurará MFA no primeiro acesso."}
                 </div>
 
