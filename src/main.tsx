@@ -343,6 +343,23 @@ function normalizeSearch(value: unknown): string {
 }
 
 
+function parseOptionalAge(value: string): number | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 130) {
+    throw new Error("Idade deve ser um número inteiro entre 0 e 130");
+  }
+  return parsed;
+}
+
+function splitEspecialidadesInput(value: string): string[] {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function normalizeEmail(value: string): string {
   return String(value || "").trim().toLowerCase();
 }
@@ -1344,6 +1361,26 @@ function App() {
     );
   }
 
+  function resolveEspecialidadesParaSalvar(rawValue: string): string {
+    const especialidades = splitEspecialidadesInput(rawValue);
+    if (especialidades.length === 0) {
+      throw new Error("Informe ao menos uma especialidade");
+    }
+
+    return especialidades
+      .map((item) => {
+        const existente = resolveEspecialidadeDigitada(item);
+        if (existente) return existente.nome;
+
+        if (!isGlobalAdmin) {
+          throw new Error(`Especialidade não cadastrada: ${item}. Peça ao Admin Global para cadastrar.`);
+        }
+
+        return item;
+      })
+      .join(", ");
+  }
+
   const clientesFiltrados = useMemo(() => {
     return clientes.filter((cliente) => {
       const clienteAtivo = cliente.status === "ativo" && cliente.ativo !== false;
@@ -2310,16 +2347,16 @@ function App() {
   }
 
   function editarMedico(medico: Medico) {
-    const regraAtiva = Array.isArray(medico.regras_idade)
-      ? medico.regras_idade.find((regra) => regra && regra.ativo !== false) || medico.regras_idade[0]
-      : null;
-
     setSelectedMedicoId(medico.id);
     setEditingMedicoId(medico.id);
+    const regraAtiva = Array.isArray(medico.regras_idade)
+      ? medico.regras_idade.find((regra) => regra?.ativo !== false) || medico.regras_idade[0]
+      : null;
+
     setMedicoForm({
       nome: medico.nome || "",
       registro_profissional: medico.registro_profissional || "",
-      especialidade: medico.especialidades || regraAtiva?.especialidade || "",
+      especialidade: medico.especialidades || "",
       dias: medico.dias || "",
       andar: medico.andar || "",
       idade_minima: regraAtiva?.idade_minima === null || regraAtiva?.idade_minima === undefined ? "" : String(regraAtiva.idade_minima),
@@ -2333,16 +2370,6 @@ function App() {
     setMedicoForm(emptyMedicoForm);
   }
 
-  function parseOptionalAgeInput(value: string) {
-    const trimmed = String(value || "").trim();
-    if (!trimmed) return null;
-    const number = Number(trimmed);
-    if (!Number.isInteger(number) || number < 0 || number > 130) {
-      throw new Error("Idade deve ser um número inteiro entre 0 e 130");
-    }
-    return number;
-  }
-
   async function salvarMedico(event: React.FormEvent) {
     event.preventDefault();
     if (!selectedClienteId) return;
@@ -2350,28 +2377,20 @@ function App() {
     setToast("");
     setLoadingAction("medico");
 
-    const especialidadeSelecionada = resolveEspecialidadeDigitada(medicoForm.especialidade);
-
-    if (!especialidadeSelecionada) {
-      showToast("❌ Selecione uma especialidade válida da lista", true);
-      setLoadingAction(null);
-      return;
-    }
-
+    let especialidadePayload = "";
     let idadeMinima: number | null = null;
     let idadeMaxima: number | null = null;
 
     try {
-      idadeMinima = parseOptionalAgeInput(medicoForm.idade_minima);
-      idadeMaxima = parseOptionalAgeInput(medicoForm.idade_maxima);
-    } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Idade inválida", true);
-      setLoadingAction(null);
-      return;
-    }
+      especialidadePayload = resolveEspecialidadesParaSalvar(medicoForm.especialidade);
+      idadeMinima = parseOptionalAge(medicoForm.idade_minima);
+      idadeMaxima = parseOptionalAge(medicoForm.idade_maxima);
 
-    if (idadeMinima !== null && idadeMaxima !== null && idadeMinima > idadeMaxima) {
-      showToast("❌ Idade mínima não pode ser maior que a idade máxima", true);
+      if (idadeMinima !== null && idadeMaxima !== null && idadeMinima > idadeMaxima) {
+        throw new Error("Idade mínima não pode ser maior que a idade máxima");
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Dados inválidos do médico", true);
       setLoadingAction(null);
       return;
     }
@@ -2379,7 +2398,7 @@ function App() {
     const payload = {
       nome: medicoForm.nome.trim(),
       registro_profissional: medicoForm.registro_profissional.trim(),
-      especialidade: especialidadeSelecionada.nome,
+      especialidade: especialidadePayload,
       dias: medicoForm.dias.trim() || null,
       andar: medicoForm.andar.trim() || null,
       idade_minima: idadeMinima,
@@ -3244,8 +3263,7 @@ function App() {
                 onChange={(event) => setNovaForma({ ...novaForma, tipo: event.target.value })}
               >
                 <option value="particular">Particular</option>
-                <option value="beneficio">Cartão próprio / benefício</option>
-                <option value="cartao">Cartão próprio / benefício legado</option>
+                <option value="cartao">Cartão próprio / benefício</option>
                 <option value="convenio">Convênio</option>
                 <option value="assinatura">Assinatura</option>
                 <option value="parceria">Parceria</option>
@@ -3998,13 +4016,16 @@ function App() {
                     setMedicoForm({ ...medicoForm, especialidade: event.target.value })
                   }
                   onBlur={() => {
-                    const especialidade = resolveEspecialidadeDigitada(medicoForm.especialidade);
-                    if (especialidade) {
-                      setMedicoForm((current) => ({ ...current, especialidade: especialidade.nome }));
+                    const especialidades = splitEspecialidadesInput(medicoForm.especialidade);
+                    if (especialidades.length === 1) {
+                      const especialidade = resolveEspecialidadeDigitada(especialidades[0]);
+                      if (especialidade) {
+                        setMedicoForm((current) => ({ ...current, especialidade: especialidade.nome }));
+                      }
                     }
                   }}
                   list="especialidades-catalogo"
-                  placeholder="Especialidade. Ex.: Cardiologia"
+                  placeholder="Especialidades. Ex.: Clínica Médica, Cardiologia"
                   required
                 />
                 <datalist id="especialidades-catalogo">
@@ -4022,44 +4043,31 @@ function App() {
                   onChange={(event) => setMedicoForm({ ...medicoForm, andar: event.target.value })}
                   placeholder="Andar/sala"
                 />
-
                 <div className="ageRuleBox">
-                  <strong>Faixa etária de atendimento</strong>
-                  <span>Deixe em branco quando o médico atende qualquer idade. A regra será aplicada no WhatsApp por médico + especialidade.</span>
+                  <strong>Regra de idade</strong>
+                  <span>Opcional. Para mais de uma especialidade no mesmo médico, a mesma faixa será aplicada a todas as especialidades informadas.</span>
                   <div className="twoColumns">
-                    <label>
-                      Idade mínima
-                      <input
-                        type="number"
-                        min={0}
-                        max={130}
-                        value={medicoForm.idade_minima}
-                        onChange={(event) =>
-                          setMedicoForm({ ...medicoForm, idade_minima: event.target.value })
-                        }
-                        placeholder="Ex.: 0"
-                      />
-                    </label>
-                    <label>
-                      Idade máxima
-                      <input
-                        type="number"
-                        min={0}
-                        max={130}
-                        value={medicoForm.idade_maxima}
-                        onChange={(event) =>
-                          setMedicoForm({ ...medicoForm, idade_maxima: event.target.value })
-                        }
-                        placeholder="Ex.: 14"
-                      />
-                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="130"
+                      value={medicoForm.idade_minima}
+                      onChange={(event) => setMedicoForm({ ...medicoForm, idade_minima: event.target.value })}
+                      placeholder="Idade mínima"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="130"
+                      value={medicoForm.idade_maxima}
+                      onChange={(event) => setMedicoForm({ ...medicoForm, idade_maxima: event.target.value })}
+                      placeholder="Idade máxima"
+                    />
                   </div>
                   <input
                     value={medicoForm.regra_idade_texto}
-                    onChange={(event) =>
-                      setMedicoForm({ ...medicoForm, regra_idade_texto: event.target.value })
-                    }
-                    placeholder="Observação. Ex.: De 0 a 14 anos"
+                    onChange={(event) => setMedicoForm({ ...medicoForm, regra_idade_texto: event.target.value })}
+                    placeholder="Observação. Ex.: atende de 0 a 14 anos"
                   />
                 </div>
                 <div className="formActions">
