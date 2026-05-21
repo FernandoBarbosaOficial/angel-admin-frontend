@@ -1471,3 +1471,46 @@ button:disabled {
 .userActionsCell {
   min-width: 230px;
 }
+
+
+/* PATCH carga em massa de médicos */
+.importMedicosBox {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 12px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+}
+
+.importMedicosBox strong {
+  display: block;
+  color: #1e3a8a;
+  font-size: 14px;
+}
+
+.importMedicosBox span {
+  display: block;
+  margin-top: 4px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.importFileButton {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.importFileButton input {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .importMedicosBox {
+    grid-template-columns: 1fr;
+  }
+}

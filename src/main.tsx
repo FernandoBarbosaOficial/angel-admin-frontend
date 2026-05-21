@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
@@ -166,6 +167,15 @@ type Medico = {
   ativo: boolean;
   especialidades: string;
   regras_idade?: MedicoRegraIdade[];
+};
+
+type ImportacaoMedicosResultado = {
+  total: number;
+  criados: number;
+  atualizados: number;
+  erros: number;
+  ignorados: number;
+  results: Array<Record<string, unknown>>;
 };
 
 type EspecialidadeCatalogo = {
@@ -2428,6 +2438,86 @@ function App() {
     }
   }
 
+
+  function normalizeImportCell(value: unknown): string {
+    return String(value ?? "").replace(/\s+/g, " ").trim();
+  }
+
+  async function importarMedicosDePlanilha(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !selectedClienteId) return;
+    if (!isGlobalAdmin) {
+      showToast("❌ Apenas Admin Global pode importar médicos em massa", true);
+      return;
+    }
+
+    setToast("");
+    setLoadingAction("importar-medicos");
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheetName = workbook.SheetNames.find((name) => name.toLowerCase().includes("planilha1")) || workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown[][];
+      const headerIndex = matrix.findIndex((row) =>
+        row.some((cell) => normalizeImportCell(cell).toUpperCase() === "MÉDICOS") &&
+        row.some((cell) => normalizeImportCell(cell).toUpperCase() === "ESPECIALIDADES"),
+      );
+
+      if (headerIndex < 0) {
+        throw new Error("Não encontrei o cabeçalho MÉDICOS / ESPECIALIDADES na planilha");
+      }
+
+      const rows = matrix
+        .slice(headerIndex + 1)
+        .map((row, index) => ({
+          nome: normalizeImportCell(row[0]),
+          especialidade: normalizeImportCell(row[1]),
+          idade: normalizeImportCell(row[2]),
+          quantidade: normalizeImportCell(row[3]),
+          dias_atendimento: normalizeImportCell(row[4]),
+          registro_profissional: String(index).padStart(6, "0"),
+        }))
+        .filter((row) => row.nome && row.especialidade);
+
+      if (rows.length === 0) {
+        throw new Error("Nenhuma linha válida encontrada para importação");
+      }
+
+      const confirmed = window.confirm(
+        `Importar ${rows.length} médicos para ${selectedCliente?.nome_fantasia || "a clínica selecionada"}?\n\n` +
+        `CRMs provisórios serão gerados como 000000, 000001, 000002... conforme a ordem da planilha.`,
+      );
+
+      if (!confirmed) return;
+
+      const result = await api<ImportacaoMedicosResultado>(`/api/admin/clientes/${selectedClienteId}/medicos/importar-planilha`, {
+        method: "POST",
+        body: JSON.stringify({
+          periodo_padrao: "manha",
+          hora_inicio: "08:00",
+          hora_fim: "12:00",
+          intervalo_minutos: 30,
+          rows,
+        }),
+      });
+
+      showToast(
+        `✅ Importação concluída: ${result.criados} criados, ${result.atualizados} atualizados, ${result.erros} erros, ${result.ignorados} ignorados`,
+        result.erros > 0,
+      );
+      await loadEspecialidadesCatalogo();
+      await loadMedicos(selectedClienteId);
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao importar planilha", true);
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
   async function toggleMedico(medico: Medico) {
     if (!selectedClienteId) return;
 
@@ -3994,6 +4084,24 @@ function App() {
                 Clique em um médico da lista para carregar os dados no formulário e editar.
                 Médico inativo não entra no WhatsApp nem na validação de horários.
               </div>
+
+              {isGlobalAdmin && (
+                <div className="importMedicosBox">
+                  <div>
+                    <strong>Carga em massa</strong>
+                    <span>Importa a planilha da unidade. Se não houver CRM, usa 000000, 000001, 000002... pela ordem da planilha.</span>
+                  </div>
+                  <label className="small importFileButton">
+                    {loadingAction === "importar-medicos" ? "Importando..." : "Importar planilha"}
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      disabled={loadingAction === "importar-medicos"}
+                      onChange={importarMedicosDePlanilha}
+                    />
+                  </label>
+                </div>
+              )}
 
               <form onSubmit={salvarMedico} className="medicoForm">
                 <input
