@@ -1477,13 +1477,18 @@ button:disabled {
 .importMedicosBox {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
   margin: 12px 0 14px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid #bfdbfe;
-  border-radius: 14px;
-  background: #eff6ff;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
+}
+
+.importMedicosBox.isImporting {
+  border-color: #93c5fd;
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.12);
 }
 
 .importMedicosBox strong {
@@ -1501,16 +1506,78 @@ button:disabled {
 }
 
 .importFileButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+}
+
+.importFileButton:hover {
+  filter: brightness(0.96);
+}
+
+.importFileButton.disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: #334155;
+  box-shadow: none;
 }
 
 .importFileButton input {
   display: none;
 }
 
+.importStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.importStatus span {
+  margin-top: 0;
+  color: inherit;
+}
+
+.importSpinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid #bfdbfe;
+  border-top-color: #2563eb;
+  border-radius: 999px;
+  animation: importSpin 0.8s linear infinite;
+}
+
+@keyframes importSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 760px) {
   .importMedicosBox {
     grid-template-columns: 1fr;
+  }
+
+  .importFileButton {
+    width: 100%;
   }
 }

@@ -1209,6 +1209,7 @@ function App() {
   const [produtoPage, setProdutoPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [importacaoMedicosStatus, setImportacaoMedicosStatus] = useState("");
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "usuarios" | "auditoria">("clientes");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
@@ -4086,12 +4087,18 @@ function App() {
               </div>
 
               {isGlobalAdmin && (
-                <div className="importMedicosBox">
+                <div className={`importMedicosBox${loadingAction === "importar-medicos" ? " isImporting" : ""}`}>
                   <div>
                     <strong>Carga em massa</strong>
                     <span>Importa a planilha da unidade. Se não houver CRM, usa 000000, 000001, 000002... pela ordem da planilha.</span>
+                    {importacaoMedicosStatus && (
+                      <div className="importStatus" role="status" aria-live="polite">
+                        {loadingAction === "importar-medicos" && <span className="importSpinner" aria-hidden="true" />}
+                        <span>{importacaoMedicosStatus}</span>
+                      </div>
+                    )}
                   </div>
-                  <label className="small importFileButton">
+                  <label className={`importFileButton${loadingAction === "importar-medicos" ? " disabled" : ""}`}>
                     {loadingAction === "importar-medicos" ? "Importando..." : "Importar planilha"}
                     <input
                       type="file"
