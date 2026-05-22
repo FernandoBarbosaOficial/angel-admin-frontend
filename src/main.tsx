@@ -2455,6 +2455,7 @@ function App() {
     }
 
     setToast("");
+    setImportacaoMedicosStatus("Lendo planilha...");
     setLoadingAction("importar-medicos");
 
     try {
@@ -2488,12 +2489,19 @@ function App() {
         throw new Error("Nenhuma linha válida encontrada para importação");
       }
 
+      setImportacaoMedicosStatus(`Planilha lida: ${rows.length} médicos válidos encontrados.`);
+
       const confirmed = window.confirm(
         `Importar ${rows.length} médicos para ${selectedCliente?.nome_fantasia || "a clínica selecionada"}?\n\n` +
         `CRMs provisórios serão gerados como 000000, 000001, 000002... conforme a ordem da planilha.`,
       );
 
-      if (!confirmed) return;
+      if (!confirmed) {
+        setImportacaoMedicosStatus("Importação cancelada pelo usuário.");
+        return;
+      }
+
+      setImportacaoMedicosStatus(`Enviando ${rows.length} médicos para o servidor...`);
 
       const result = await api<ImportacaoMedicosResultado>(`/api/admin/clientes/${selectedClienteId}/medicos/importar-planilha`, {
         method: "POST",
@@ -2506,14 +2514,18 @@ function App() {
         }),
       });
 
+      const resumoImportacao = `Importação concluída: ${result.criados} criados, ${result.atualizados} atualizados, ${result.erros} erros, ${result.ignorados} ignorados.`;
+      setImportacaoMedicosStatus(resumoImportacao);
       showToast(
-        `✅ Importação concluída: ${result.criados} criados, ${result.atualizados} atualizados, ${result.erros} erros, ${result.ignorados} ignorados`,
+        `✅ ${resumoImportacao}`,
         result.erros > 0,
       );
       await loadEspecialidadesCatalogo();
       await loadMedicos(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao importar planilha", true);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao importar planilha";
+      setImportacaoMedicosStatus(`Falha na importação: ${errorMessage}`);
+      showToast(`❌ ${errorMessage}`, true);
     } finally {
       setLoadingAction(null);
     }
