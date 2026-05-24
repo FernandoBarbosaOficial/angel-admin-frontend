@@ -1636,3 +1636,171 @@ button:disabled {
   background: #fee2e2;
   border-color: #fecaca;
 }
+
+/* ============================================================
+   Tema claro/escuro do painel administrativo
+   Escolha local por navegador via localStorage.
+   Ativado por document.documentElement[data-theme="dark"].
+   ============================================================ */
+
+.themeToggleButton {
+  background: #f8fafc;
+  color: #172033;
+  border: 1px solid #d0d5dd;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.themeToggleButton:hover {
+  background: #eef2f7;
+}
+
+html[data-theme="dark"] body {
+  background: #020617;
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .content {
+  background: #020617;
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .sidebar {
+  background: #020617;
+  border-right: 1px solid #1e293b;
+}
+
+html[data-theme="dark"] .sidebar p {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .header h2,
+html[data-theme="dark"] .card h3,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4 {
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .header p,
+html[data-theme="dark"] .card p,
+html[data-theme="dark"] label,
+html[data-theme="dark"] .muted,
+html[data-theme="dark"] .listItem span {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .auditModal,
+html[data-theme="dark"] .tableWrapper,
+html[data-theme="dark"] .rulesBox,
+html[data-theme="dark"] .loginBox,
+html[data-theme="dark"] .authCard {
+  background: #0f172a;
+  color: #e5e7eb;
+  border-color: #1e293b;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background: #020617;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .listItem,
+html[data-theme="dark"] .emptyState,
+html[data-theme="dark"] .filterBox,
+html[data-theme="dark"] .logItem,
+html[data-theme="dark"] .auditItem,
+html[data-theme="dark"] .productItem,
+html[data-theme="dark"] .availabilityItem,
+html[data-theme="dark"] .ruleItem {
+  background: #111827;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .listItem.selected {
+  background: #172554;
+  border-color: #3b82f6;
+}
+
+html[data-theme="dark"] .badge {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .badgeOn {
+  background: #064e3b;
+  color: #bbf7d0;
+}
+
+html[data-theme="dark"] .message {
+  background: #431407;
+  color: #fed7aa;
+  border-color: #9a3412;
+}
+
+html[data-theme="dark"] .secondary,
+html[data-theme="dark"] .secondaryButton,
+html[data-theme="dark"] .themeToggleButton {
+  background: #1e293b;
+  color: #e5e7eb;
+  border: 1px solid #334155;
+}
+
+html[data-theme="dark"] .secondary:hover,
+html[data-theme="dark"] .secondaryButton:hover,
+html[data-theme="dark"] .themeToggleButton:hover {
+  background: #334155;
+}
+
+html[data-theme="dark"] table {
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] th {
+  background: #111827;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] td {
+  border-color: #1e293b;
+}
+
+html[data-theme="dark"] tr:hover td {
+  background: #111827;
+}
+
+html[data-theme="dark"] .forgotPasswordButton {
+  background: #172554;
+  color: #bfdbfe;
+  border-color: #1d4ed8;
+}
+
+html[data-theme="dark"] .passwordTopButton {
+  background: #1e293b;
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .sidebarPasswordButton {
+  background: rgba(37, 99, 235, 0.22);
+  border-color: rgba(147, 197, 253, 0.32);
+  color: #dbeafe;
+}
+
+html[data-theme="dark"] .sidebarPasswordButton:hover {
+  background: rgba(37, 99, 235, 0.36);
+}

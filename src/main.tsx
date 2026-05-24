@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -6,24 +6,27 @@ import "./styles.css";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 const ADMIN_TOKEN_STORAGE_KEY = "agendai_admin_token";
 const ADMIN_USER_STORAGE_KEY = "agendai_admin_user";
+const ADMIN_THEME_STORAGE_KEY = "agendai_admin_theme";
 const PRODUTOS_PAGE_SIZE = 25;
 const ACEITES_PAGE_SIZE = 25;
 const WHATSAPP_LOGS_PAGE_SIZE = 50;
 const ADMIN_AUDIT_PAGE_SIZE = 80;
 const DIAS_SEMANA = [
   { value: 1, label: "Segunda" },
-  { value: 2, label: "Terça" },
+  { value: 2, label: "TerÃ§a" },
   { value: 3, label: "Quarta" },
   { value: 4, label: "Quinta" },
   { value: 5, label: "Sexta" },
-  { value: 6, label: "Sábado" },
+  { value: 6, label: "SÃ¡bado" },
   { value: 7, label: "Domingo" },
 ];
 const PERIODOS_DISPONIBILIDADE: Array<{ value: PeriodoDisponibilidade; label: string; inicio: string; fim: string }> = [
-  { value: "manha", label: "Manhã", inicio: "08:00", fim: "12:00" },
+  { value: "manha", label: "ManhÃ£", inicio: "08:00", fim: "12:00" },
   { value: "tarde", label: "Tarde", inicio: "13:00", fim: "18:00" },
   { value: "noite", label: "Noite", inicio: "18:00", fim: "21:00" },
 ];
+
+type ThemeMode = "light" | "dark";
 
 type Cliente = {
   id: number;
@@ -321,6 +324,19 @@ function clearStoredAuth() {
   window.localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
 }
 
+function getStoredTheme(): ThemeMode {
+  const stored = window.localStorage.getItem(ADMIN_THEME_STORAGE_KEY);
+  return stored === "dark" ? "dark" : "light";
+}
+
+function setStoredTheme(theme: ThemeMode) {
+  window.localStorage.setItem(ADMIN_THEME_STORAGE_KEY, theme);
+}
+
+function applyDocumentTheme(theme: ThemeMode) {
+  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.style.colorScheme = theme;
+}
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getStoredAdminToken();
   const headers: Record<string, string> = {
@@ -341,13 +357,13 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (response.status === 401) {
     const hasToken = Boolean(token);
-    const message = json.details || json.error || (hasToken ? "Sessão expirada. Faça login novamente." : "Não foi possível autenticar.");
+    const message = json.details || json.error || (hasToken ? "SessÃ£o expirada. FaÃ§a login novamente." : "NÃ£o foi possÃ­vel autenticar.");
     if (hasToken) clearStoredAuth();
     throw new Error(message);
   }
 
   if (!response.ok || json.ok === false) {
-    throw new Error(json.details || json.error || "Erro na requisição");
+    throw new Error(json.details || json.error || "Erro na requisiÃ§Ã£o");
   }
 
   return json.data;
@@ -367,7 +383,7 @@ function parseOptionalAge(value: string): number | null {
   if (!raw) return null;
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed < 0 || parsed > 130) {
-    throw new Error("Idade deve ser um número inteiro entre 0 e 130");
+    throw new Error("Idade deve ser um nÃºmero inteiro entre 0 e 130");
   }
   return parsed;
 }
@@ -466,7 +482,7 @@ function ChangePasswordScreen({ user, required = false, onChanged, onCancel, onL
 
     try {
       if (newPassword.length < 8) throw new Error("A nova senha precisa ter pelo menos 8 caracteres.");
-      if (newPassword !== confirmPassword) throw new Error("A confirmação da senha não confere.");
+      if (newPassword !== confirmPassword) throw new Error("A confirmaÃ§Ã£o da senha nÃ£o confere.");
       if (newPassword === currentPassword) throw new Error("A nova senha deve ser diferente da senha atual.");
 
       const updatedUser = await api<AdminUser>("/api/admin/auth/password", {
@@ -490,8 +506,8 @@ function ChangePasswordScreen({ user, required = false, onChanged, onCancel, onL
         <h1>Trocar senha</h1>
         <p>
           {required
-            ? <>Antes de acessar o painel, altere a senha provisória do usuário <strong>{user.email}</strong>.</>
-            : <>Altere a senha do usuário <strong>{user.email}</strong>.</>}
+            ? <>Antes de acessar o painel, altere a senha provisÃ³ria do usuÃ¡rio <strong>{user.email}</strong>.</>
+            : <>Altere a senha do usuÃ¡rio <strong>{user.email}</strong>.</>}
         </p>
 
         <form onSubmit={submitPasswordChange} className="formCard">
@@ -544,7 +560,7 @@ function EmailTokenPasswordScreen({ kind }: EmailTokenPasswordScreenProps) {
   useEffect(() => {
     async function validateToken() {
       if (!token) {
-        setError("Link inválido ou ausente.");
+        setError("Link invÃ¡lido ou ausente.");
         setValidating(false);
         return;
       }
@@ -553,7 +569,7 @@ function EmailTokenPasswordScreen({ kind }: EmailTokenPasswordScreenProps) {
         const data = await api<{ email: string; nome: string }>(`/api/admin/auth/token/validate?tipo=${isActivation ? "activation" : "password_reset"}&token=${encodeURIComponent(token)}`);
         setTokenInfo(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Link inválido ou expirado.");
+        setError(err instanceof Error ? err.message : "Link invÃ¡lido ou expirado.");
       } finally {
         setValidating(false);
       }
@@ -570,7 +586,7 @@ function EmailTokenPasswordScreen({ kind }: EmailTokenPasswordScreenProps) {
 
     try {
       if (newPassword.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
-      if (newPassword !== confirmPassword) throw new Error("A confirmação da senha não confere.");
+      if (newPassword !== confirmPassword) throw new Error("A confirmaÃ§Ã£o da senha nÃ£o confere.");
 
       await api<AdminUser>(isActivation ? "/api/admin/auth/activate" : "/api/admin/auth/reset-password", {
         method: "POST",
@@ -578,10 +594,10 @@ function EmailTokenPasswordScreen({ kind }: EmailTokenPasswordScreenProps) {
       });
 
       setSuccess(isActivation
-        ? "Conta ativada. Agora faça login com sua senha e configure o MFA."
-        : "Senha redefinida. Agora faça login com sua nova senha.");
+        ? "Conta ativada. Agora faÃ§a login com sua senha e configure o MFA."
+        : "Senha redefinida. Agora faÃ§a login com sua nova senha.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível concluir a operação.");
+      setError(err instanceof Error ? err.message : "NÃ£o foi possÃ­vel concluir a operaÃ§Ã£o.");
     } finally {
       setLoading(false);
     }
@@ -595,8 +611,8 @@ function EmailTokenPasswordScreen({ kind }: EmailTokenPasswordScreenProps) {
           {validating
             ? "Validando link seguro..."
             : tokenInfo
-              ? <>Link válido para <strong>{tokenInfo.email}</strong>.</>
-              : "Não foi possível validar este link."}
+              ? <>Link vÃ¡lido para <strong>{tokenInfo.email}</strong>.</>
+              : "NÃ£o foi possÃ­vel validar este link."}
         </p>
 
         {error && <div className="alertError">{error}</div>}
@@ -636,7 +652,7 @@ function formatAdminDate(value?: string | null) {
 function prettyAuditLabel(value?: string | null) {
   return String(value || "-")
     .replace(/_/g, " ")
-    .replace(/\./g, " · ");
+    .replace(/\./g, " Â· ");
 }
 
 function compactJson(value: unknown) {
@@ -675,18 +691,18 @@ function auditFieldLabel(field: string) {
     registro_profissional: "CRM / registro",
     especialidades: "Especialidade",
     especialidade: "Especialidade",
-    dias: "Dias/observações",
+    dias: "Dias/observaÃ§Ãµes",
     andar: "Andar/sala",
     ativo: "Status",
     tipo: "Tipo",
-    convenio: "Convênio",
+    convenio: "ConvÃªnio",
     plano: "Plano",
     produto: "Produto",
     rede: "Rede",
-    hora_inicio: "Início",
+    hora_inicio: "InÃ­cio",
     hora_fim: "Fim",
     intervalo_minutos: "Intervalo",
-    periodo: "Período",
+    periodo: "PerÃ­odo",
     dia_semana: "Dia",
     telefone_contato: "Telefone",
     whatsapp_contato: "WhatsApp",
@@ -694,7 +710,7 @@ function auditFieldLabel(field: string) {
     site: "Site",
     cep: "CEP",
     logradouro: "Logradouro",
-    numero: "Número",
+    numero: "NÃºmero",
     complemento: "Complemento",
     bairro: "Bairro",
     cidade: "Cidade",
@@ -708,11 +724,11 @@ function auditFieldLabel(field: string) {
 }
 
 function auditValueToText(field: string, value: unknown) {
-  if (value === null || value === undefined || value === "") return "Não informado";
+  if (value === null || value === undefined || value === "") return "NÃ£o informado";
 
   if (field === "ativo") return value ? "Ativo" : "Inativo";
   if (field === "mfa_enabled") return value ? "Ativado" : "Pendente";
-  if (field === "primeiro_acesso") return value ? "Sim" : "Não";
+  if (field === "primeiro_acesso") return value ? "Sim" : "NÃ£o";
   if (field === "dia_semana") {
     const dia = DIAS_SEMANA.find((item) => item.value === Number(value));
     return dia?.label || String(value);
@@ -723,11 +739,11 @@ function auditValueToText(field: string, value: unknown) {
   }
   if (field === "intervalo_minutos") return `${value} min`;
 
-  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "boolean") return value ? "Sim" : "NÃ£o";
   if (typeof value === "object") {
     try {
       const text = JSON.stringify(value);
-      return text === "{}" ? "Não informado" : text;
+      return text === "{}" ? "NÃ£o informado" : text;
     } catch {
       return String(value);
     }
@@ -817,10 +833,10 @@ function AvailabilityHumanList({ title, value }: { title: string; value: unknown
           {rows.map((row) => (
             <div className="auditHumanItem" key={row.key}>
               <strong>
-                {row.dia} · {row.periodo}
+                {row.dia} Â· {row.periodo}
               </strong>
               <span>
-                {row.inicio} às {row.fim} · intervalo de {row.intervalo}
+                {row.inicio} Ã s {row.fim} Â· intervalo de {row.intervalo}
               </span>
             </div>
           ))}
@@ -838,7 +854,7 @@ function GenericHumanDiff({ before, after }: { before: unknown; after: unknown }
   if (!rows.length) {
     return (
       <div className="auditHumanEmptyBox">
-        Não encontrei diferenças simples para traduzir. Use os dados técnicos abaixo para conferência.
+        NÃ£o encontrei diferenÃ§as simples para traduzir. Use os dados tÃ©cnicos abaixo para conferÃªncia.
       </div>
     );
   }
@@ -875,7 +891,7 @@ function AuditHumanSummary({ log }: { log: AdminAuditLog }) {
   return (
     <div className="auditHumanSummaryBlock">
       <div className="auditHumanIntro">
-        <strong>Resumo da alteração</strong>
+        <strong>Resumo da alteraÃ§Ã£o</strong>
         <span>{log.resumo || prettyAuditLabel(log.acao)}</span>
       </div>
 
@@ -993,7 +1009,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
 
     try {
       const normalizedRecoveryEmail = normalizeEmail(recoveryEmail);
-      if (!isValidEmail(normalizedRecoveryEmail)) throw new Error("Informe um e-mail válido.");
+      if (!isValidEmail(normalizedRecoveryEmail)) throw new Error("Informe um e-mail vÃ¡lido.");
 
       const result = await api<{ message: string }>("/api/admin/auth/forgot-password", {
         method: "POST",
@@ -1001,10 +1017,10 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
       });
 
       setRecoveryEmail(normalizedRecoveryEmail);
-      setRecoveryMessage(result.message || "Se o e-mail estiver cadastrado, enviaremos um link de recuperação.");
+      setRecoveryMessage(result.message || "Se o e-mail estiver cadastrado, enviaremos um link de recuperaÃ§Ã£o.");
       setEmail(normalizedRecoveryEmail);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao solicitar recuperação de senha");
+      setError(err instanceof Error ? err.message : "Erro ao solicitar recuperaÃ§Ã£o de senha");
     } finally {
       setLoading(false);
     }
@@ -1012,7 +1028,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
 
   function finishLogin(result: AdminLoginResponse) {
     if (!result.token) {
-      throw new Error("Login incompleto. O backend não retornou token final.");
+      throw new Error("Login incompleto. O backend nÃ£o retornou token final.");
     }
 
     setStoredAuth(result.token, result.user);
@@ -1060,7 +1076,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
         return;
       }
 
-      throw new Error("Resposta de autenticação inesperada.");
+      throw new Error("Resposta de autenticaÃ§Ã£o inesperada.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao autenticar");
     } finally {
@@ -1076,7 +1092,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
     try {
       const code = mfaCode.trim();
       if (!/^\d{6}$/.test(code)) {
-        throw new Error("Informe o código de 6 dígitos do Authenticator.");
+        throw new Error("Informe o cÃ³digo de 6 dÃ­gitos do Authenticator.");
       }
 
       if (mfaSetup && setupToken) {
@@ -1117,11 +1133,11 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
               <input value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} autoComplete="username" />
             </label>
             <div className="infoBox">
-              O link é enviado somente para o e-mail cadastrado, expira em poucos minutos e só pode ser usado uma vez.
+              O link Ã© enviado somente para o e-mail cadastrado, expira em poucos minutos e sÃ³ pode ser usado uma vez.
             </div>
             {error && <div className="alertError">{error}</div>}
             {recoveryMessage && <div className="alertSuccess">{recoveryMessage}</div>}
-            <button type="submit" disabled={loading}>{loading ? "Enviando..." : "Enviar link de recuperação"}</button>
+            <button type="submit" disabled={loading}>{loading ? "Enviando..." : "Enviar link de recuperaÃ§Ã£o"}</button>
             <button className="secondaryButton" type="button" onClick={() => { setShowRecovery(false); setError(""); }} disabled={loading}>
               Voltar ao login
             </button>
@@ -1171,7 +1187,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
               <code>{mfaSetup.manualSecret}</code>
             </details>
             <label>
-              Código do Authenticator
+              CÃ³digo do Authenticator
               <input
                 value={mfaCode}
                 onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -1192,10 +1208,10 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
           <form onSubmit={submitMfaCode} className="formCard mfaCard">
             <div className="mfaIntro">
               <strong>Confirme o segundo fator</strong>
-              <span>Digite o código de 6 dígitos do seu Authenticator.</span>
+              <span>Digite o cÃ³digo de 6 dÃ­gitos do seu Authenticator.</span>
             </div>
             <label>
-              Código do Authenticator
+              CÃ³digo do Authenticator
               <input
                 value={mfaCode}
                 onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -1208,7 +1224,7 @@ function LoginScreen({ onLogin }: { onLogin: (result: AdminLoginResponse) => voi
             {error && <div className="alertError">{error}</div>}
             <button type="submit" disabled={loading}>{loading ? "Validando..." : "Entrar com MFA"}</button>
             <button className="secondaryButton" type="button" onClick={resetMfaState} disabled={loading}>
-              Trocar usuário ou senha
+              Trocar usuÃ¡rio ou senha
             </button>
           </form>
         )}
@@ -1243,6 +1259,7 @@ function App() {
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "usuarios" | "auditoria">("clientes");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
   const [authLoading, setAuthLoading] = useState(true);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [usuarios, setUsuarios] = useState<AdminUsuario[]>([]);
@@ -1363,10 +1380,19 @@ function App() {
 
   const isGlobalAdmin = authUser?.perfil === "global";
 
+  useEffect(() => {
+    applyDocumentTheme(themeMode);
+    setStoredTheme(themeMode);
+  }, [themeMode]);
+
+  function toggleThemeMode() {
+    setThemeMode((current) => (current === "dark" ? "light" : "dark"));
+  }
+
   const getClienteNomeById = (clienteId?: number | null) => {
     if (!clienteId) return "-";
     const cliente = clientes.find((item) => item.id === clienteId);
-    return cliente ? cliente.nome_fantasia : `Clínica #${clienteId}`;
+    return cliente ? cliente.nome_fantasia : `ClÃ­nica #${clienteId}`;
   };
 
   const clienteUsaConvenio = useMemo(() => {
@@ -1415,7 +1441,7 @@ function App() {
         if (existente) return existente.nome;
 
         if (!isGlobalAdmin) {
-          throw new Error(`Especialidade não cadastrada: ${item}. Peça ao Admin Global para cadastrar.`);
+          throw new Error(`Especialidade nÃ£o cadastrada: ${item}. PeÃ§a ao Admin Global para cadastrar.`);
         }
 
         return item;
@@ -1783,17 +1809,17 @@ function App() {
     const normalizedNome = usuarioForm.nome.trim();
 
     if (!normalizedNome) {
-      showToast("❌ Informe o nome do usuário", true);
+      showToast("âŒ Informe o nome do usuÃ¡rio", true);
       return;
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      showToast("❌ Informe um e-mail válido", true);
+      showToast("âŒ Informe um e-mail vÃ¡lido", true);
       return;
     }
 
     if (usuarioForm.perfil === "clinica" && usuarioForm.cliente_ids.length === 0) {
-      showToast("❌ Selecione pelo menos uma clínica para o Admin Clínica", true);
+      showToast("âŒ Selecione pelo menos uma clÃ­nica para o Admin ClÃ­nica", true);
       return;
     }
 
@@ -1812,19 +1838,19 @@ function App() {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
-        showToast("✅ Usuário atualizado");
+        showToast("âœ… UsuÃ¡rio atualizado");
       } else {
         await api<AdminUsuario>("/api/admin/usuarios", {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        showToast("✅ Usuário criado e convite enviado por e-mail");
+        showToast("âœ… UsuÃ¡rio criado e convite enviado por e-mail");
       }
 
       resetUsuarioForm();
       await loadUsuarios();
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar usuário", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar usuÃ¡rio", true);
     } finally {
       setLoadingAction((current) => (current === "usuarios.save" || current === "usuarios.create" ? null : current));
     }
@@ -1833,7 +1859,7 @@ function App() {
   async function handleToggleUsuarioAtivo(usuario: AdminUsuario) {
     const nextAtivo = !usuario.ativo;
     const acao = nextAtivo ? "ativar" : "inativar";
-    const confirmed = window.confirm(`${acao.charAt(0).toUpperCase() + acao.slice(1)} usuário ${usuario.nome}?`);
+    const confirmed = window.confirm(`${acao.charAt(0).toUpperCase() + acao.slice(1)} usuÃ¡rio ${usuario.nome}?`);
     if (!confirmed) return;
 
     setLoadingAction(`usuarios.toggle.${usuario.id}`);
@@ -1842,13 +1868,13 @@ function App() {
         method: "PATCH",
         body: JSON.stringify({ ativo: nextAtivo }),
       });
-      showToast(nextAtivo ? "✅ Usuário ativado" : "✅ Usuário inativado");
+      showToast(nextAtivo ? "âœ… UsuÃ¡rio ativado" : "âœ… UsuÃ¡rio inativado");
       await loadUsuarios();
       if (editingUsuarioId === usuario.id) {
         setUsuarioForm((current) => ({ ...current, ativo: nextAtivo }));
       }
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao alterar status do usuário", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao alterar status do usuÃ¡rio", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.toggle.${usuario.id}` ? null : current));
     }
@@ -1856,7 +1882,7 @@ function App() {
 
   async function handleResetUsuarioMfa(usuario: AdminUsuario) {
     const confirmed = window.confirm(
-      `Resetar MFA de ${usuario.nome}? No próximo login, esse usuário precisará cadastrar novo QR Code.`,
+      `Resetar MFA de ${usuario.nome}? No prÃ³ximo login, esse usuÃ¡rio precisarÃ¡ cadastrar novo QR Code.`,
     );
 
     if (!confirmed) return;
@@ -1867,17 +1893,17 @@ function App() {
         method: "POST",
         body: JSON.stringify({}),
       });
-      showToast("✅ MFA resetado. O usuário deverá configurar o Authenticator no próximo login.");
+      showToast("âœ… MFA resetado. O usuÃ¡rio deverÃ¡ configurar o Authenticator no prÃ³ximo login.");
       await loadUsuarios();
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao resetar MFA", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao resetar MFA", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.mfa.${usuario.id}` ? null : current));
     }
   }
 
   async function handleSendUsuarioInvite(usuario: AdminUsuario) {
-    const confirmed = window.confirm(`Enviar convite de ativação para ${usuario.email}?`);
+    const confirmed = window.confirm(`Enviar convite de ativaÃ§Ã£o para ${usuario.email}?`);
     if (!confirmed) return;
 
     setLoadingAction(`usuarios.invite.${usuario.id}`);
@@ -1886,16 +1912,16 @@ function App() {
         method: "POST",
         body: JSON.stringify({}),
       });
-      showToast("✅ Convite enviado por e-mail");
+      showToast("âœ… Convite enviado por e-mail");
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao enviar convite", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao enviar convite", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.invite.${usuario.id}` ? null : current));
     }
   }
 
   async function handleSendUsuarioPasswordReset(usuario: AdminUsuario) {
-    const confirmed = window.confirm(`Enviar link de redefinição de senha para ${usuario.email}?`);
+    const confirmed = window.confirm(`Enviar link de redefiniÃ§Ã£o de senha para ${usuario.email}?`);
     if (!confirmed) return;
 
     setLoadingAction(`usuarios.resetmail.${usuario.id}`);
@@ -1904,9 +1930,9 @@ function App() {
         method: "POST",
         body: JSON.stringify({}),
       });
-      showToast("✅ Link de redefinição enviado por e-mail");
+      showToast("âœ… Link de redefiniÃ§Ã£o enviado por e-mail");
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao enviar reset de senha", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao enviar reset de senha", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.resetmail.${usuario.id}` ? null : current));
     }
@@ -1928,9 +1954,9 @@ function App() {
     setWhatsappLogsLoading(true);
     try {
       const params = new URLSearchParams();
-      // Não filtrar automaticamente por cliente aqui.
+      // NÃ£o filtrar automaticamente por cliente aqui.
       // Os logs antigos podem estar com cliente_id nulo, e o filtro por cliente
-      // esconde a auditoria inteira ao trocar de clínica no painel.
+      // esconde a auditoria inteira ao trocar de clÃ­nica no painel.
       if (whatsappLogFilters.phone.trim()) params.set("phone", whatsappLogFilters.phone.trim());
       if (whatsappLogFilters.status !== "todos") params.set("status", whatsappLogFilters.status);
       if (whatsappLogFilters.startDate) params.set("startDate", whatsappLogFilters.startDate);
@@ -2072,10 +2098,10 @@ function App() {
         }),
       });
 
-      showToast(shouldDeactivate ? "✅ Cliente desativado com sucesso" : "✅ Cliente ativado com sucesso");
+      showToast(shouldDeactivate ? "âœ… Cliente desativado com sucesso" : "âœ… Cliente ativado com sucesso");
       await loadClientes();
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar cliente", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar cliente", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2107,11 +2133,11 @@ function App() {
         }),
       });
 
-      showToast("✅ Dados da clínica atualizados");
+      showToast("âœ… Dados da clÃ­nica atualizados");
       await loadClientes();
       await loadClienteOperacional(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar clínica", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar clÃ­nica", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2156,11 +2182,11 @@ function App() {
         }),
       });
 
-      showToast("✅ Regras de atendimento atualizadas");
+      showToast("âœ… Regras de atendimento atualizadas");
       await loadClientes();
       await loadClienteOperacional(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar regras", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar regras", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2170,7 +2196,7 @@ function App() {
     const cnpjDigits = onlyDigits(novoCliente.cnpj);
 
     if (cnpjDigits.length !== 14) {
-      showToast("❌ Informe um CNPJ com 14 dígitos", true);
+      showToast("âŒ Informe um CNPJ com 14 dÃ­gitos", true);
       return;
     }
 
@@ -2182,7 +2208,7 @@ function App() {
       const data = (await response.json().catch(() => ({}))) as BrasilApiCnpjResponse & { message?: string };
 
       if (!response.ok) {
-        throw new Error(data.message || "CNPJ não encontrado");
+        throw new Error(data.message || "CNPJ nÃ£o encontrado");
       }
 
       const telefone = getApiText(data.ddd_telefone_1 || data.ddd_telefone_2);
@@ -2204,9 +2230,9 @@ function App() {
         estado: getApiText(data.uf).toUpperCase() || current.estado,
       }));
 
-      showToast("✅ Dados do CNPJ preenchidos");
+      showToast("âœ… Dados do CNPJ preenchidos");
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao consultar CNPJ", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao consultar CNPJ", true);
     } finally {
       setLoadingCnpj(false);
     }
@@ -2247,13 +2273,13 @@ function App() {
         }),
       });
 
-      showToast("✅ Cliente criado com sucesso");
+      showToast("âœ… Cliente criado com sucesso");
       setNovoCliente(emptyNovoCliente);
 
       await loadClientes();
       setSelectedClienteId(cliente.id);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao criar cliente", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao criar cliente", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2285,21 +2311,21 @@ function App() {
           body: JSON.stringify(payload),
         });
 
-        showToast("✅ Forma de atendimento atualizada com sucesso");
+        showToast("âœ… Forma de atendimento atualizada com sucesso");
       } else {
         await api<FormaAtendimento>(`/api/admin/clientes/${selectedClienteId}/formas-atendimento`, {
           method: "POST",
           body: JSON.stringify(payload),
         });
 
-        showToast("✅ Forma de atendimento criada com sucesso");
+        showToast("âœ… Forma de atendimento criada com sucesso");
       }
 
       setNovaForma(emptyFormaForm);
       setEditingFormaId(null);
       await loadFormas(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar forma", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar forma", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2340,7 +2366,7 @@ function App() {
         }),
       });
 
-      showToast("✅ Produto criado com sucesso");
+      showToast("âœ… Produto criado com sucesso");
       setNovoProduto({
         nome: "",
         tipo: "plano",
@@ -2351,7 +2377,7 @@ function App() {
 
       await loadProdutos(selectedForma);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao criar produto", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao criar produto", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2368,7 +2394,7 @@ function App() {
 
       if (selectedClienteId) await loadFormas(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar forma", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar forma", true);
     }
   }
 
@@ -2384,7 +2410,7 @@ function App() {
 
       await loadProdutos(selectedForma);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar produto", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar produto", true);
     }
   }
 
@@ -2484,7 +2510,7 @@ function App() {
         const existente = resolveEspecialidadeDigitada(regra.nome);
         if (existente) return existente.nome;
         if (!isGlobalAdmin) {
-          throw new Error(`Especialidade não cadastrada: ${regra.nome}. Peça ao Admin Global para cadastrar.`);
+          throw new Error(`Especialidade nÃ£o cadastrada: ${regra.nome}. PeÃ§a ao Admin Global para cadastrar.`);
         }
         return regra.nome;
       });
@@ -2495,7 +2521,7 @@ function App() {
         const idadeMaxima = parseOptionalAge(regra.idade_maxima);
 
         if (idadeMinima !== null && idadeMaxima !== null && idadeMinima > idadeMaxima) {
-          throw new Error(`Idade mínima não pode ser maior que a máxima em ${nomesResolvidos[index]}`);
+          throw new Error(`Idade mÃ­nima nÃ£o pode ser maior que a mÃ¡xima em ${nomesResolvidos[index]}`);
         }
 
         return {
@@ -2506,7 +2532,7 @@ function App() {
         };
       });
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Dados inválidos do médico", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Dados invÃ¡lidos do mÃ©dico", true);
       setLoadingAction(null);
       return;
     }
@@ -2531,12 +2557,12 @@ function App() {
         },
       );
 
-      showToast(editingMedicoId ? "✅ Médico atualizado com sucesso" : "✅ Médico cadastrado com sucesso");
+      showToast(editingMedicoId ? "âœ… MÃ©dico atualizado com sucesso" : "âœ… MÃ©dico cadastrado com sucesso");
       limparFormularioMedico();
       await loadMedicos(selectedClienteId);
       setSelectedMedicoId(Number(medico.id));
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar médico", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar mÃ©dico", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2553,7 +2579,7 @@ function App() {
 
     if (!file || !selectedClienteId) return;
     if (!isGlobalAdmin) {
-      showToast("❌ Apenas Admin Global pode importar médicos em massa", true);
+      showToast("âŒ Apenas Admin Global pode importar mÃ©dicos em massa", true);
       return;
     }
 
@@ -2568,12 +2594,12 @@ function App() {
       const sheet = workbook.Sheets[sheetName];
       const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown[][];
       const headerIndex = matrix.findIndex((row) =>
-        row.some((cell) => normalizeImportCell(cell).toUpperCase() === "MÉDICOS") &&
+        row.some((cell) => normalizeImportCell(cell).toUpperCase() === "MÃ‰DICOS") &&
         row.some((cell) => normalizeImportCell(cell).toUpperCase() === "ESPECIALIDADES"),
       );
 
       if (headerIndex < 0) {
-        throw new Error("Não encontrei o cabeçalho MÉDICOS / ESPECIALIDADES na planilha");
+        throw new Error("NÃ£o encontrei o cabeÃ§alho MÃ‰DICOS / ESPECIALIDADES na planilha");
       }
 
       const rows = matrix
@@ -2589,22 +2615,22 @@ function App() {
         .filter((row) => row.nome && row.especialidade);
 
       if (rows.length === 0) {
-        throw new Error("Nenhuma linha válida encontrada para importação");
+        throw new Error("Nenhuma linha vÃ¡lida encontrada para importaÃ§Ã£o");
       }
 
-      setImportacaoMedicosStatus(`Planilha lida: ${rows.length} médicos válidos encontrados.`);
+      setImportacaoMedicosStatus(`Planilha lida: ${rows.length} mÃ©dicos vÃ¡lidos encontrados.`);
 
       const confirmed = window.confirm(
-        `Importar ${rows.length} médicos para ${selectedCliente?.nome_fantasia || "a clínica selecionada"}?\n\n` +
-        `CRMs provisórios serão gerados como 000000, 000001, 000002... conforme a ordem da planilha.`,
+        `Importar ${rows.length} mÃ©dicos para ${selectedCliente?.nome_fantasia || "a clÃ­nica selecionada"}?\n\n` +
+        `CRMs provisÃ³rios serÃ£o gerados como 000000, 000001, 000002... conforme a ordem da planilha.`,
       );
 
       if (!confirmed) {
-        setImportacaoMedicosStatus("Importação cancelada pelo usuário.");
+        setImportacaoMedicosStatus("ImportaÃ§Ã£o cancelada pelo usuÃ¡rio.");
         return;
       }
 
-      setImportacaoMedicosStatus(`Enviando ${rows.length} médicos para o servidor...`);
+      setImportacaoMedicosStatus(`Enviando ${rows.length} mÃ©dicos para o servidor...`);
 
       const result = await api<ImportacaoMedicosResultado>(`/api/admin/clientes/${selectedClienteId}/medicos/importar-planilha`, {
         method: "POST",
@@ -2617,18 +2643,18 @@ function App() {
         }),
       });
 
-      const resumoImportacao = `Importação concluída: ${result.criados} criados, ${result.atualizados} atualizados, ${result.erros} erros, ${result.ignorados} ignorados.`;
+      const resumoImportacao = `ImportaÃ§Ã£o concluÃ­da: ${result.criados} criados, ${result.atualizados} atualizados, ${result.erros} erros, ${result.ignorados} ignorados.`;
       setImportacaoMedicosStatus(resumoImportacao);
       showToast(
-        `✅ ${resumoImportacao}`,
+        `âœ… ${resumoImportacao}`,
         result.erros > 0,
       );
       await loadEspecialidadesCatalogo();
       await loadMedicos(selectedClienteId);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao importar planilha";
-      setImportacaoMedicosStatus(`Falha na importação: ${errorMessage}`);
-      showToast(`❌ ${errorMessage}`, true);
+      setImportacaoMedicosStatus(`Falha na importaÃ§Ã£o: ${errorMessage}`);
+      showToast(`âŒ ${errorMessage}`, true);
     } finally {
       setLoadingAction(null);
     }
@@ -2651,10 +2677,10 @@ function App() {
         body: JSON.stringify({ ativo: !medico.ativo }),
       });
 
-      showToast(medico.ativo ? "✅ Médico desativado" : "✅ Médico ativado");
+      showToast(medico.ativo ? "âœ… MÃ©dico desativado" : "âœ… MÃ©dico ativado");
       await loadMedicos(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar médico", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar mÃ©dico", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2695,9 +2721,9 @@ function App() {
       );
 
       setDisponibilidades(mergeDisponibilidadesFromApi(data));
-      showToast("✅ Disponibilidade salva com sucesso");
+      showToast("âœ… Disponibilidade salva com sucesso");
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar disponibilidade", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar disponibilidade", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2719,11 +2745,11 @@ function App() {
         }),
       });
 
-      showToast("✅ Aceite criado ou reativado com sucesso");
+      showToast("âœ… Aceite criado ou reativado com sucesso");
       setNovoAceite({ convenio: "", plano: "" });
       await loadAceites(selectedMedicoId);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao criar aceite", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao criar aceite", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2734,7 +2760,7 @@ function App() {
 
     const actionText = aceite.ativo ? "desativar" : "ativar";
     const confirmed = window.confirm(
-      `Você deseja realmente ${actionText} este aceite?\n\n${aceite.convenio} - ${aceite.produto || "Sem plano"}`,
+      `VocÃª deseja realmente ${actionText} este aceite?\n\n${aceite.convenio} - ${aceite.produto || "Sem plano"}`,
     );
 
     if (!confirmed) return;
@@ -2748,17 +2774,17 @@ function App() {
         body: JSON.stringify({ ativo: !aceite.ativo }),
       });
 
-      showToast(aceite.ativo ? "✅ Aceite desativado" : "✅ Aceite ativado");
+      showToast(aceite.ativo ? "âœ… Aceite desativado" : "âœ… Aceite ativado");
       await loadAceites(selectedMedicoId);
     } catch (error) {
-      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar aceite", true);
+      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar aceite", true);
     } finally {
       setLoadingAction(null);
     }
   }
 
   if (authLoading) {
-    return <div className="app"><main className="content"><p>Carregando sessão...</p></main></div>;
+    return <div className="app"><main className="content"><p>Carregando sessÃ£o...</p></main></div>;
   }
 
   if (!authUser) {
@@ -2786,7 +2812,7 @@ function App() {
       <aside className="sidebar">
         <div className="sidebarProfile">
           <h1>AgendAI</h1>
-          <p>{authUser.perfil === "global" ? "Admin Global" : "Admin Clínica"}</p>
+          <p>{authUser.perfil === "global" ? "Admin Global" : "Admin ClÃ­nica"}</p>
           <small>{authUser.email}</small>
           <button className="sidebarPasswordButton" type="button" onClick={() => setShowChangePassword(true)}>
             Trocar minha senha
@@ -2804,10 +2830,10 @@ function App() {
             className={activeTab === "medicos" ? "navActive" : ""}
             onClick={() => setActiveTab("medicos")}
           >
-            Médicos e aceites
+            MÃ©dicos e aceites
           </button>
           {/* Unidades fica reservado para futura modelagem de redes multiunidade.
-              No piloto, cada cliente já representa uma unidade operacional com endereço próprio. */}
+              No piloto, cada cliente jÃ¡ representa uma unidade operacional com endereÃ§o prÃ³prio. */}
           {isGlobalAdmin && (
             <button
               className={activeTab === "whatsapp" ? "navActive" : ""}
@@ -2821,7 +2847,7 @@ function App() {
               className={activeTab === "usuarios" ? "navActive" : ""}
               onClick={() => setActiveTab("usuarios")}
             >
-              Usuários
+              UsuÃ¡rios
             </button>
           )}
           {isGlobalAdmin && (
@@ -2832,8 +2858,8 @@ function App() {
               Auditoria
             </button>
           )}
-          {/* Módulos fica reservado para feature flags avançadas por cliente.
-              No piloto, os controles ficam dentro do cadastro/configuração do cliente. */}
+          {/* MÃ³dulos fica reservado para feature flags avanÃ§adas por cliente.
+              No piloto, os controles ficam dentro do cadastro/configuraÃ§Ã£o do cliente. */}
         </nav>
       </aside>
 
@@ -2841,7 +2867,7 @@ function App() {
         <header className="header">
           <div>
             <h2>Painel administrativo</h2>
-            <p>Cadastro multi-clínica, formas de atendimento e produtos.</p>
+            <p>Cadastro multi-clÃ­nica, formas de atendimento e produtos.</p>
           </div>
 
           <div className="headerActions">
@@ -2849,6 +2875,14 @@ function App() {
               {loading ? "Atualizando..." : "Atualizar"}
             </button>
             <button className="passwordTopButton" type="button" onClick={() => setShowChangePassword(true)}>Trocar senha</button>
+            <button
+              className="themeToggleButton"
+              type="button"
+              onClick={toggleThemeMode}
+              title={themeMode === "dark" ? "Alternar para tema claro" : "Alternar para tema escuro"}
+            >
+              {themeMode === "dark" ? "☀️ Claro" : "🌙 Escuro"}
+            </button>
             <button className="secondary" onClick={logout}>Sair</button>
           </div>
         </header>
@@ -2904,7 +2938,7 @@ function App() {
               </label>
 
               <label>
-                Razão social
+                RazÃ£o social
                 <input
                   value={novoCliente.razao_social}
                   onChange={(event) =>
@@ -2999,7 +3033,7 @@ function App() {
 
               <div className="twoColumns">
                 <label>
-                  Número
+                  NÃºmero
                   <input
                     value={novoCliente.numero}
                     onChange={(event) =>
@@ -3050,7 +3084,7 @@ function App() {
                       setNovoCliente({ ...novoCliente, usa_convenio: event.target.checked })
                     }
                   />
-                  Convênio
+                  ConvÃªnio
                 </label>
 
                 <label>
@@ -3072,7 +3106,7 @@ function App() {
                       setNovoCliente({ ...novoCliente, usa_cartao: event.target.checked })
                     }
                   />
-                  Benefício
+                  BenefÃ­cio
                 </label>
 
                 <label>
@@ -3145,9 +3179,9 @@ function App() {
                       <strong>{cliente.nome_fantasia}</strong>
                       <span>{cliente.status}</span>
                       <div>
-                        <Badge active={cliente.usa_convenio}>convênio</Badge>
+                        <Badge active={cliente.usa_convenio}>convÃªnio</Badge>
                         <Badge active={cliente.usa_particular}>particular</Badge>
-                        <Badge active={cliente.usa_cartao}>benefício</Badge>
+                        <Badge active={cliente.usa_cartao}>benefÃ­cio</Badge>
                       </div>
                     </button>
 
@@ -3179,8 +3213,8 @@ function App() {
             <div className="card">
               <div className="sectionHeader compact">
                 <div>
-                  <h3>Dados da clínica</h3>
-                  <p>Usados na confirmação do agendamento e no atendimento WhatsApp.</p>
+                  <h3>Dados da clÃ­nica</h3>
+                  <p>Usados na confirmaÃ§Ã£o do agendamento e no atendimento WhatsApp.</p>
                 </div>
               </div>
 
@@ -3250,7 +3284,7 @@ function App() {
                 </label>
 
                 <label>
-                  Número
+                  NÃºmero
                   <input
                     value={clienteCadastro.numero}
                     onChange={(event) =>
@@ -3301,7 +3335,7 @@ function App() {
                 </label>
 
                 <button type="submit" disabled={loadingAction === "cadastro-cliente"}>
-                  {loadingAction === "cadastro-cliente" ? "Salvando..." : "Salvar dados da clínica"}
+                  {loadingAction === "cadastro-cliente" ? "Salvando..." : "Salvar dados da clÃ­nica"}
                 </button>
               </form>
             </div>
@@ -3310,13 +3344,13 @@ function App() {
               <div className="sectionHeader compact">
                 <div>
                   <h3>Regras de atendimento</h3>
-                  <p>Esses campos controlam o menu e os dados obrigatórios no WhatsApp.</p>
+                  <p>Esses campos controlam o menu e os dados obrigatÃ³rios no WhatsApp.</p>
                 </div>
               </div>
 
               <form onSubmit={salvarConfiguracaoCliente} className="rulesForm">
                 <div className="ruleGroup">
-                  <strong>Formas que esta clínica atende</strong>
+                  <strong>Formas que esta clÃ­nica atende</strong>
                   <label className="inlineCheck">
                     <input
                       type="checkbox"
@@ -3325,7 +3359,7 @@ function App() {
                         setClienteConfig({ ...clienteConfig, usa_convenio: event.target.checked })
                       }
                     />
-                    Convênio
+                    ConvÃªnio
                   </label>
                   <label className="inlineCheck">
                     <input
@@ -3345,12 +3379,12 @@ function App() {
                         setClienteConfig({ ...clienteConfig, usa_cartao: event.target.checked })
                       }
                     />
-                    Cartão próprio / benefício
+                    CartÃ£o prÃ³prio / benefÃ­cio
                   </label>
                 </div>
 
                 <div className="ruleGroup">
-                  <strong>Campos obrigatórios no fluxo</strong>
+                  <strong>Campos obrigatÃ³rios no fluxo</strong>
                   <label className="inlineCheck">
                     <input
                       type="checkbox"
@@ -3383,7 +3417,7 @@ function App() {
                         setClienteConfig({ ...clienteConfig, exige_plano: event.target.checked })
                       }
                     />
-                    Exige plano/rede/produto quando houver convênio
+                    Exige plano/rede/produto quando houver convÃªnio
                   </label>
                 </div>
 
@@ -3400,7 +3434,7 @@ function App() {
                         })
                       }
                     />
-                    Encaminhar para humano quando não encontrar atendimento
+                    Encaminhar para humano quando nÃ£o encontrar atendimento
                   </label>
                   <label>
                     Provedor de agenda
@@ -3410,7 +3444,7 @@ function App() {
                         setClienteConfig({ ...clienteConfig, provedor_agenda: event.target.value })
                       }
                     >
-                      <option value="mock">Mock / homologação</option>
+                      <option value="mock">Mock / homologaÃ§Ã£o</option>
                       <option value="google">Google Calendar</option>
                       <option value="feegow">Feegow</option>
                       <option value="sigma">Sigma</option>
@@ -3421,7 +3455,7 @@ function App() {
                 <div className="ruleGroup">
                   <strong>Timeout do atendimento</strong>
                   <label>
-                    Encerrar sessão após inatividade de
+                    Encerrar sessÃ£o apÃ³s inatividade de
                     <input
                       type="number"
                       min={1}
@@ -3443,7 +3477,7 @@ function App() {
 
                 <div className="helperBox">
                   Regra ativa no WhatsApp: clientes com <strong>status ativo</strong> aparecem na lista.
-                  Clínicas sem convênio não mostram menu de convênios e não pedem plano.
+                  ClÃ­nicas sem convÃªnio nÃ£o mostram menu de convÃªnios e nÃ£o pedem plano.
                 </div>
 
                 <button type="submit" disabled={loadingAction === "config-cliente"}>
@@ -3469,8 +3503,8 @@ function App() {
                 onChange={(event) => setNovaForma({ ...novaForma, tipo: event.target.value })}
               >
                 <option value="particular">Particular</option>
-                <option value="cartao">Cartão próprio / benefício</option>
-                <option value="convenio">Convênio</option>
+                <option value="cartao">CartÃ£o prÃ³prio / benefÃ­cio</option>
+                <option value="convenio">ConvÃªnio</option>
                 <option value="assinatura">Assinatura</option>
                 <option value="parceria">Parceria</option>
                 <option value="outro">Outro</option>
@@ -3479,7 +3513,7 @@ function App() {
               <input
                 value={novaForma.nome}
                 onChange={(event) => setNovaForma({ ...novaForma, nome: event.target.value })}
-                placeholder="Ex.: Cartão de Todos"
+                placeholder="Ex.: CartÃ£o de Todos"
                 required
               />
 
@@ -3538,7 +3572,7 @@ function App() {
                   <th>Exige plano</th>
                   <th>WhatsApp</th>
                   <th>Status</th>
-                  <th>Ações</th>
+                  <th>AÃ§Ãµes</th>
                 </tr>
               </thead>
               <tbody>
@@ -3546,8 +3580,8 @@ function App() {
                   <tr key={forma.id}>
                     <td>{forma.tipo}</td>
                     <td>{forma.nome}</td>
-                    <td>{forma.exige_plano ? "Sim" : "Não"}</td>
-                    <td>{forma.permite_agendamento_online ? "Sim" : "Não"}</td>
+                    <td>{forma.exige_plano ? "Sim" : "NÃ£o"}</td>
+                    <td>{forma.permite_agendamento_online ? "Sim" : "NÃ£o"}</td>
                     <td>{forma.ativo ? "Ativo" : "Inativo"}</td>
                     <td className="actions">
                       <button className="small" type="button" onClick={() => editarForma(forma)}>
@@ -3589,7 +3623,7 @@ function App() {
                 <option value="plano">Plano</option>
                 <option value="rede">Rede</option>
                 <option value="produto">Produto</option>
-                <option value="acomodacao">Acomodação</option>
+                <option value="acomodacao">AcomodaÃ§Ã£o</option>
                 <option value="texto_livre">Texto livre</option>
               </select>
 
@@ -3605,7 +3639,7 @@ function App() {
                 onChange={(event) =>
                   setNovoProduto({ ...novoProduto, codigo_operadora: event.target.value })
                 }
-                placeholder="Código"
+                placeholder="CÃ³digo"
               />
 
               <input
@@ -3613,7 +3647,7 @@ function App() {
                 onChange={(event) =>
                   setNovoProduto({ ...novoProduto, acomodacao_ou_uf: event.target.value })
                 }
-                placeholder="Acomodação/UF"
+                placeholder="AcomodaÃ§Ã£o/UF"
               />
 
               <button type="submit" disabled={loadingAction === "produto"}>
@@ -3628,7 +3662,7 @@ function App() {
                 placeholder="Buscar produto/plano/rede..."
               />
               <span>
-                Exibindo {produtosPageStart}–{produtosPageEnd} de {produtosFiltrados.length}
+                Exibindo {produtosPageStart}â€“{produtosPageEnd} de {produtosFiltrados.length}
               </span>
             </div>
 
@@ -3637,10 +3671,10 @@ function App() {
                 <tr>
                   <th>Tipo</th>
                   <th>Nome</th>
-                  <th>Código</th>
-                  <th>Acomodação/UF</th>
+                  <th>CÃ³digo</th>
+                  <th>AcomodaÃ§Ã£o/UF</th>
                   <th>Status</th>
-                  <th>Ações</th>
+                  <th>AÃ§Ãµes</th>
                 </tr>
               </thead>
               <tbody>
@@ -3671,7 +3705,7 @@ function App() {
               </button>
 
               <span>
-                Página {produtoPageSafe} de {totalProdutoPages}
+                PÃ¡gina {produtoPageSafe} de {totalProdutoPages}
               </span>
 
               <button
@@ -3681,7 +3715,7 @@ function App() {
                   setProdutoPage((page) => Math.min(totalProdutoPages, page + 1))
                 }
               >
-                Próxima
+                PrÃ³xima
               </button>
             </div>
           </section>
@@ -3695,8 +3729,8 @@ function App() {
             <div className="card userFormCard">
               <div className="cardHeader stackedHeader">
                 <div>
-                  <h3>{editingUsuarioId ? "Editar usuário" : "Novo usuário"}</h3>
-                  <p>Crie operadores, altere status e vincule Admin Clínica a uma ou mais clínicas.</p>
+                  <h3>{editingUsuarioId ? "Editar usuÃ¡rio" : "Novo usuÃ¡rio"}</h3>
+                  <p>Crie operadores, altere status e vincule Admin ClÃ­nica a uma ou mais clÃ­nicas.</p>
                 </div>
               </div>
 
@@ -3720,7 +3754,7 @@ function App() {
                   />
                   {editingUsuarioId && (
                     <span className="fieldHint">
-                      Alterar o e-mail muda o login, os convites e os links de recuperação deste usuário.
+                      Alterar o e-mail muda o login, os convites e os links de recuperaÃ§Ã£o deste usuÃ¡rio.
                     </span>
                   )}
                 </label>
@@ -3735,7 +3769,7 @@ function App() {
                       cliente_ids: event.target.value === "global" ? [] : current.cliente_ids,
                     }))}
                   >
-                    <option value="clinica">Admin Clínica</option>
+                    <option value="clinica">Admin ClÃ­nica</option>
                     <option value="global">Admin Global</option>
                   </select>
                 </label>
@@ -3753,14 +3787,14 @@ function App() {
 
                 <div className="infoBox">
                   {editingUsuarioId
-                    ? "Ao salvar, o e-mail informado passa a ser usado para login, convite e recuperação de senha. Para resetar senha, use o botão Enviar reset por e-mail na tabela."
-                    : "Ao criar o usuário, o sistema enviará um convite para o e-mail cadastrado. O usuário definirá a própria senha e configurará MFA no primeiro acesso."}
+                    ? "Ao salvar, o e-mail informado passa a ser usado para login, convite e recuperaÃ§Ã£o de senha. Para resetar senha, use o botÃ£o Enviar reset por e-mail na tabela."
+                    : "Ao criar o usuÃ¡rio, o sistema enviarÃ¡ um convite para o e-mail cadastrado. O usuÃ¡rio definirÃ¡ a prÃ³pria senha e configurarÃ¡ MFA no primeiro acesso."}
                 </div>
 
                 {usuarioForm.perfil === "clinica" && (
                   <div className="clinicSelectorBox">
-                    <strong>Clínicas permitidas</strong>
-                    <span>Selecione uma ou mais unidades que este operador poderá acessar.</span>
+                    <strong>ClÃ­nicas permitidas</strong>
+                    <span>Selecione uma ou mais unidades que este operador poderÃ¡ acessar.</span>
                     <div className="checkGrid userClinicGrid">
                       {clientes.map((cliente) => (
                         <label key={cliente.id}>
@@ -3779,16 +3813,16 @@ function App() {
                 <div className="formActions">
                   <button type="submit" disabled={Boolean(loadingAction)}>
                     {loadingAction === "usuarios.create"
-                      ? "Criando usuário..."
+                      ? "Criando usuÃ¡rio..."
                       : loadingAction === "usuarios.save"
-                        ? "Salvando usuário..."
+                        ? "Salvando usuÃ¡rio..."
                         : editingUsuarioId
-                          ? "Salvar usuário"
-                          : "Criar usuário e enviar convite"}
+                          ? "Salvar usuÃ¡rio"
+                          : "Criar usuÃ¡rio e enviar convite"}
                   </button>
                   {editingUsuarioId && (
                     <button className="secondaryButton" type="button" onClick={resetUsuarioForm} disabled={Boolean(loadingAction)}>
-                      Cancelar edição
+                      Cancelar ediÃ§Ã£o
                     </button>
                   )}
                 </div>
@@ -3798,19 +3832,19 @@ function App() {
             <div className="card usersListCard">
               <div className="cardHeader usersHeader">
                 <div>
-                  <h3>Usuários administrativos</h3>
-                  <p>MFA/TOTP obrigatório ativo. Admin Global pode resetar o segundo fator dos usuários.</p>
+                  <h3>UsuÃ¡rios administrativos</h3>
+                  <p>MFA/TOTP obrigatÃ³rio ativo. Admin Global pode resetar o segundo fator dos usuÃ¡rios.</p>
                 </div>
                 <button onClick={() => loadUsuarios()} disabled={loadingAction === "usuarios.refresh"}>
-                  {loadingAction === "usuarios.refresh" ? "Atualizando..." : "Atualizar usuários"}
+                  {loadingAction === "usuarios.refresh" ? "Atualizando..." : "Atualizar usuÃ¡rios"}
                 </button>
               </div>
 
               <div className="usersSummary">
-                <span>{usuarios.length} usuários</span>
+                <span>{usuarios.length} usuÃ¡rios</span>
                 <span>{usuarios.filter((usuario) => usuario.ativo).length} ativos</span>
                 <span>{usuarios.filter((usuario) => !usuario.ativo).length} inativos</span>
-                <span>{usuarios.filter((usuario) => usuario.perfil === "clinica").length} clínicas</span>
+                <span>{usuarios.filter((usuario) => usuario.perfil === "clinica").length} clÃ­nicas</span>
                 <span>{usuarios.filter((usuario) => usuario.perfil === "global").length} globais</span>
               </div>
 
@@ -3842,12 +3876,12 @@ function App() {
                 <table>
                   <thead>
                     <tr>
-                      <th>Usuário</th>
+                      <th>UsuÃ¡rio</th>
                       <th>Perfil</th>
-                      <th>Clínicas</th>
+                      <th>ClÃ­nicas</th>
                       <th>Status</th>
                       <th>MFA</th>
-                      <th>Ações</th>
+                      <th>AÃ§Ãµes</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3858,7 +3892,7 @@ function App() {
                           <span className="tableHint">{usuario.email}</span>
                         </td>
                         <td>
-                          <Badge active={usuario.perfil === "global"}>{usuario.perfil === "global" ? "Global" : "Clínica"}</Badge>
+                          <Badge active={usuario.perfil === "global"}>{usuario.perfil === "global" ? "Global" : "ClÃ­nica"}</Badge>
                         </td>
                         <td className="clinicCell">
                           {usuario.perfil === "global"
@@ -3927,7 +3961,7 @@ function App() {
             <div className="sectionHeader">
               <div>
                 <h3>Auditoria administrativa</h3>
-                <p>Rastro das alterações feitas no painel: usuários, médicos, clientes, formas de atendimento e disponibilidade.</p>
+                <p>Rastro das alteraÃ§Ãµes feitas no painel: usuÃ¡rios, mÃ©dicos, clientes, formas de atendimento e disponibilidade.</p>
               </div>
               <button onClick={() => loadAdminAuditLogs()} disabled={auditLogsLoading}>
                 {auditLogsLoading ? "Atualizando..." : "Atualizar auditoria"}
@@ -3938,13 +3972,13 @@ function App() {
               <input
                 value={auditFilters.usuarioEmail}
                 onChange={(event) => setAuditFilters({ ...auditFilters, usuarioEmail: event.target.value })}
-                placeholder="Filtrar por e-mail do usuário"
+                placeholder="Filtrar por e-mail do usuÃ¡rio"
               />
               <select
                 value={auditFilters.clienteId}
                 onChange={(event) => setAuditFilters({ ...auditFilters, clienteId: event.target.value })}
               >
-                <option value="todos">Todas as clínicas</option>
+                <option value="todos">Todas as clÃ­nicas</option>
                 {clientes.map((cliente) => (
                   <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>
                 ))}
@@ -3953,7 +3987,7 @@ function App() {
                 value={auditFilters.acao}
                 onChange={(event) => setAuditFilters({ ...auditFilters, acao: event.target.value })}
                 list="audit-acoes"
-                placeholder="Ação. Ex.: medico.atualizado"
+                placeholder="AÃ§Ã£o. Ex.: medico.atualizado"
               />
               <datalist id="audit-acoes">
                 {auditActionOptions.map((acao) => <option key={acao} value={acao} />)}
@@ -3981,10 +4015,10 @@ function App() {
             </div>
 
             <div className="auditSummary">
-              <span>Exibindo até {ADMIN_AUDIT_PAGE_SIZE} registros</span>
+              <span>Exibindo atÃ© {ADMIN_AUDIT_PAGE_SIZE} registros</span>
               <span>Total carregado: {auditLogsResumo.total}</span>
-              <span>Usuários: {auditLogsResumo.usuarios}</span>
-              <span>Clínicas: {auditLogsResumo.clinicas}</span>
+              <span>UsuÃ¡rios: {auditLogsResumo.usuarios}</span>
+              <span>ClÃ­nicas: {auditLogsResumo.clinicas}</span>
             </div>
 
             {auditLogs.length > 0 ? (
@@ -3993,10 +4027,10 @@ function App() {
                   <thead>
                     <tr>
                       <th>Data/hora</th>
-                      <th>Usuário</th>
-                      <th>Ação</th>
+                      <th>UsuÃ¡rio</th>
+                      <th>AÃ§Ã£o</th>
                       <th>Entidade</th>
-                      <th>Clínica</th>
+                      <th>ClÃ­nica</th>
                       <th>Resumo</th>
                       <th>Antes / Depois</th>
                     </tr>
@@ -4048,7 +4082,7 @@ function App() {
                 <div>
                   <h3>Detalhes da auditoria</h3>
                   <p>
-                    {formatAdminDate(selectedAuditLog.created_at)} · {selectedAuditLog.usuario_email || "Usuário não identificado"}
+                    {formatAdminDate(selectedAuditLog.created_at)} Â· {selectedAuditLog.usuario_email || "UsuÃ¡rio nÃ£o identificado"}
                   </p>
                 </div>
                 <button className="secondary" type="button" onClick={() => setSelectedAuditLog(null)}>
@@ -4057,16 +4091,16 @@ function App() {
               </div>
 
               <div className="auditModalMeta">
-                <span><strong>Ação:</strong> {prettyAuditLabel(selectedAuditLog.acao)}</span>
+                <span><strong>AÃ§Ã£o:</strong> {prettyAuditLabel(selectedAuditLog.acao)}</span>
                 <span><strong>Entidade:</strong> {prettyAuditLabel(selectedAuditLog.entidade)}{selectedAuditLog.entidade_id ? ` #${selectedAuditLog.entidade_id}` : ""}</span>
-                <span><strong>Clínica:</strong> {getClienteNomeById(selectedAuditLog.cliente_id)}</span>
+                <span><strong>ClÃ­nica:</strong> {getClienteNomeById(selectedAuditLog.cliente_id)}</span>
                 <span><strong>Perfil:</strong> {selectedAuditLog.usuario_perfil || "-"}</span>
               </div>
 
               <AuditHumanSummary log={selectedAuditLog} />
 
               <details className="auditTechnicalDetails">
-                <summary>Ver dados técnicos em JSON</summary>
+                <summary>Ver dados tÃ©cnicos em JSON</summary>
                 <div className="auditModalGrid">
                   <div>
                     <h4>Antes</h4>
@@ -4089,7 +4123,7 @@ function App() {
                 <h3>Atendimentos WhatsApp</h3>
                 <p>
                   Auditoria das mensagens, etapas do fluxo, respostas enviadas e erros.
-                  A consulta é global; use o telefone, status ou período para filtrar.
+                  A consulta Ã© global; use o telefone, status ou perÃ­odo para filtrar.
                 </p>
               </div>
               <button onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
@@ -4133,7 +4167,7 @@ function App() {
                   checked={whatsappLogFilters.onlyErrors}
                   onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, onlyErrors: event.target.checked })}
                 />
-                Só erros
+                SÃ³ erros
               </label>
               <button className="secondary" onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
                 Filtrar
@@ -4141,7 +4175,7 @@ function App() {
             </div>
 
             <div className="helperBox compactHelper">
-              Exibindo até {WHATSAPP_LOGS_PAGE_SIZE} registros mais recentes. Total carregado: {whatsappLogsResumo.total}. Enviadas: {whatsappLogsResumo.sent}. Erros: {whatsappLogsResumo.failed}.
+              Exibindo atÃ© {WHATSAPP_LOGS_PAGE_SIZE} registros mais recentes. Total carregado: {whatsappLogsResumo.total}. Enviadas: {whatsappLogsResumo.sent}. Erros: {whatsappLogsResumo.failed}.
             </div>
 
             {whatsappLogs.length > 0 ? (
@@ -4151,10 +4185,10 @@ function App() {
                     <th>Data/hora</th>
                     <th>Telefone</th>
                     <th>Cliente</th>
-                    <th>Direção</th>
+                    <th>DireÃ§Ã£o</th>
                     <th>Status</th>
                     <th>Etapa</th>
-                    <th>Intenção</th>
+                    <th>IntenÃ§Ã£o</th>
                     <th>Mensagem</th>
                     <th>Resposta / Erro</th>
                   </tr>
@@ -4190,22 +4224,22 @@ function App() {
             <div className="card">
               <div className="sectionHeader compact">
                 <div>
-                  <h3>Médicos</h3>
+                  <h3>MÃ©dicos</h3>
                   <p>{selectedCliente.nome_fantasia}</p>
                 </div>
                 <span>{medicosFiltrados.length} registros</span>
               </div>
 
               <div className="helperBox compactHelper">
-                Clique em um médico da lista para carregar os dados no formulário e editar.
-                Médico inativo não entra no WhatsApp nem na validação de horários.
+                Clique em um mÃ©dico da lista para carregar os dados no formulÃ¡rio e editar.
+                MÃ©dico inativo nÃ£o entra no WhatsApp nem na validaÃ§Ã£o de horÃ¡rios.
               </div>
 
               {isGlobalAdmin && (
                 <div className={`importMedicosBox${loadingAction === "importar-medicos" ? " isImporting" : ""}`}>
                   <div>
                     <strong>Carga em massa</strong>
-                    <span>Importa a planilha da unidade. Se não houver CRM, usa 000000, 000001, 000002... pela ordem da planilha.</span>
+                    <span>Importa a planilha da unidade. Se nÃ£o houver CRM, usa 000000, 000001, 000002... pela ordem da planilha.</span>
                     {importacaoMedicosStatus && (
                       <div className="importStatus" role="status" aria-live="polite">
                         {loadingAction === "importar-medicos" && <span className="importSpinner" aria-hidden="true" />}
@@ -4229,7 +4263,7 @@ function App() {
                 <input
                   value={medicoForm.nome}
                   onChange={(event) => setMedicoForm({ ...medicoForm, nome: event.target.value })}
-                  placeholder="Nome do médico"
+                  placeholder="Nome do mÃ©dico"
                   required
                 />
                 <input
@@ -4243,7 +4277,7 @@ function App() {
                 <div className="especialidadesRulesBox">
                   <div className="rulesBoxHeader">
                     <div>
-                      <strong>Especialidades do médico</strong>
+                      <strong>Especialidades do mÃ©dico</strong>
                       <span>Cadastre uma regra de idade independente para cada especialidade.</span>
                     </div>
                     <button type="button" className="secondary smallButton" onClick={addMedicoEspecialidadeRegra}>
@@ -4273,7 +4307,7 @@ function App() {
                           max="130"
                           value={regra.idade_minima}
                           onChange={(event) => updateMedicoEspecialidadeRegra(index, { idade_minima: event.target.value })}
-                          placeholder="Idade mínima"
+                          placeholder="Idade mÃ­nima"
                         />
                         <input
                           type="number"
@@ -4281,13 +4315,13 @@ function App() {
                           max="130"
                           value={regra.idade_maxima}
                           onChange={(event) => updateMedicoEspecialidadeRegra(index, { idade_maxima: event.target.value })}
-                          placeholder="Idade máxima"
+                          placeholder="Idade mÃ¡xima"
                         />
                       </div>
                       <input
                         value={regra.regra_idade_texto}
                         onChange={(event) => updateMedicoEspecialidadeRegra(index, { regra_idade_texto: event.target.value })}
-                        placeholder="Regra/observação. Ex.: atende até 12 anos"
+                        placeholder="Regra/observaÃ§Ã£o. Ex.: atende atÃ© 12 anos"
                       />
                       {medicoForm.especialidades_regras.length > 1 && (
                         <button
@@ -4309,7 +4343,7 @@ function App() {
                 <input
                   value={medicoForm.dias}
                   onChange={(event) => setMedicoForm({ ...medicoForm, dias: event.target.value })}
-                  placeholder="Dias/horários. Ex.: 2ª e 4ª M"
+                  placeholder="Dias/horÃ¡rios. Ex.: 2Âª e 4Âª M"
                 />
                 <input
                   value={medicoForm.andar}
@@ -4321,12 +4355,12 @@ function App() {
                     {loadingAction === "medico"
                       ? "Salvando..."
                       : editingMedicoId
-                        ? "Atualizar médico"
-                        : "Cadastrar médico"}
+                        ? "Atualizar mÃ©dico"
+                        : "Cadastrar mÃ©dico"}
                   </button>
                   {editingMedicoId && (
                     <button type="button" className="secondary" onClick={limparFormularioMedico}>
-                      Cancelar edição
+                      Cancelar ediÃ§Ã£o
                     </button>
                   )}
                 </div>
@@ -4336,7 +4370,7 @@ function App() {
                 <input
                   value={medicoSearch}
                   onChange={(event) => setMedicoSearch(event.target.value)}
-                  placeholder="Buscar médico, CRM, especialidade, dia..."
+                  placeholder="Buscar mÃ©dico, CRM, especialidade, dia..."
                 />
                 <div className="clientFilter medicoStatusFilter">
                   <button
@@ -4382,7 +4416,7 @@ function App() {
                     </div>
                     {(medico.dias || medico.andar) && (
                       <span>
-                        {[medico.dias, medico.andar].filter(Boolean).join(" • ")}
+                        {[medico.dias, medico.andar].filter(Boolean).join(" â€¢ ")}
                       </span>
                     )}
                     <span className="listItemHint">Clique para editar cadastro</span>
@@ -4396,8 +4430,8 @@ function App() {
                       {loadingAction === `medico-${medico.id}`
                         ? "Salvando..."
                         : medico.ativo
-                          ? "Desativar médico"
-                          : "Ativar médico"}
+                          ? "Desativar mÃ©dico"
+                          : "Ativar mÃ©dico"}
                     </span>
                   </button>
                 ))}
@@ -4407,11 +4441,11 @@ function App() {
             <div className="card">
               <div className="sectionHeader compact">
                 <div>
-                  <h3>Aceites do médico</h3>
+                  <h3>Aceites do mÃ©dico</h3>
                   <p>
                     {selectedMedico
-                      ? `${selectedMedico.nome} — ${selectedMedico.especialidades || "sem especialidade"}`
-                      : "Selecione um médico"}
+                      ? `${selectedMedico.nome} â€” ${selectedMedico.especialidades || "sem especialidade"}`
+                      : "Selecione um mÃ©dico"}
                   </p>
                 </div>
               </div>
@@ -4421,7 +4455,7 @@ function App() {
                   <div className="sectionHeader compact">
                     <div>
                       <h4>Disponibilidade para agenda online</h4>
-                      <p>Use manhã, tarde e noite com horários reais por médico.</p>
+                      <p>Use manhÃ£, tarde e noite com horÃ¡rios reais por mÃ©dico.</p>
                     </div>
                     <button
                       type="button"
@@ -4436,9 +4470,9 @@ function App() {
                   <div className="availabilityTable">
                     <div className="availabilityHead">
                       <span>Dia</span>
-                      <span>Período</span>
+                      <span>PerÃ­odo</span>
                       <span>Atende</span>
-                      <span>Início</span>
+                      <span>InÃ­cio</span>
                       <span>Fim</span>
                       <span>Slot</span>
                     </div>
@@ -4489,28 +4523,28 @@ function App() {
                   </div>
 
                   <div className="helperBox compactHelper">
-                    Quando houver disponibilidade estruturada, o WhatsApp passa a priorizar estes horários.
-                    Sem cadastro estruturado, continua valendo o fallback de homologação/controlado.
+                    Quando houver disponibilidade estruturada, o WhatsApp passa a priorizar estes horÃ¡rios.
+                    Sem cadastro estruturado, continua valendo o fallback de homologaÃ§Ã£o/controlado.
                   </div>
                 </div>
               )}
 
               {!clienteUsaConvenio ? (
                 <div className="emptyState leftText">
-                  <strong>Aceites por convênio não se aplicam a esta unidade.</strong>
+                  <strong>Aceites por convÃªnio nÃ£o se aplicam a esta unidade.</strong>
                   <p>
-                    Esta clínica está configurada sem atendimento por convênio.
-                    Para atendimento particular, cartão próprio ou benefício, use apenas o cadastro
-                    do médico, especialidade e formas de atendimento da clínica.
+                    Esta clÃ­nica estÃ¡ configurada sem atendimento por convÃªnio.
+                    Para atendimento particular, cartÃ£o prÃ³prio ou benefÃ­cio, use apenas o cadastro
+                    do mÃ©dico, especialidade e formas de atendimento da clÃ­nica.
                   </p>
                 </div>
               ) : selectedMedico ? (
                 <>
                   {!clienteTemFormaConvenio && (
                     <div className="infoBox">
-                      Convênio está habilitado nas regras da clínica. Você já pode cadastrar aceites
-                      para este médico. Para que o menu comercial fique completo, mantenha também
-                      uma forma de atendimento do tipo Convênio ativa em Formas de atendimento.
+                      ConvÃªnio estÃ¡ habilitado nas regras da clÃ­nica. VocÃª jÃ¡ pode cadastrar aceites
+                      para este mÃ©dico. Para que o menu comercial fique completo, mantenha tambÃ©m
+                      uma forma de atendimento do tipo ConvÃªnio ativa em Formas de atendimento.
                     </div>
                   )}
                   <form onSubmit={criarAceite} className="inlineForm aceiteForm">
@@ -4519,7 +4553,7 @@ function App() {
                       onChange={(event) =>
                         setNovoAceite({ ...novoAceite, convenio: event.target.value })
                       }
-                      placeholder="Convênio exato. Ex.: ASSEFAZ"
+                      placeholder="ConvÃªnio exato. Ex.: ASSEFAZ"
                       required
                     />
                     <input
@@ -4536,8 +4570,8 @@ function App() {
                   </form>
 
                   <div className="helperBox">
-                    A criação por nome usa a regra atual do backend: médico + especialidade ativa + convênio + plano.
-                    Se já existir inativo, o aceite é reativado automaticamente.
+                    A criaÃ§Ã£o por nome usa a regra atual do backend: mÃ©dico + especialidade ativa + convÃªnio + plano.
+                    Se jÃ¡ existir inativo, o aceite Ã© reativado automaticamente.
                   </div>
 
                   <div className="clientFilter aceiteFilter">
@@ -4572,22 +4606,22 @@ function App() {
                         setAceiteSearch(event.target.value);
                         setAceitePage(1);
                       }}
-                      placeholder="Buscar aceite por convênio, plano, especialidade, código..."
+                      placeholder="Buscar aceite por convÃªnio, plano, especialidade, cÃ³digo..."
                     />
                     <span>
-                      Exibindo {aceitesPageStart}–{aceitesPageEnd} de {aceitesFiltrados.length}
+                      Exibindo {aceitesPageStart}â€“{aceitesPageEnd} de {aceitesFiltrados.length}
                     </span>
                   </div>
 
                   <table>
                     <thead>
                       <tr>
-                        <th>Convênio</th>
+                        <th>ConvÃªnio</th>
                         <th>Plano/produto</th>
                         <th>Especialidade</th>
                         <th>Origem</th>
                         <th>Status</th>
-                        <th>Ações</th>
+                        <th>AÃ§Ãµes</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4599,7 +4633,7 @@ function App() {
                             <span className="tableHint">
                               {[aceite.produto_tipo, aceite.codigo_operadora, aceite.acomodacao_ou_uf]
                                 .filter(Boolean)
-                                .join(" • ") || "-"}
+                                .join(" â€¢ ") || "-"}
                             </span>
                           </td>
                           <td>{aceite.especialidade || "-"}</td>
@@ -4633,7 +4667,7 @@ function App() {
                     </button>
 
                     <span>
-                      Página {aceitePageSafe} de {totalAceitePages}
+                      PÃ¡gina {aceitePageSafe} de {totalAceitePages}
                     </span>
 
                     <button
@@ -4643,12 +4677,12 @@ function App() {
                         setAceitePage((page) => Math.min(totalAceitePages, page + 1))
                       }
                     >
-                      Próxima
+                      PrÃ³xima
                     </button>
                   </div>
                 </>
               ) : (
-                <div className="emptyState">Nenhum médico encontrado para este cliente.</div>
+                <div className="emptyState">Nenhum mÃ©dico encontrado para este cliente.</div>
               )}
             </div>
           </section>
@@ -4659,3 +4693,6 @@ function App() {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+
+
