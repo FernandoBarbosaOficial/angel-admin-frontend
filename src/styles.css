@@ -1804,3 +1804,42 @@ html[data-theme="dark"] .sidebarPasswordButton {
 html[data-theme="dark"] .sidebarPasswordButton:hover {
   background: rgba(37, 99, 235, 0.36);
 }
+
+/* Ajuste complementar do tema escuro - blocos internos de configuração */
+html[data-theme="dark"] .checks,
+html[data-theme="dark"] .checks label,
+html[data-theme="dark"] .inlineCheck,
+html[data-theme="dark"] .rulesBox,
+html[data-theme="dark"] .configBox,
+html[data-theme="dark"] .settingsBox,
+html[data-theme="dark"] .sectionBox,
+html[data-theme="dark"] .formBox,
+html[data-theme="dark"] .whiteBox,
+html[data-theme="dark"] .panelBox {
+  background: #111827;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .checks label,
+html[data-theme="dark"] .inlineCheck {
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .checks label:has(input:disabled),
+html[data-theme="dark"] .inlineCheck:has(input:disabled),
+html[data-theme="dark"] input:disabled,
+html[data-theme="dark"] select:disabled,
+html[data-theme="dark"] textarea:disabled {
+  color: #94a3b8;
+  opacity: 0.75;
+}
+
+html[data-theme="dark"] input[type="checkbox"] {
+  accent-color: #3b82f6;
+}
+
+html[data-theme="dark"] option {
+  background: #020617;
+  color: #e5e7eb;
+}
