@@ -2470,3 +2470,126 @@ html[data-theme="dark"] .auditTableWrap {
 html[data-theme="dark"] .auditTableWrap table {
   background: #0f172a;
 }
+
+
+/* ============================================================
+   PATCH TABELAS OPERACIONAIS FINAL
+   Evita quebra letra por letra em Formas de atendimento,
+   Produtos, Usuários e tabelas administrativas.
+   ============================================================ */
+
+/* Wrappers de tabela devem rolar internamente, não quebrar colunas */
+.card:has(table) {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tabelas administrativas não devem ser comprimidas demais */
+.card table {
+  min-width: 860px;
+  width: 100%;
+}
+
+/* Evita palavras quebradas letra por letra */
+.card table th,
+.card table td {
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+/* Colunas com textos longos podem quebrar de forma natural */
+.card table td:nth-child(2),
+.card table td:nth-child(3),
+.card table td:nth-child(4),
+.card table td:nth-child(5) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Colunas pequenas de status/sim/não/ações devem preservar largura */
+.card table th:first-child,
+.card table td:first-child {
+  min-width: 72px;
+}
+
+.card table th:last-child,
+.card table td:last-child {
+  min-width: 190px;
+  white-space: nowrap;
+}
+
+/* Botões dentro de tabela não devem quebrar palavra */
+.card table button,
+.card table .small,
+.card table .secondary,
+.card table .danger {
+  width: auto;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+/* Ações de tabela em linha */
+.card table .actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Ajuste específico para Formas de atendimento */
+.card table th:nth-child(1),
+.card table td:nth-child(1) {
+  min-width: 90px;
+}
+
+.card table th:nth-child(2),
+.card table td:nth-child(2) {
+  min-width: 260px;
+}
+
+.card table th:nth-child(3),
+.card table td:nth-child(3),
+.card table th:nth-child(4),
+.card table td:nth-child(4),
+.card table th:nth-child(5),
+.card table td:nth-child(5) {
+  min-width: 110px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.card table th:nth-child(6),
+.card table td:nth-child(6) {
+  min-width: 230px;
+  white-space: nowrap;
+}
+
+/* Em telas menores, mantém scroll horizontal limpo */
+@media (max-width: 900px) {
+  .card:has(table) {
+    padding-bottom: 18px;
+  }
+
+  .card table {
+    min-width: 920px;
+  }
+}
+
+/* Tema escuro para scroll/tabelas */
+html[data-theme="dark"] .card:has(table) {
+  background: #0f172a;
+}
+
+html[data-theme="dark"] .card table th,
+html[data-theme="dark"] .card table td {
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .card table th {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .card table tr {
+  border-color: #1e293b;
+}
