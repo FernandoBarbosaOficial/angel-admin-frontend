@@ -2388,3 +2388,85 @@ html[data-theme="dark"] .tableWrap {
 html[data-theme="dark"] .sidebar {
   border-color: #1e293b;
 }
+
+
+/* ============================================================
+   PATCH AUDITORIA RESPONSIVA FINAL
+   Mantém a tabela de auditoria legível sem cortar colunas.
+   ============================================================ */
+
+.auditTableWrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.auditTableWrap table {
+  min-width: 1180px;
+  width: max-content;
+}
+
+.auditTableWrap th,
+.auditTableWrap td {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.auditTableWrap th:nth-child(1),
+.auditTableWrap td:nth-child(1) {
+  min-width: 160px;
+}
+
+.auditTableWrap th:nth-child(2),
+.auditTableWrap td:nth-child(2) {
+  min-width: 280px;
+}
+
+.auditTableWrap th:nth-child(3),
+.auditTableWrap td:nth-child(3) {
+  min-width: 180px;
+}
+
+.auditTableWrap th:nth-child(4),
+.auditTableWrap td:nth-child(4) {
+  min-width: 180px;
+}
+
+.auditTableWrap th:nth-child(5),
+.auditTableWrap td:nth-child(5) {
+  min-width: 240px;
+}
+
+.auditTableWrap th:nth-child(6),
+.auditTableWrap td:nth-child(6) {
+  min-width: 320px;
+}
+
+.auditJsonCell {
+  max-width: 360px;
+  min-width: 260px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.auditJsonCell details,
+.auditJsonCell summary,
+.auditJsonCell div {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.auditCard {
+  overflow: hidden;
+}
+
+html[data-theme="dark"] .auditTableWrap {
+  background: #0f172a;
+}
+
+html[data-theme="dark"] .auditTableWrap table {
+  background: #0f172a;
+}
