@@ -1843,3 +1843,248 @@ html[data-theme="dark"] option {
   background: #020617;
   color: #e5e7eb;
 }
+/* ============================================================
+   AJUSTE FINAL DO TEMA ESCURO - VERSAO LIMPA
+   Corrige contraste de cards internos, lista de clientes,
+   blocos de regras/configuracao e botoes do topo.
+   ============================================================ */
+
+/* Header: evita botoes encavalados */
+.headerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.headerActions button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.themeToggleButton {
+  min-width: 132px;
+  justify-content: center;
+}
+
+/* Lista de clientes / medicos / itens selecionaveis no tema escuro */
+html[data-theme="dark"] .listItem,
+html[data-theme="dark"] .listItem.selected,
+html[data-theme="dark"] .clientOpenButton {
+  background: #111827;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .clientOpenButton {
+  background: transparent;
+}
+
+html[data-theme="dark"] .listItem strong,
+html[data-theme="dark"] .listItem b,
+html[data-theme="dark"] .clientOpenButton strong,
+html[data-theme="dark"] .clientOpenButton b {
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .listItem span,
+html[data-theme="dark"] .listItem p,
+html[data-theme="dark"] .clientOpenButton span,
+html[data-theme="dark"] .clientOpenButton p,
+html[data-theme="dark"] .listItemHint {
+  color: #cbd5e1 !important;
+}
+
+/* Cards principais */
+html[data-theme="dark"] .card {
+  background: #0f172a;
+  color: #e5e7eb;
+  border-color: #1e293b;
+}
+
+/* Blocos internos que originalmente tinham fundo claro */
+html[data-theme="dark"] .ruleGroup,
+html[data-theme="dark"] .checks,
+html[data-theme="dark"] .clinicSelectorBox,
+html[data-theme="dark"] .userClinicGrid label,
+html[data-theme="dark"] .medicoForm,
+html[data-theme="dark"] .availabilityBox,
+html[data-theme="dark"] .availabilityRow,
+html[data-theme="dark"] .helperBox,
+html[data-theme="dark"] .infoBox,
+html[data-theme="dark"] .importMedicosBox,
+html[data-theme="dark"] .importStatus,
+html[data-theme="dark"] .especialidadesRulesBox,
+html[data-theme="dark"] .especialidadeRuleItem,
+html[data-theme="dark"] .mfaIntro,
+html[data-theme="dark"] .mfaQrBox,
+html[data-theme="dark"] .mfaManualSecret,
+html[data-theme="dark"] .auditHumanIntro,
+html[data-theme="dark"] .auditHumanPanel,
+html[data-theme="dark"] .auditHumanItem,
+html[data-theme="dark"] .auditHumanEmpty,
+html[data-theme="dark"] .auditHumanEmptyBox,
+html[data-theme="dark"] .auditDiffTableWrap,
+html[data-theme="dark"] .auditModalMeta span,
+html[data-theme="dark"] .rulesBox,
+html[data-theme="dark"] .configBox,
+html[data-theme="dark"] .settingsBox,
+html[data-theme="dark"] .sectionBox,
+html[data-theme="dark"] .formBox,
+html[data-theme="dark"] .whiteBox,
+html[data-theme="dark"] .panelBox,
+html[data-theme="dark"] .filterBox,
+html[data-theme="dark"] .emptyState {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+  border-color: #334155 !important;
+}
+
+/* Titulos/textos dentro dos blocos internos */
+html[data-theme="dark"] .ruleGroup strong,
+html[data-theme="dark"] .rulesBoxHeader strong,
+html[data-theme="dark"] .rulesBoxHeader span,
+html[data-theme="dark"] .importMedicosBox strong,
+html[data-theme="dark"] .importMedicosBox span,
+html[data-theme="dark"] .auditHumanPanel h4,
+html[data-theme="dark"] .auditHumanItem strong,
+html[data-theme="dark"] .auditHumanItem span,
+html[data-theme="dark"] .auditHumanIntro strong,
+html[data-theme="dark"] .auditHumanIntro span,
+html[data-theme="dark"] .mfaIntro strong,
+html[data-theme="dark"] .mfaIntro span,
+html[data-theme="dark"] .mfaManualSecret,
+html[data-theme="dark"] .mfaManualSecret span,
+html[data-theme="dark"] .clinicSelectorBox span,
+html[data-theme="dark"] .infoBox,
+html[data-theme="dark"] .helperBox,
+html[data-theme="dark"] .fieldHint,
+html[data-theme="dark"] .tableHint,
+html[data-theme="dark"] .leftText p {
+  color: #cbd5e1 !important;
+}
+
+/* Labels, checks e desabilitados */
+html[data-theme="dark"] label,
+html[data-theme="dark"] .checks label,
+html[data-theme="dark"] .inlineCheck,
+html[data-theme="dark"] .miniCheck {
+  color: #e5e7eb !important;
+}
+
+html[data-theme="dark"] label:has(input:disabled),
+html[data-theme="dark"] .checks label:has(input:disabled),
+html[data-theme="dark"] .inlineCheck:has(input:disabled),
+html[data-theme="dark"] input:disabled,
+html[data-theme="dark"] select:disabled,
+html[data-theme="dark"] textarea:disabled {
+  color: #94a3b8 !important;
+  opacity: 0.78;
+}
+
+html[data-theme="dark"] input[type="checkbox"] {
+  accent-color: #3b82f6;
+}
+
+/* Inputs/selects/textarea no tema escuro */
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .availabilityRow input,
+html[data-theme="dark"] .availabilityRow select {
+  background: #020617 !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+html[data-theme="dark"] select option,
+html[data-theme="dark"] option {
+  background: #020617;
+  color: #f8fafc;
+}
+
+/* Badges */
+html[data-theme="dark"] .badge {
+  background: #1e293b;
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .badgeOn {
+  background: #065f46;
+  color: #d1fae5;
+}
+
+/* Botoes secundarios/topo */
+html[data-theme="dark"] .secondary,
+html[data-theme="dark"] .secondaryButton,
+html[data-theme="dark"] .themeToggleButton,
+html[data-theme="dark"] .tableActionButton,
+html[data-theme="dark"] .loginBox .secondaryButton {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #334155;
+}
+
+html[data-theme="dark"] .secondary:hover,
+html[data-theme="dark"] .secondaryButton:hover,
+html[data-theme="dark"] .themeToggleButton:hover,
+html[data-theme="dark"] .tableActionButton:hover {
+  background: #334155;
+}
+
+/* Tabelas e auditoria */
+html[data-theme="dark"] .auditDiffTable th,
+html[data-theme="dark"] .auditDiffTable td,
+html[data-theme="dark"] .auditJsonCell div {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .auditTechnicalDetails summary {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #334155;
+}
+
+/* Importacao */
+html[data-theme="dark"] .importFileButton {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .importFileButton.disabled {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+/* Modais */
+html[data-theme="dark"] .modalBackdrop {
+  background: rgba(2, 6, 23, 0.76);
+}
+
+html[data-theme="dark"] .auditModal {
+  background: #0f172a;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+
+/* Responsivo do header */
+@media (max-width: 900px) {
+  .header {
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+  }
+
+  .headerActions button {
+    padding: 10px 14px;
+  }
+}
