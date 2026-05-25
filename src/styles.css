@@ -2088,3 +2088,303 @@ html[data-theme="dark"] .auditModal {
     padding: 10px 14px;
   }
 }
+
+
+/* ============================================================
+   PATCH RESPONSIVO FINAL — painel administrativo
+   Corrige overflow horizontal, header, cards, auditoria e tabelas.
+   ============================================================ */
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.app {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.card,
+.auditCard,
+.usersListCard,
+.userFormCard,
+.settingsGrid,
+.grid,
+.oneColumnGrid,
+.usersAdminGrid {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Header: evita que os botões estourem a largura */
+.header {
+  gap: 18px;
+  min-width: 0;
+}
+
+.header > div:first-child {
+  min-width: 0;
+}
+
+.header h2,
+.header p {
+  overflow-wrap: anywhere;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.headerActions button {
+  min-height: 44px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.themeToggleButton {
+  min-width: 128px;
+  justify-content: center;
+}
+
+/* Tabelas: mantém rolagem dentro do card, não na página inteira */
+.usersTableWrap,
+.auditTableWrap,
+.tableWrapper,
+.tableWrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.usersTableWrap table,
+.auditTableWrap table,
+.tableWrapper table,
+.tableWrap table {
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Auditoria: filtros mais flexíveis em telas médias */
+.auditToolbar {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  width: 100%;
+}
+
+.auditToolbar button {
+  width: 100%;
+}
+
+/* Células longas não devem empurrar a tabela indefinidamente */
+.auditJsonCell,
+.clinicCell {
+  max-width: 320px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+td,
+th {
+  overflow-wrap: anywhere;
+}
+
+/* Listas e botões internos */
+.listItem,
+.clientOpenButton {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.clientOpenButton strong,
+.clientOpenButton span,
+.listItem strong,
+.listItem span {
+  overflow-wrap: anywhere;
+}
+
+/* Ações absolutas da lista de clientes: evita colisão em telas menores */
+@media (max-width: 1200px) {
+  .clientActions {
+    position: static;
+    transform: none;
+    justify-content: flex-start;
+    margin-top: 12px;
+  }
+
+  .clientActions .small {
+    width: fit-content;
+  }
+}
+
+/* Em telas médias, reduz a sidebar e o padding */
+@media (max-width: 1180px) {
+  .sidebar {
+    width: 230px;
+    padding: 24px 20px;
+  }
+
+  .content {
+    padding: 26px 22px;
+  }
+
+  .header {
+    align-items: flex-start;
+  }
+}
+
+/* Em telas menores, sidebar vira topo */
+@media (max-width: 900px) {
+  html,
+  body,
+  #root {
+    overflow-x: hidden;
+  }
+
+  .app {
+    display: block;
+  }
+
+  .sidebar {
+    width: 100%;
+    padding: 22px;
+    gap: 22px;
+    border-right: 0;
+    border-bottom: 1px solid #1e293b;
+  }
+
+  .sidebar h1 {
+    font-size: 26px;
+  }
+
+  nav {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  nav button {
+    text-align: center;
+  }
+
+  .content {
+    padding: 22px 16px;
+  }
+
+  .header {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 16px;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .headerActions button {
+    flex: 1 1 150px;
+  }
+
+  .grid,
+  .settingsGrid,
+  .usersAdminGrid,
+  .clinicForm,
+  .twoColumns,
+  .fieldWithButton,
+  .formActions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .sectionHeader {
+    display: grid;
+    gap: 10px;
+  }
+}
+
+/* Celular estreito */
+@media (max-width: 560px) {
+  .content {
+    padding: 18px 12px;
+  }
+
+  .header h2 {
+    font-size: 24px;
+  }
+
+  .header p {
+    font-size: 14px;
+  }
+
+  .headerActions {
+    gap: 8px;
+  }
+
+  .headerActions button {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .themeToggleButton {
+    min-width: 0;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  button {
+    width: 100%;
+  }
+
+  .actions,
+  .userActionsCell,
+  .clientFilter,
+  .pagination,
+  .usersSummary,
+  .auditSummary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .clientFilter span {
+    margin-left: 0;
+  }
+
+  .auditModal {
+    width: calc(100vw - 24px);
+    padding: 16px;
+  }
+}
+
+/* Ajuste específico do tema escuro para elementos responsivos */
+html[data-theme="dark"] .auditTableWrap,
+html[data-theme="dark"] .usersTableWrap,
+html[data-theme="dark"] .tableWrapper,
+html[data-theme="dark"] .tableWrap {
+  background: #0f172a;
+}
+
+html[data-theme="dark"] .sidebar {
+  border-color: #1e293b;
+}
