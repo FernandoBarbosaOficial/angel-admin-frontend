@@ -253,6 +253,41 @@ type WhatsappMessageLog = {
   processing_seconds?: number | null;
 };
 
+
+type WhatsappCanalModo = "cliente_direto" | "grupo_unidades" | "unidade_direta";
+
+type ClienteCanalWhatsapp = {
+  id: number;
+  cliente_id: number;
+  cliente_nome?: string | null;
+  tipo: string;
+  nome: string;
+  identificador: string;
+  provider: string;
+  modo_atendimento: WhatsappCanalModo;
+  cliente_ids: number[];
+  unidade_id?: number | null;
+  whatsapp_numero?: string | null;
+  nome_exibicao?: string | null;
+  ativo: boolean;
+  principal: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type WhatsappCanalForm = {
+  cliente_id: string;
+  nome: string;
+  identificador: string;
+  provider: string;
+  modo_atendimento: WhatsappCanalModo;
+  cliente_ids: number[];
+  whatsapp_numero: string;
+  nome_exibicao: string;
+  ativo: boolean;
+  principal: boolean;
+};
+
 type AdminAuditLog = {
   id: number;
   usuario_id?: number | null;
@@ -336,6 +371,22 @@ function setStoredTheme(theme: ThemeMode) {
 function applyDocumentTheme(theme: ThemeMode) {
   document.documentElement.setAttribute("data-theme", theme);
   document.documentElement.style.colorScheme = theme;
+}
+
+
+function createEmptyWhatsappCanalForm(): WhatsappCanalForm {
+  return {
+    cliente_id: "",
+    nome: "",
+    identificador: "",
+    provider: "meta",
+    modo_atendimento: "cliente_direto",
+    cliente_ids: [],
+    whatsapp_numero: "",
+    nome_exibicao: "",
+    ativo: true,
+    principal: false,
+  };
 }
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -1294,6 +1345,10 @@ function App() {
     onlyErrors: false,
   });
   const [whatsappLogsLoading, setWhatsappLogsLoading] = useState(false);
+  const [whatsappCanais, setWhatsappCanais] = useState<ClienteCanalWhatsapp[]>([]);
+  const [whatsappCanaisLoading, setWhatsappCanaisLoading] = useState(false);
+  const [editingWhatsappCanalId, setEditingWhatsappCanalId] = useState<number | null>(null);
+  const [whatsappCanalForm, setWhatsappCanalForm] = useState<WhatsappCanalForm>(() => createEmptyWhatsappCanalForm());
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [auditFilters, setAuditFilters] = useState({
@@ -1584,6 +1639,13 @@ function App() {
     const sent = whatsappLogs.filter((log) => log.status === "sent").length;
     return { total, failed, sent };
   }, [whatsappLogs]);
+
+
+  const whatsappCanaisResumo = useMemo(() => {
+    const ativos = whatsappCanais.filter((canal) => canal.ativo).length;
+    const grupos = whatsappCanais.filter((canal) => canal.modo_atendimento === "grupo_unidades").length;
+    return { total: whatsappCanais.length, ativos, grupos };
+  }, [whatsappCanais]);
 
   const usuariosFiltrados = useMemo(() => {
     return usuarios.filter((usuario) => {
@@ -1972,6 +2034,131 @@ function App() {
     }
   }
 
+  async function loadWhatsappCanais() {
+    if (!isGlobalAdmin) return;
+    setWhatsappCanaisLoading(true);
+    try {
+      const data = await api<ClienteCanalWhatsapp[]>("/api/admin/whatsapp/canais");
+      setWhatsappCanais(data);
+    } finally {
+      setWhatsappCanaisLoading(false);
+    }
+  }
+
+  function resetWhatsappCanalForm() {
+    setEditingWhatsappCanalId(null);
+    setWhatsappCanalForm(createEmptyWhatsappCanalForm());
+  }
+
+  function handleEditWhatsappCanal(canal: ClienteCanalWhatsapp) {
+    setEditingWhatsappCanalId(canal.id);
+    setWhatsappCanalForm({
+      cliente_id: String(canal.cliente_id || ""),
+      nome: canal.nome || "",
+      identificador: canal.identificador || "",
+      provider: canal.provider || "meta",
+      modo_atendimento: canal.modo_atendimento || "cliente_direto",
+      cliente_ids: canal.cliente_ids || [],
+      whatsapp_numero: canal.whatsapp_numero || "",
+      nome_exibicao: canal.nome_exibicao || canal.nome || "",
+      ativo: canal.ativo,
+      principal: canal.principal,
+    });
+  }
+
+  function toggleWhatsappCanalClienteId(clienteId: number) {
+    setWhatsappCanalForm((current) => {
+      const exists = current.cliente_ids.includes(clienteId);
+      return {
+        ...current,
+        cliente_ids: exists
+          ? current.cliente_ids.filter((id) => id !== clienteId)
+          : [...current.cliente_ids, clienteId],
+      };
+    });
+  }
+
+  async function handleSaveWhatsappCanal(event: React.FormEvent) {
+    event.preventDefault();
+
+    const clienteId = Number(whatsappCanalForm.cliente_id);
+    const nome = whatsappCanalForm.nome.trim();
+    const identificador = whatsappCanalForm.identificador.trim();
+
+    if (!clienteId) {
+      showToast("❌ Selecione o cliente base do canal", true);
+      return;
+    }
+
+    if (!nome || !identificador) {
+      showToast("❌ Informe nome do canal e phone_number_id", true);
+      return;
+    }
+
+    if (whatsappCanalForm.modo_atendimento === "grupo_unidades" && whatsappCanalForm.cliente_ids.length === 0) {
+      showToast("❌ Para grupo de unidades, selecione os clientes/unidades exibidos no menu", true);
+      return;
+    }
+
+    const payload = {
+      id: editingWhatsappCanalId,
+      cliente_id: clienteId,
+      nome,
+      identificador,
+      provider: whatsappCanalForm.provider.trim() || "meta",
+      modo_atendimento: whatsappCanalForm.modo_atendimento,
+      cliente_ids: whatsappCanalForm.modo_atendimento === "grupo_unidades" ? whatsappCanalForm.cliente_ids : [],
+      whatsapp_numero: whatsappCanalForm.whatsapp_numero.trim() || null,
+      nome_exibicao: whatsappCanalForm.nome_exibicao.trim() || nome,
+      ativo: whatsappCanalForm.ativo,
+      principal: whatsappCanalForm.principal,
+    };
+
+    setLoadingAction("whatsapp.canal.save");
+    try {
+      await api<ClienteCanalWhatsapp>("/api/admin/whatsapp/canais", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      showToast(editingWhatsappCanalId ? "✅ Canal WhatsApp atualizado" : "✅ Canal WhatsApp criado");
+      resetWhatsappCanalForm();
+      await loadWhatsappCanais();
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar canal WhatsApp", true);
+    } finally {
+      setLoadingAction((current) => (current === "whatsapp.canal.save" ? null : current));
+    }
+  }
+
+  async function handleToggleWhatsappCanal(canal: ClienteCanalWhatsapp) {
+    const nextAtivo = !canal.ativo;
+    setLoadingAction(`whatsapp.canal.toggle.${canal.id}`);
+    try {
+      await api<ClienteCanalWhatsapp>(`/api/admin/whatsapp/canais/${canal.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ ativo: nextAtivo }),
+      });
+      showToast(nextAtivo ? "✅ Canal ativado" : "✅ Canal inativado");
+      await loadWhatsappCanais();
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao alterar canal WhatsApp", true);
+    } finally {
+      setLoadingAction((current) => (current === `whatsapp.canal.toggle.${canal.id}` ? null : current));
+    }
+  }
+
+  function getCanalClientesLabel(canal: ClienteCanalWhatsapp) {
+    if (canal.modo_atendimento !== "grupo_unidades") {
+      return canal.cliente_nome || `Cliente #${canal.cliente_id}`;
+    }
+
+    const nomes = (canal.cliente_ids || [])
+      .map((id) => clientes.find((cliente) => cliente.id === id)?.nome_fantasia || `#${id}`)
+      .filter(Boolean);
+
+    return nomes.join(", ") || "Grupo sem unidades configuradas";
+  }
+
   async function loadAdminAuditLogs() {
     if (!isGlobalAdmin) return;
     setAuditLogsLoading(true);
@@ -2036,9 +2223,9 @@ function App() {
 
   useEffect(() => {
     if (activeTab === "whatsapp") {
-      loadWhatsappLogs().catch((error) => showToast(error.message, true));
+      Promise.all([loadWhatsappLogs(), loadWhatsappCanais()]).catch((error) => showToast(error.message, true));
     }
-  }, [activeTab, selectedClienteId]);
+  }, [activeTab, selectedClienteId, isGlobalAdmin]);
 
   useEffect(() => {
     if (activeTab === "auditoria" && isGlobalAdmin) {
@@ -4118,7 +4305,192 @@ function App() {
         )}
 
         {activeTab === "whatsapp" && isGlobalAdmin && (
-          <section className="card">
+          <>
+            <section className="card">
+              <div className="sectionHeader">
+                <div>
+                  <h3>Canais WhatsApp por cliente</h3>
+                  <p>
+                    Configure vários telefones Meta Cloud API na mesma Railway. O backend resolve o cliente ou grupo pelo phone_number_id recebido no webhook.
+                  </p>
+                </div>
+                <button onClick={() => loadWhatsappCanais()} disabled={whatsappCanaisLoading}>
+                  {whatsappCanaisLoading ? "Atualizando..." : "Atualizar canais"}
+                </button>
+              </div>
+
+              <div className="helperBox compactHelper">
+                Total: {whatsappCanaisResumo.total}. Ativos: {whatsappCanaisResumo.ativos}. Grupos/unidades: {whatsappCanaisResumo.grupos}.
+                Em staging, simule cada número chamando <strong>/api/whatsapp/test-message</strong> com o campo <strong>phoneNumberId</strong>.
+              </div>
+
+              <form className="form whatsappCanalForm" onSubmit={handleSaveWhatsappCanal}>
+                <div className="twoColumns">
+                  <label>
+                    Cliente base
+                    <select
+                      value={whatsappCanalForm.cliente_id}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, cliente_id: event.target.value })}
+                      required
+                    >
+                      <option value="">Selecione</option>
+                      {clientes.map((cliente) => (
+                        <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Modo de atendimento
+                    <select
+                      value={whatsappCanalForm.modo_atendimento}
+                      onChange={(event) => setWhatsappCanalForm({
+                        ...whatsappCanalForm,
+                        modo_atendimento: event.target.value as WhatsappCanalModo,
+                      })}
+                    >
+                      <option value="cliente_direto">Cliente direto — não pergunta unidade</option>
+                      <option value="grupo_unidades">Grupo de unidades — mostra só o grupo</option>
+                      <option value="unidade_direta">Unidade direta — reservado/futuro</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="twoColumns">
+                  <label>
+                    Nome do canal
+                    <input
+                      value={whatsappCanalForm.nome}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, nome: event.target.value })}
+                      placeholder="Ex.: Amor e Saúde Osasco"
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    phone_number_id da Meta
+                    <input
+                      value={whatsappCanalForm.identificador}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, identificador: event.target.value.trim() })}
+                      placeholder="Ex.: 123456789012345"
+                      required
+                    />
+                  </label>
+                </div>
+
+                <div className="twoColumns">
+                  <label>
+                    Número exibido
+                    <input
+                      value={whatsappCanalForm.whatsapp_numero}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, whatsapp_numero: event.target.value })}
+                      placeholder="Ex.: 5511999999999"
+                    />
+                  </label>
+
+                  <label>
+                    Nome exibido ao paciente
+                    <input
+                      value={whatsappCanalForm.nome_exibicao}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, nome_exibicao: event.target.value })}
+                      placeholder="Ex.: Amor e Saúde Osasco"
+                    />
+                  </label>
+                </div>
+
+                {whatsappCanalForm.modo_atendimento === "grupo_unidades" && (
+                  <div className="checkboxPanel">
+                    <strong>Clientes/unidades que aparecem neste telefone</strong>
+                    <p>Use este campo para o cenário Amor e Saúde com várias unidades no mesmo WhatsApp.</p>
+                    <div className="checkboxGrid">
+                      {clientes.map((cliente) => (
+                        <label key={cliente.id} className="inlineCheck">
+                          <input
+                            type="checkbox"
+                            checked={whatsappCanalForm.cliente_ids.includes(cliente.id)}
+                            onChange={() => toggleWhatsappCanalClienteId(cliente.id)}
+                          />
+                          {cliente.nome_fantasia}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="toolbar compactToolbar">
+                  <label className="inlineCheck">
+                    <input
+                      type="checkbox"
+                      checked={whatsappCanalForm.ativo}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, ativo: event.target.checked })}
+                    />
+                    Ativo
+                  </label>
+                  <label className="inlineCheck">
+                    <input
+                      type="checkbox"
+                      checked={whatsappCanalForm.principal}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, principal: event.target.checked })}
+                    />
+                    Principal
+                  </label>
+                  <button type="submit" disabled={loadingAction === "whatsapp.canal.save"}>
+                    {loadingAction === "whatsapp.canal.save" ? "Salvando..." : editingWhatsappCanalId ? "Salvar canal" : "Criar canal"}
+                  </button>
+                  {editingWhatsappCanalId && (
+                    <button type="button" className="secondary" onClick={resetWhatsappCanalForm}>Cancelar edição</button>
+                  )}
+                </div>
+              </form>
+
+              {whatsappCanais.length > 0 ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Canal</th>
+                      <th>phone_number_id</th>
+                      <th>Modo</th>
+                      <th>Cliente/unidades</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {whatsappCanais.map((canal) => (
+                      <tr key={canal.id}>
+                        <td>
+                          <strong>{canal.nome}</strong>
+                          <span className="tableHint">{canal.nome_exibicao || canal.whatsapp_numero || canal.provider}</span>
+                        </td>
+                        <td>{canal.identificador}</td>
+                        <td>{canal.modo_atendimento}</td>
+                        <td>{getCanalClientesLabel(canal)}</td>
+                        <td><Badge active={canal.ativo}>{canal.ativo ? "ativo" : "inativo"}</Badge></td>
+                        <td>
+                          <button className="tableActionButton" type="button" onClick={() => handleEditWhatsappCanal(canal)}>
+                            Editar
+                          </button>
+                          <button
+                            className="tableActionButton"
+                            type="button"
+                            onClick={() => handleToggleWhatsappCanal(canal)}
+                            disabled={loadingAction === `whatsapp.canal.toggle.${canal.id}`}
+                          >
+                            {canal.ativo ? "Inativar" : "Ativar"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="emptyState">
+                  {whatsappCanaisLoading ? "Carregando canais..." : "Nenhum canal WhatsApp configurado ainda."}
+                </div>
+              )}
+            </section>
+
+            <section className="card">
             <div className="sectionHeader">
               <div>
                 <h3>Atendimentos WhatsApp</h3>
@@ -4218,6 +4590,7 @@ function App() {
               </div>
             )}
           </section>
+          </>
         )}
 
         {activeTab === "medicos" && selectedCliente && (
