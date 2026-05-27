@@ -7,7 +7,8 @@ export default defineConfig({
     host: "0.0.0.0",
     port: Number(process.env.PORT) || 4173,
     allowedHosts: [
-      "frontend-production-533e.up.railway.app"
+      "frontend-production-533e.up.railway.app",
+      "frontend-staging-dfc0.up.railway.app"
     ]
   }
 });
