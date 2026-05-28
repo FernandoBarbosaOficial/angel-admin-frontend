@@ -4530,6 +4530,486 @@ function App() {
           </div>
         )}
 
+        {activeTab === "medicos" && !selectedCliente && (
+          <section className="card full selectionRequiredCard">
+            <div className="selectionRequiredIcon">🏥</div>
+            <div>
+              <h3>Selecione um cliente para gerenciar médicos e aceites</h3>
+              <p>Escolha uma clínica na tela Clientes. O cliente selecionado ficará destacado antes de abrir Médicos e aceites.</p>
+            </div>
+            <button type="button" onClick={() => setActiveTab("clientes")}>Ir para Clientes</button>
+          </section>
+        )}
+
+        {activeTab === "medicos" && selectedCliente && (
+          <section className="grid medicosGrid">
+            <div className="card">
+              <div className="sectionHeader compact">
+                <div>
+                  <h3>Médicos</h3>
+                  <p>{selectedCliente.nome_fantasia}</p>
+                </div>
+                <span>{medicosFiltrados.length} registros</span>
+              </div>
+
+              <div className="helperBox compactHelper">
+                Clique em um médico da lista para carregar os dados no formulário e editar.
+                Médico inativo não entra no WhatsApp nem na validação de horários.
+              </div>
+
+              {isGlobalAdmin && (
+                <div className={`importMedicosBox${loadingAction === "importar-medicos" ? " isImporting" : ""}`}>
+                  <div>
+                    <strong>Carga em massa</strong>
+                    <span>Importa a planilha da unidade. Se não houver CRM, usa 000000, 000001, 000002... pela ordem da planilha.</span>
+                    {importacaoMedicosStatus && (
+                      <div className="importStatus" role="status" aria-live="polite">
+                        {loadingAction === "importar-medicos" && <span className="importSpinner" aria-hidden="true" />}
+                        <span>{importacaoMedicosStatus}</span>
+                      </div>
+                    )}
+                  </div>
+                  <label className={`importFileButton${loadingAction === "importar-medicos" ? " disabled" : ""}`}>
+                    {loadingAction === "importar-medicos" ? "Importando..." : "Importar planilha"}
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      disabled={loadingAction === "importar-medicos"}
+                      onChange={importarMedicosDePlanilha}
+                    />
+                  </label>
+                </div>
+              )}
+
+              <form onSubmit={salvarMedico} className="medicoForm">
+                <input
+                  value={medicoForm.nome}
+                  onChange={(event) => setMedicoForm({ ...medicoForm, nome: event.target.value })}
+                  placeholder="Nome do médico"
+                  required
+                />
+                <input
+                  value={medicoForm.registro_profissional}
+                  onChange={(event) =>
+                    setMedicoForm({ ...medicoForm, registro_profissional: event.target.value })
+                  }
+                  placeholder="CRM / registro profissional"
+                  required
+                />
+                <div className="especialidadesRulesBox">
+                  <div className="rulesBoxHeader">
+                    <div>
+                      <strong>Especialidades do médico</strong>
+                      <span>Cadastre uma regra de idade independente para cada especialidade.</span>
+                    </div>
+                    <button type="button" className="secondary smallButton" onClick={addMedicoEspecialidadeRegra}>
+                      + Especialidade
+                    </button>
+                  </div>
+
+                  {medicoForm.especialidades_regras.map((regra, index) => (
+                    <div className="especialidadeRuleItem" key={`especialidade-regra-${index}`}>
+                      <input
+                        value={regra.nome}
+                        onChange={(event) => updateMedicoEspecialidadeRegra(index, { nome: event.target.value })}
+                        onBlur={() => {
+                          const especialidade = resolveEspecialidadeDigitada(regra.nome);
+                          if (especialidade) {
+                            updateMedicoEspecialidadeRegra(index, { nome: especialidade.nome });
+                          }
+                        }}
+                        list="especialidades-catalogo"
+                        placeholder="Especialidade. Ex.: Pediatria"
+                        required
+                      />
+                      <div className="twoColumns">
+                        <input
+                          type="number"
+                          min="0"
+                          max="130"
+                          value={regra.idade_minima}
+                          onChange={(event) => updateMedicoEspecialidadeRegra(index, { idade_minima: event.target.value })}
+                          placeholder="Idade mínima"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max="130"
+                          value={regra.idade_maxima}
+                          onChange={(event) => updateMedicoEspecialidadeRegra(index, { idade_maxima: event.target.value })}
+                          placeholder="Idade máxima"
+                        />
+                      </div>
+                      <input
+                        value={regra.regra_idade_texto}
+                        onChange={(event) => updateMedicoEspecialidadeRegra(index, { regra_idade_texto: event.target.value })}
+                        placeholder="Regra/observação. Ex.: atende até 12 anos"
+                      />
+                      {medicoForm.especialidades_regras.length > 1 && (
+                        <button
+                          type="button"
+                          className="secondary dangerTextButton"
+                          onClick={() => removeMedicoEspecialidadeRegra(index)}
+                        >
+                          Remover especialidade
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <datalist id="especialidades-catalogo">
+                  {especialidadeOptions.map((especialidade) => (
+                    <option key={especialidade} value={especialidade} />
+                  ))}
+                </datalist>
+                <input
+                  value={medicoForm.dias}
+                  onChange={(event) => setMedicoForm({ ...medicoForm, dias: event.target.value })}
+                  placeholder="Dias/horários. Ex.: 2ª e 4ª M"
+                />
+                <input
+                  value={medicoForm.andar}
+                  onChange={(event) => setMedicoForm({ ...medicoForm, andar: event.target.value })}
+                  placeholder="Andar/sala"
+                />
+                <div className="formActions">
+                  <button type="submit" disabled={loadingAction === "medico"}>
+                    {loadingAction === "medico"
+                      ? "Salvando..."
+                      : editingMedicoId
+                        ? "Atualizar médico"
+                        : "Cadastrar médico"}
+                  </button>
+                  {editingMedicoId && (
+                    <button type="button" className="secondary" onClick={limparFormularioMedico}>
+                      Cancelar edição
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              <div className="toolbar single medicoToolbar">
+                <input
+                  value={medicoSearch}
+                  onChange={(event) => setMedicoSearch(event.target.value)}
+                  placeholder="Buscar médico, CRM, especialidade, dia..."
+                />
+                <div className="clientFilter medicoStatusFilter">
+                  <button
+                    type="button"
+                    className={medicoStatusFiltro === "ativos" ? "active" : ""}
+                    onClick={() => setMedicoStatusFiltro("ativos")}
+                  >
+                    Ativos
+                  </button>
+                  <button
+                    type="button"
+                    className={medicoStatusFiltro === "inativos" ? "active" : ""}
+                    onClick={() => setMedicoStatusFiltro("inativos")}
+                  >
+                    Inativos
+                  </button>
+                  <button
+                    type="button"
+                    className={medicoStatusFiltro === "todos" ? "active" : ""}
+                    onClick={() => setMedicoStatusFiltro("todos")}
+                  >
+                    Todos
+                  </button>
+                </div>
+              </div>
+
+              <div className="list medicosList">
+                {medicosFiltrados.map((medico) => (
+                  <button
+                    key={medico.id}
+                    className={
+                      (medico.id === selectedMedicoId ? "listItem selected" : "listItem") +
+                      (!medico.ativo ? " mutedRow" : "")
+                    }
+                    type="button"
+                    onClick={() => editarMedico(medico)}
+                  >
+                    <strong>{medico.nome}</strong>
+                    <span>{medico.registro_profissional ? `CRM/Registro: ${medico.registro_profissional}` : "Sem CRM/registro informado"}</span>
+                    <div>
+                      <Badge active={medico.ativo}>{medico.ativo ? "ativo" : "inativo"}</Badge>
+                      {medico.especialidades && <Badge>{medico.especialidades}</Badge>}
+                    </div>
+                    {(medico.dias || medico.andar) && (
+                      <span>
+                        {[medico.dias, medico.andar].filter(Boolean).join(" • ")}
+                      </span>
+                    )}
+                    <span className="listItemHint">Clique para editar cadastro</span>
+                    <span
+                      className={medico.ativo ? "small danger inlineListAction" : "small success inlineListAction"}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleMedico(medico);
+                      }}
+                    >
+                      {loadingAction === `medico-${medico.id}`
+                        ? "Salvando..."
+                        : medico.ativo
+                          ? "Desativar médico"
+                          : "Ativar médico"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="sectionHeader compact">
+                <div>
+                  <h3>Aceites do médico</h3>
+                  <p>
+                    {selectedMedico
+                      ? `${selectedMedico.nome} — ${selectedMedico.especialidades || "sem especialidade"}`
+                      : "Selecione um médico"}
+                  </p>
+                </div>
+              </div>
+
+              {selectedMedico && (
+                <div className="availabilityBox">
+                  <div className="sectionHeader compact">
+                    <div>
+                      <h4>Disponibilidade para agenda online</h4>
+                      <p>Use manhã, tarde e noite com horários reais por médico.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="small success"
+                      disabled={loadingAction === "disponibilidade"}
+                      onClick={salvarDisponibilidades}
+                    >
+                      {loadingAction === "disponibilidade" ? "Salvando..." : "Salvar disponibilidade"}
+                    </button>
+                  </div>
+
+                  <div className="availabilityTable">
+                    <div className="availabilityHead">
+                      <span>Dia</span>
+                      <span>Período</span>
+                      <span>Atende</span>
+                      <span>Início</span>
+                      <span>Fim</span>
+                      <span>Slot</span>
+                    </div>
+
+                    {disponibilidades.map((item, index) => {
+                      const dia = DIAS_SEMANA.find((option) => option.value === item.dia_semana)?.label || item.dia_semana;
+                      const periodo = PERIODOS_DISPONIBILIDADE.find((option) => option.value === item.periodo)?.label || item.periodo;
+
+                      return (
+                        <div key={`${item.dia_semana}-${item.periodo}`} className="availabilityRow">
+                          <span>{dia}</span>
+                          <span>{periodo}</span>
+                          <label className="miniCheck">
+                            <input
+                              type="checkbox"
+                              checked={item.ativo}
+                              onChange={(event) => updateDisponibilidade(index, { ativo: event.target.checked })}
+                            />
+                          </label>
+                          <input
+                            type="time"
+                            value={item.hora_inicio}
+                            disabled={!item.ativo}
+                            onChange={(event) => updateDisponibilidade(index, { hora_inicio: event.target.value })}
+                          />
+                          <input
+                            type="time"
+                            value={item.hora_fim}
+                            disabled={!item.ativo}
+                            onChange={(event) => updateDisponibilidade(index, { hora_fim: event.target.value })}
+                          />
+                          <select
+                            value={item.intervalo_minutos}
+                            disabled={!item.ativo}
+                            onChange={(event) =>
+                              updateDisponibilidade(index, { intervalo_minutos: Number(event.target.value) })
+                            }
+                          >
+                            <option value={15}>15 min</option>
+                            <option value={20}>20 min</option>
+                            <option value={30}>30 min</option>
+                            <option value={45}>45 min</option>
+                            <option value={60}>60 min</option>
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="helperBox compactHelper">
+                    Quando houver disponibilidade estruturada, o WhatsApp passa a priorizar estes horários.
+                    Sem cadastro estruturado, continua valendo o fallback de homologação/controlado.
+                  </div>
+                </div>
+              )}
+
+              {!clienteUsaConvenio ? (
+                <div className="emptyState leftText">
+                  <strong>Aceites por convênio não se aplicam a esta unidade.</strong>
+                  <p>
+                    Esta clínica está configurada sem atendimento por convênio.
+                    Para atendimento particular, cartão próprio ou benefício, use apenas o cadastro
+                    do médico, especialidade e formas de atendimento da clínica.
+                  </p>
+                </div>
+              ) : selectedMedico ? (
+                <>
+                  {!clienteTemFormaConvenio && (
+                    <div className="infoBox">
+                      Convênio está habilitado nas regras da clínica. Você já pode cadastrar aceites
+                      para este médico. Para que o menu comercial fique completo, mantenha também
+                      uma forma de atendimento do tipo Convênio ativa em Formas de atendimento.
+                    </div>
+                  )}
+                  <form onSubmit={criarAceite} className="inlineForm aceiteForm">
+                    <input
+                      value={novoAceite.convenio}
+                      onChange={(event) =>
+                        setNovoAceite({ ...novoAceite, convenio: event.target.value })
+                      }
+                      placeholder="Convênio exato. Ex.: ASSEFAZ"
+                      required
+                    />
+                    <input
+                      value={novoAceite.plano}
+                      onChange={(event) =>
+                        setNovoAceite({ ...novoAceite, plano: event.target.value })
+                      }
+                      placeholder="Plano/produto exato. Ex.: DIAMANTE"
+                      required
+                    />
+                    <button type="submit" disabled={loadingAction === "aceite"}>
+                      {loadingAction === "aceite" ? "Salvando..." : "Adicionar aceite"}
+                    </button>
+                  </form>
+
+                  <div className="helperBox">
+                    A criação por nome usa a regra atual do backend: médico + especialidade ativa + convênio + plano.
+                    Se já existir inativo, o aceite é reativado automaticamente.
+                  </div>
+
+                  <div className="clientFilter aceiteFilter">
+                    <button
+                      type="button"
+                      className={aceiteFiltro === "ativos" ? "active" : ""}
+                      onClick={() => setAceiteFiltro("ativos")}
+                    >
+                      Ativos
+                    </button>
+                    <button
+                      type="button"
+                      className={aceiteFiltro === "inativos" ? "active" : ""}
+                      onClick={() => setAceiteFiltro("inativos")}
+                    >
+                      Desativados
+                    </button>
+                    <button
+                      type="button"
+                      className={aceiteFiltro === "todos" ? "active" : ""}
+                      onClick={() => setAceiteFiltro("todos")}
+                    >
+                      Todos
+                    </button>
+                    <span>{aceitesFiltrados.length} aceites</span>
+                  </div>
+
+                  <div className="toolbar">
+                    <input
+                      value={aceiteSearch}
+                      onChange={(event) => {
+                        setAceiteSearch(event.target.value);
+                        setAceitePage(1);
+                      }}
+                      placeholder="Buscar aceite por convênio, plano, especialidade, código..."
+                    />
+                    <span>
+                      Exibindo {aceitesPageStart}–{aceitesPageEnd} de {aceitesFiltrados.length}
+                    </span>
+                  </div>
+
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Convênio</th>
+                        <th>Plano/produto</th>
+                        <th>Especialidade</th>
+                        <th>Origem</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {aceitesPaginados.map((aceite) => (
+                        <tr key={aceite.id} className={aceite.ativo ? "" : "mutedRow"}>
+                          <td>{aceite.convenio}</td>
+                          <td>
+                            <strong>{aceite.produto || "Sem plano"}</strong>
+                            <span className="tableHint">
+                              {[aceite.produto_tipo, aceite.codigo_operadora, aceite.acomodacao_ou_uf]
+                                .filter(Boolean)
+                                .join(" • ") || "-"}
+                            </span>
+                          </td>
+                          <td>{aceite.especialidade || "-"}</td>
+                          <td>{aceite.origem_regra || aceite.fonte_tipo || "-"}</td>
+                          <td>{aceite.ativo ? "Ativo" : "Inativo"}</td>
+                          <td>
+                            <button
+                              className={aceite.ativo ? "small danger" : "small success"}
+                              disabled={loadingAction === `aceite-${aceite.id}`}
+                              onClick={() => toggleAceite(aceite)}
+                            >
+                              {loadingAction === `aceite-${aceite.id}`
+                                ? "Salvando..."
+                                : aceite.ativo
+                                  ? "Desativar"
+                                  : "Ativar"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="pagination">
+                    <button
+                      className="secondary"
+                      disabled={aceitePageSafe <= 1}
+                      onClick={() => setAceitePage((page) => Math.max(1, page - 1))}
+                    >
+                      Anterior
+                    </button>
+
+                    <span>
+                      Página {aceitePageSafe} de {totalAceitePages}
+                    </span>
+
+                    <button
+                      className="secondary"
+                      disabled={aceitePageSafe >= totalAceitePages}
+                      onClick={() =>
+                        setAceitePage((page) => Math.min(totalAceitePages, page + 1))
+                      }
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="emptyState">Nenhum médico encontrado para este cliente.</div>
+              )}
+            </div>
+          </section>
+        )}
+
         {activeTab === "whatsapp" && isGlobalAdmin && (
           <>
             <section className="card">
