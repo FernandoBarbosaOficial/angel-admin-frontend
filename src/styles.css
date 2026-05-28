@@ -2631,3 +2631,56 @@ html[data-theme="dark"] .checkboxPanel {
 html[data-theme="dark"] .checkboxPanel p {
   color: #cbd5e1;
 }
+
+.diagnosticGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.diagnosticCard {
+  border: 1px solid var(--border-color, #d7dde8);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--card-muted-bg, rgba(37, 99, 235, 0.06));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.diagnosticCard.ok {
+  border-color: rgba(22, 163, 74, 0.35);
+}
+
+.diagnosticCard.fail {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.resultPanel {
+  margin-top: 16px;
+  border: 1px solid var(--border-color, #d7dde8);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--card-muted-bg, rgba(37, 99, 235, 0.06));
+}
+
+.resultPanel pre {
+  white-space: pre-wrap;
+  overflow: auto;
+  margin: 12px 0 0;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

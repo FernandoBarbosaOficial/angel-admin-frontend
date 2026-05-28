@@ -241,6 +241,7 @@ type WhatsappMessageLog = {
   cliente_nome?: string | null;
   session_id?: string | null;
   message_id?: string | null;
+  phone_number_id?: string | null;
   from_phone?: string | null;
   to_phone?: string | null;
   direction: string;
@@ -288,6 +289,76 @@ type WhatsappCanalForm = {
   nome_exibicao: string;
   ativo: boolean;
   principal: boolean;
+};
+
+type WhatsappDiagnosticEnvVar = {
+  name: string;
+  present: boolean;
+  configured: boolean;
+  literalFalse?: boolean;
+  valuePreview?: string;
+};
+
+type WhatsappDiagnosticCheck = {
+  key: string;
+  ok: boolean;
+  label: string;
+  details?: unknown;
+};
+
+type WhatsappDiagnosticCanal = {
+  id: number;
+  nome: string;
+  cliente_id?: number | null;
+  cliente_nome?: string | null;
+  identificador: string;
+  ativo: boolean;
+  principal: boolean;
+  modo_atendimento: WhatsappCanalModo;
+  token_ref?: string | null;
+  required?: boolean;
+  present?: boolean;
+  configured?: boolean;
+  literalFalse?: boolean;
+  status?: string;
+};
+
+type WhatsappDiagnostics = {
+  generatedAt: string;
+  summary: {
+    ok: boolean;
+    totalChecks: number;
+    failedChecks: number;
+    canaisTotal: number;
+    canaisAtivos: number;
+    canaisTokenComProblema: number;
+  };
+  checks: WhatsappDiagnosticCheck[];
+  env: WhatsappDiagnosticEnvVar[];
+  canais: WhatsappDiagnosticCanal[];
+};
+
+type WhatsappChannelTestResult = {
+  ok: boolean;
+  request: {
+    canalId?: number | null;
+    phoneNumberId: string;
+    from: string;
+    text: string;
+  };
+  resolved: {
+    sessionId?: string | null;
+    canalContext?: unknown;
+    token?: {
+      token_ref?: string | null;
+      configured?: boolean;
+      status?: string;
+      present?: boolean;
+      literalFalse?: boolean;
+    };
+    assistantText?: string | null;
+  };
+  raw?: unknown;
 };
 
 type AdminAuditLog = {
@@ -1312,7 +1383,7 @@ function App() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [importacaoMedicosStatus, setImportacaoMedicosStatus] = useState("");
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "usuarios" | "auditoria">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "usuarios" | "auditoria">("clientes");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
   const [authLoading, setAuthLoading] = useState(true);
@@ -1352,6 +1423,11 @@ function App() {
   const [whatsappCanaisLoading, setWhatsappCanaisLoading] = useState(false);
   const [editingWhatsappCanalId, setEditingWhatsappCanalId] = useState<number | null>(null);
   const [whatsappCanalForm, setWhatsappCanalForm] = useState<WhatsappCanalForm>(() => createEmptyWhatsappCanalForm());
+  const [whatsappDiagnostics, setWhatsappDiagnostics] = useState<WhatsappDiagnostics | null>(null);
+  const [whatsappDiagnosticsLoading, setWhatsappDiagnosticsLoading] = useState(false);
+  const [whatsappTestForm, setWhatsappTestForm] = useState({ canalId: "", from: "5511888877777", text: "oi" });
+  const [whatsappTestResult, setWhatsappTestResult] = useState<WhatsappChannelTestResult | null>(null);
+  const [whatsappTestLoading, setWhatsappTestLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [auditFilters, setAuditFilters] = useState({
@@ -2045,6 +2121,44 @@ function App() {
       setWhatsappCanais(data);
     } finally {
       setWhatsappCanaisLoading(false);
+    }
+  }
+
+  async function loadWhatsappDiagnostics() {
+    if (!isGlobalAdmin) return;
+    setWhatsappDiagnosticsLoading(true);
+    try {
+      const data = await api<WhatsappDiagnostics>("/api/admin/whatsapp/diagnostico");
+      setWhatsappDiagnostics(data);
+    } finally {
+      setWhatsappDiagnosticsLoading(false);
+    }
+  }
+
+  async function handleRunWhatsappChannelTest(event?: React.FormEvent) {
+    event?.preventDefault();
+    const canalId = Number(whatsappTestForm.canalId);
+    if (!canalId) {
+      showToast("❌ Selecione um canal para testar", true);
+      return;
+    }
+    setWhatsappTestLoading(true);
+    try {
+      const data = await api<WhatsappChannelTestResult>("/api/admin/whatsapp/diagnostico/test-message", {
+        method: "POST",
+        body: JSON.stringify({
+          canalId,
+          from: whatsappTestForm.from,
+          text: whatsappTestForm.text,
+        }),
+      });
+      setWhatsappTestResult(data);
+      showToast("✅ Teste de canal executado");
+      await loadWhatsappLogs();
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao testar canal", true);
+    } finally {
+      setWhatsappTestLoading(false);
     }
   }
 
@@ -3028,12 +3142,20 @@ function App() {
           {/* Unidades fica reservado para futura modelagem de redes multiunidade.
               No piloto, cada cliente já representa uma unidade operacional com endereço próprio. */}
           {isGlobalAdmin && (
-            <button
-              className={activeTab === "whatsapp" ? "navActive" : ""}
-              onClick={() => setActiveTab("whatsapp")}
-            >
-              WhatsApp
-            </button>
+            <>
+              <button
+                className={activeTab === "whatsapp" ? "navActive" : ""}
+                onClick={() => setActiveTab("whatsapp")}
+              >
+                WhatsApp
+              </button>
+              <button
+                className={activeTab === "whatsapp_operacao" ? "navActive" : ""}
+                onClick={() => setActiveTab("whatsapp_operacao")}
+              >
+                Operação WhatsApp
+              </button>
+            </>
           )}
           {isGlobalAdmin && (
             <button
@@ -4518,109 +4640,179 @@ function App() {
               )}
             </section>
 
-            <section className="card">
-            <div className="sectionHeader">
-              <div>
-                <h3>Atendimentos WhatsApp</h3>
-                <p>
-                  Auditoria das mensagens, etapas do fluxo, respostas enviadas e erros.
-                  A consulta é global; use o telefone, status ou período para filtrar.
-                </p>
-              </div>
-              <button onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
-                {whatsappLogsLoading ? "Atualizando..." : "Atualizar logs"}
-              </button>
-            </div>
 
-            <div className="toolbar">
-              <input
-                value={whatsappLogFilters.phone}
-                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, phone: event.target.value })}
-                placeholder="Buscar por telefone. Ex.: 5511999999999"
-              />
-              <select
-                value={whatsappLogFilters.status}
-                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, status: event.target.value })}
-              >
-                <option value="todos">Todos os status</option>
-                <option value="received">received</option>
-                <option value="queued">queued</option>
-                <option value="processing">processing</option>
-                <option value="processed">processed</option>
-                <option value="sent">sent</option>
-                <option value="failed">failed</option>
-                <option value="duplicate">duplicate</option>
-                <option value="ignored">ignored</option>
-              </select>
-              <input
-                type="date"
-                value={whatsappLogFilters.startDate}
-                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, startDate: event.target.value })}
-              />
-              <input
-                type="date"
-                value={whatsappLogFilters.endDate}
-                onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, endDate: event.target.value })}
-              />
-              <label className="inlineCheck">
-                <input
-                  type="checkbox"
-                  checked={whatsappLogFilters.onlyErrors}
-                  onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, onlyErrors: event.target.checked })}
-                />
-                Só erros
-              </label>
-              <button className="secondary" onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
-                Filtrar
-              </button>
-            </div>
-
-            <div className="helperBox compactHelper">
-              Exibindo até {WHATSAPP_LOGS_PAGE_SIZE} registros mais recentes. Total carregado: {whatsappLogsResumo.total}. Enviadas: {whatsappLogsResumo.sent}. Erros: {whatsappLogsResumo.failed}.
-            </div>
-
-            {whatsappLogs.length > 0 ? (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Data/hora</th>
-                    <th>Telefone</th>
-                    <th>Cliente</th>
-                    <th>Direção</th>
-                    <th>Status</th>
-                    <th>Etapa</th>
-                    <th>Intenção</th>
-                    <th>Mensagem</th>
-                    <th>Resposta / Erro</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {whatsappLogs.map((log) => (
-                    <tr key={log.id} className={log.status === "failed" || log.error_message ? "mutedRow" : ""}>
-                      <td>{new Date(log.created_at).toLocaleString("pt-BR")}</td>
-                      <td>{log.from_phone || "-"}</td>
-                      <td>{log.cliente_nome || (log.cliente_id ? `#${log.cliente_id}` : "-")}</td>
-                      <td>{log.direction}</td>
-                      <td>{log.status}</td>
-                      <td>{log.stage || "-"}</td>
-                      <td>{log.intent || "-"}</td>
-                      <td title={log.inbound_text || ""}>{(log.inbound_text || "-").slice(0, 120)}</td>
-                      <td title={log.error_message || log.outbound_text || ""}>
-                        {(log.error_message || log.outbound_text || "-").slice(0, 160)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="emptyState">
-                {whatsappLogsLoading ? "Carregando logs..." : "Nenhum log encontrado para os filtros atuais."}
-              </div>
-            )}
-          </section>
           </>
         )}
 
+        {activeTab === "whatsapp_operacao" && isGlobalAdmin && (
+          <>
+            <section className="card">
+              <div className="sectionHeader">
+                <div>
+                  <h3>Operação WhatsApp</h3>
+                  <p>Diagnóstico do ambiente, teste de canais e logs de atendimento. Esta área substitui o uso diário de PowerShell/Postman.</p>
+                </div>
+                <div className="buttonRow">
+                  <button onClick={() => loadWhatsappDiagnostics()} disabled={whatsappDiagnosticsLoading}>
+                    {whatsappDiagnosticsLoading ? "Diagnosticando..." : "Atualizar diagnóstico"}
+                  </button>
+                  <button className="secondary" onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
+                    {whatsappLogsLoading ? "Atualizando..." : "Atualizar logs"}
+                  </button>
+                </div>
+              </div>
+
+              {whatsappDiagnostics ? (
+                <>
+                  <div className={whatsappDiagnostics.summary.ok ? "alertSuccess" : "alertError"}>
+                    {whatsappDiagnostics.summary.ok ? "Ambiente operacional sem alertas críticos." : `Ambiente com ${whatsappDiagnostics.summary.failedChecks} alerta(s).`}
+                    {" "}Canais: {whatsappDiagnostics.summary.canaisAtivos}/{whatsappDiagnostics.summary.canaisTotal} ativos.
+                  </div>
+
+                  <div className="diagnosticGrid">
+                    {whatsappDiagnostics.checks.map((check) => (
+                      <div key={check.key} className={check.ok ? "diagnosticCard ok" : "diagnosticCard fail"}>
+                        <strong>{check.ok ? "✅" : "⚠️"} {check.label}</strong>
+                        {check.details !== undefined && <span>{String(check.details)}</span>}
+                      </div>
+                    ))}
+                  </div>
+
+                  <h4>Variáveis principais</h4>
+                  <table>
+                    <thead>
+                      <tr><th>Variável</th><th>Status</th><th>Observação</th></tr>
+                    </thead>
+                    <tbody>
+                      {whatsappDiagnostics.env.map((item) => (
+                        <tr key={item.name}>
+                          <td>{item.name}</td>
+                          <td><Badge active={item.configured}>{item.configured ? "configurada" : item.literalFalse ? "false" : "ausente/vazia"}</Badge></td>
+                          <td>{item.present ? "Existe no ambiente" : "Não existe no ambiente"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <h4>Canais e token_ref</h4>
+                  <table>
+                    <thead>
+                      <tr><th>Canal</th><th>phone_number_id</th><th>token_ref</th><th>Status token</th><th>Ativo</th></tr>
+                    </thead>
+                    <tbody>
+                      {whatsappDiagnostics.canais.map((canal) => (
+                        <tr key={canal.id}>
+                          <td><strong>{canal.nome}</strong><span className="tableHint">{canal.cliente_nome || `cliente #${canal.cliente_id}`}</span></td>
+                          <td>{canal.identificador}</td>
+                          <td>{canal.token_ref || "fallback/global"}</td>
+                          <td><Badge active={canal.configured !== false}>{canal.status || "ok"}</Badge></td>
+                          <td><Badge active={canal.ativo}>{canal.ativo ? "ativo" : "inativo"}</Badge></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              ) : (
+                <div className="emptyState">Clique em Atualizar diagnóstico para verificar o ambiente.</div>
+              )}
+            </section>
+
+            <section className="card">
+              <div className="sectionHeader">
+                <div>
+                  <h3>Testar canal WhatsApp</h3>
+                  <p>Simula uma mensagem entrando por um canal cadastrado e mostra o roteamento, sessão, token_ref e resposta gerada.</p>
+                </div>
+              </div>
+
+              <form className="form" onSubmit={handleRunWhatsappChannelTest}>
+                <div className="threeColumns">
+                  <label>
+                    Canal
+                    <select value={whatsappTestForm.canalId} onChange={(event) => setWhatsappTestForm({ ...whatsappTestForm, canalId: event.target.value })} required>
+                      <option value="">Selecione</option>
+                      {whatsappCanais.map((canal) => (
+                        <option key={canal.id} value={canal.id}>{canal.nome} · {canal.identificador}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Telefone simulado
+                    <input value={whatsappTestForm.from} onChange={(event) => setWhatsappTestForm({ ...whatsappTestForm, from: event.target.value })} placeholder="5511999999999" />
+                  </label>
+                  <label>
+                    Mensagem
+                    <input value={whatsappTestForm.text} onChange={(event) => setWhatsappTestForm({ ...whatsappTestForm, text: event.target.value })} placeholder="oi" />
+                  </label>
+                </div>
+                <button type="submit" disabled={whatsappTestLoading}>{whatsappTestLoading ? "Testando..." : "Testar canal"}</button>
+              </form>
+
+              {whatsappTestResult && (
+                <div className="resultPanel">
+                  <h4>Resultado do teste</h4>
+                  <div className="summaryGrid">
+                    <span><strong>SessionId:</strong> {whatsappTestResult.resolved.sessionId || "-"}</span>
+                    <span><strong>phoneNumberId:</strong> {whatsappTestResult.request.phoneNumberId}</span>
+                    <span><strong>Token:</strong> {whatsappTestResult.resolved.token?.token_ref || "fallback/global"} ({whatsappTestResult.resolved.token?.status || "ok"})</span>
+                  </div>
+                  <pre>{whatsappTestResult.resolved.assistantText || "Sem resposta"}</pre>
+                </div>
+              )}
+            </section>
+
+            <section className="card">
+              <div className="sectionHeader">
+                <div>
+                  <h3>Logs WhatsApp</h3>
+                  <p>Auditoria das mensagens, etapas do fluxo, respostas enviadas e erros. A consulta é global; use filtros para investigar.</p>
+                </div>
+                <button onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
+                  {whatsappLogsLoading ? "Atualizando..." : "Atualizar logs"}
+                </button>
+              </div>
+
+              <div className="toolbar">
+                <input value={whatsappLogFilters.phone} onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, phone: event.target.value })} placeholder="Buscar por telefone" />
+                <select value={whatsappLogFilters.status} onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, status: event.target.value })}>
+                  <option value="todos">Todos os status</option>
+                  <option value="received">received</option><option value="queued">queued</option><option value="processing">processing</option><option value="processed">processed</option><option value="sent">sent</option><option value="failed">failed</option><option value="duplicate">duplicate</option><option value="ignored">ignored</option>
+                </select>
+                <input type="date" value={whatsappLogFilters.startDate} onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, startDate: event.target.value })} />
+                <input type="date" value={whatsappLogFilters.endDate} onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, endDate: event.target.value })} />
+                <label className="inlineCheck"><input type="checkbox" checked={whatsappLogFilters.onlyErrors} onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, onlyErrors: event.target.checked })} /> Só erros</label>
+                <button className="secondary" onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>Filtrar</button>
+              </div>
+
+              <div className="helperBox compactHelper">Exibindo até {WHATSAPP_LOGS_PAGE_SIZE} registros. Total: {whatsappLogsResumo.total}. Enviadas: {whatsappLogsResumo.sent}. Erros: {whatsappLogsResumo.failed}.</div>
+
+              {whatsappLogs.length > 0 ? (
+                <table>
+                  <thead>
+                    <tr><th>Data/hora</th><th>Telefone</th><th>Cliente</th><th>phone_number_id</th><th>Direção</th><th>Status</th><th>Etapa</th><th>Mensagem</th><th>Resposta / Erro</th></tr>
+                  </thead>
+                  <tbody>
+                    {whatsappLogs.map((log) => (
+                      <tr key={log.id} className={log.status === "failed" || log.error_message ? "mutedRow" : ""}>
+                        <td>{new Date(log.created_at).toLocaleString("pt-BR")}</td>
+                        <td>{log.from_phone || "-"}</td>
+                        <td>{log.cliente_nome || (log.cliente_id ? `#${log.cliente_id}` : "-")}</td>
+                        <td>{log.phone_number_id || "-"}</td>
+                        <td>{log.direction}</td>
+                        <td>{log.status}</td>
+                        <td>{log.stage || "-"}</td>
+                        <td title={log.inbound_text || ""}>{(log.inbound_text || "-").slice(0, 120)}</td>
+                        <td title={log.error_message || log.outbound_text || ""}>{(log.error_message || log.outbound_text || "-").slice(0, 160)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="emptyState">{whatsappLogsLoading ? "Carregando logs..." : "Nenhum log encontrado para os filtros atuais."}</div>
+              )}
+            </section>
+          </>
+        )}
         {activeTab === "medicos" && selectedCliente && (
           <section className="grid medicosGrid">
             <div className="card">
