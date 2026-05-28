@@ -264,6 +264,7 @@ type ClienteCanalWhatsapp = {
   nome: string;
   identificador: string;
   provider: string;
+  token_ref?: string | null;
   modo_atendimento: WhatsappCanalModo;
   cliente_ids: number[];
   unidade_id?: number | null;
@@ -280,6 +281,7 @@ type WhatsappCanalForm = {
   nome: string;
   identificador: string;
   provider: string;
+  token_ref: string;
   modo_atendimento: WhatsappCanalModo;
   cliente_ids: number[];
   whatsapp_numero: string;
@@ -380,6 +382,7 @@ function createEmptyWhatsappCanalForm(): WhatsappCanalForm {
     nome: "",
     identificador: "",
     provider: "meta",
+    token_ref: "",
     modo_atendimento: "cliente_direto",
     cliente_ids: [],
     whatsapp_numero: "",
@@ -2057,6 +2060,7 @@ function App() {
       nome: canal.nome || "",
       identificador: canal.identificador || "",
       provider: canal.provider || "meta",
+      token_ref: canal.token_ref || "",
       modo_atendimento: canal.modo_atendimento || "cliente_direto",
       cliente_ids: canal.cliente_ids || [],
       whatsapp_numero: canal.whatsapp_numero || "",
@@ -2106,6 +2110,7 @@ function App() {
       nome,
       identificador,
       provider: whatsappCanalForm.provider.trim() || "meta",
+      token_ref: whatsappCanalForm.token_ref.trim() || null,
       modo_atendimento: whatsappCanalForm.modo_atendimento,
       cliente_ids: whatsappCanalForm.modo_atendimento === "grupo_unidades" ? whatsappCanalForm.cliente_ids : [],
       whatsapp_numero: whatsappCanalForm.whatsapp_numero.trim() || null,
@@ -4380,6 +4385,16 @@ function App() {
 
                 <div className="twoColumns">
                   <label>
+                    token_ref do Railway (opcional)
+                    <input
+                      value={whatsappCanalForm.token_ref}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, token_ref: event.target.value.trim().toUpperCase() })}
+                      placeholder="Ex.: WHATSAPP_ACCESS_TOKEN_AMORSAUDE"
+                    />
+                    <span className="fieldHint">Guarde aqui só o nome da variável. Nunca cole o token real da Meta.</span>
+                  </label>
+
+                  <label>
                     Número exibido
                     <input
                       value={whatsappCanalForm.whatsapp_numero}
@@ -4387,13 +4402,24 @@ function App() {
                       placeholder="Ex.: 5511999999999"
                     />
                   </label>
+                </div>
 
+                <div className="twoColumns">
                   <label>
                     Nome exibido ao paciente
                     <input
                       value={whatsappCanalForm.nome_exibicao}
                       onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, nome_exibicao: event.target.value })}
                       placeholder="Ex.: Amor e Saúde Osasco"
+                    />
+                  </label>
+
+                  <label>
+                    Provider
+                    <input
+                      value={whatsappCanalForm.provider}
+                      onChange={(event) => setWhatsappCanalForm({ ...whatsappCanalForm, provider: event.target.value })}
+                      placeholder="meta"
                     />
                   </label>
                 </div>
@@ -4449,6 +4475,7 @@ function App() {
                     <tr>
                       <th>Canal</th>
                       <th>phone_number_id</th>
+                      <th>token_ref</th>
                       <th>Modo</th>
                       <th>Cliente/unidades</th>
                       <th>Status</th>
@@ -4463,6 +4490,7 @@ function App() {
                           <span className="tableHint">{canal.nome_exibicao || canal.whatsapp_numero || canal.provider}</span>
                         </td>
                         <td>{canal.identificador}</td>
+                        <td>{canal.token_ref || "fallback/global"}</td>
                         <td>{canal.modo_atendimento}</td>
                         <td>{getCanalClientesLabel(canal)}</td>
                         <td><Badge active={canal.ativo}>{canal.ativo ? "ativo" : "inativo"}</Badge></td>
