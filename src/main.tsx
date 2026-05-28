@@ -1475,6 +1475,10 @@ function App() {
   const [whatsappDiagnosticsLoading, setWhatsappDiagnosticsLoading] = useState(false);
   const [whatsappAntiAbuseStatus, setWhatsappAntiAbuseStatus] = useState<WhatsappAntiAbuseStatus | null>(null);
   const [whatsappAntiAbuseLoading, setWhatsappAntiAbuseLoading] = useState(false);
+  const [whatsappDashboardLastUpdatedAt, setWhatsappDashboardLastUpdatedAt] = useState<string | null>(null);
+  const [whatsappAlertsLastUpdatedAt, setWhatsappAlertsLastUpdatedAt] = useState<string | null>(null);
+  const [whatsappCountdownTick, setWhatsappCountdownTick] = useState(() => Date.now());
+  const [whatsappAutoRefreshError, setWhatsappAutoRefreshError] = useState<string | null>(null);
   const [whatsappTestForm, setWhatsappTestForm] = useState({ canalId: "", from: "5511888877777", text: "oi" });
   const [whatsappTestResult, setWhatsappTestResult] = useState<WhatsappChannelTestResult | null>(null);
   const [whatsappTestLoading, setWhatsappTestLoading] = useState(false);
@@ -2180,6 +2184,8 @@ function App() {
     try {
       const data = await api<WhatsappAntiAbuseStatus>("/api/admin/whatsapp/anti-abuse/status");
       setWhatsappAntiAbuseStatus(data);
+      setWhatsappAlertsLastUpdatedAt(new Date().toISOString());
+      setWhatsappAutoRefreshError(null);
     } finally {
       setWhatsappAntiAbuseLoading(false);
     }
@@ -2191,6 +2197,8 @@ function App() {
     try {
       const data = await api<WhatsappDiagnostics>("/api/admin/whatsapp/diagnostico");
       setWhatsappDiagnostics(data);
+      setWhatsappDashboardLastUpdatedAt(new Date().toISOString());
+      setWhatsappAutoRefreshError(null);
       await loadWhatsappAntiAbuseStatus();
     } finally {
       setWhatsappDiagnosticsLoading(false);
@@ -2407,6 +2415,58 @@ function App() {
       Promise.all([loadWhatsappLogs(), loadWhatsappCanais()]).catch((error) => showToast(error.message, true));
     }
   }, [activeTab, selectedClienteId, isGlobalAdmin]);
+
+  useEffect(() => {
+    if (activeTab !== "whatsapp_operacao" || !isGlobalAdmin) return;
+
+    let cancelled = false;
+
+    const refreshDashboardSilently = async () => {
+      try {
+        const data = await api<WhatsappDiagnostics>("/api/admin/whatsapp/diagnostico");
+        if (cancelled) return;
+        setWhatsappDiagnostics(data);
+        setWhatsappDashboardLastUpdatedAt(new Date().toISOString());
+        setWhatsappAutoRefreshError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setWhatsappAutoRefreshError(error instanceof Error ? error.message : "Falha ao atualizar dashboard");
+        }
+      }
+    };
+
+    const refreshAlertsSilently = async () => {
+      try {
+        const data = await api<WhatsappAntiAbuseStatus>("/api/admin/whatsapp/anti-abuse/status");
+        if (cancelled) return;
+        setWhatsappAntiAbuseStatus(data);
+        setWhatsappAlertsLastUpdatedAt(new Date().toISOString());
+        setWhatsappAutoRefreshError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setWhatsappAutoRefreshError(error instanceof Error ? error.message : "Falha ao atualizar alertas");
+        }
+      }
+    };
+
+    refreshDashboardSilently();
+    refreshAlertsSilently();
+
+    const dashboardTimer = window.setInterval(refreshDashboardSilently, 15000);
+    const alertsTimer = window.setInterval(refreshAlertsSilently, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(dashboardTimer);
+      window.clearInterval(alertsTimer);
+    };
+  }, [activeTab, isGlobalAdmin]);
+
+  useEffect(() => {
+    if (activeTab !== "whatsapp_operacao") return;
+    const timer = window.setInterval(() => setWhatsappCountdownTick(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab === "auditoria" && isGlobalAdmin) {
@@ -3171,6 +3231,51 @@ function App() {
     return whatsappDiagnostics?.checks.filter((check) => !check.ok) || [];
   }, [whatsappDiagnostics]);
 
+  const whatsappActiveBlocks = useMemo(() => {
+    if (!whatsappAntiAbuseStatus) return [];
+
+    const now = whatsappCountdownTick;
+    const recent = whatsappAntiAbuseStatus.recentBlocks || [];
+    const byKey = new Map<string, WhatsappAntiAbuseEvent & { ttlSeconds?: number }>();
+
+    for (const block of whatsappAntiAbuseStatus.activeBlocks || []) {
+      const key = `${block.phoneNumberId}:${block.from}`;
+      const related = recent.find((event) => event.phoneNumberId === block.phoneNumberId && event.from === block.from && event.blockedUntil);
+      byKey.set(key, {
+        id: key,
+        type: related?.type || "active_block",
+        severity: related?.severity || "critical",
+        createdAt: related?.createdAt,
+        phoneNumberId: block.phoneNumberId,
+        from: block.from,
+        reason: related?.reason || "temporarily_blocked",
+        blockedUntil: block.blockedUntil || related?.blockedUntil || null,
+        riskScore: related?.riskScore ?? null,
+        messagePreview: related?.messagePreview,
+        ttlSeconds: block.ttlSeconds,
+      });
+    }
+
+    for (const event of recent) {
+      if (!event.blockedUntil) continue;
+      const expiresAt = new Date(event.blockedUntil).getTime();
+      if (Number.isNaN(expiresAt) || expiresAt <= now) continue;
+      const key = `${event.phoneNumberId}:${event.from}`;
+      if (!byKey.has(key)) byKey.set(key, event);
+    }
+
+    return Array.from(byKey.values());
+  }, [whatsappAntiAbuseStatus, whatsappCountdownTick]);
+
+  const whatsappRecentAntiAbuseHistory = useMemo(() => {
+    const activeKeys = new Set(whatsappActiveBlocks.map((event) => `${event.phoneNumberId}:${event.from}:${event.blockedUntil || ""}`));
+    return (whatsappAntiAbuseStatus?.recentBlocks || [])
+      .filter((event) => !activeKeys.has(`${event.phoneNumberId}:${event.from}:${event.blockedUntil || ""}`))
+      .slice(0, 8);
+  }, [whatsappAntiAbuseStatus, whatsappActiveBlocks]);
+
+  const whatsappBlockedNowCount = Math.max(whatsappAntiAbuseStatus?.blockedNow || 0, whatsappActiveBlocks.length);
+
   if (authLoading) {
     return <div className="app"><main className="content"><p>Carregando sessão...</p></main></div>;
   }
@@ -3201,6 +3306,28 @@ function App() {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+
+  function formatTimeOnly(value?: string | null) {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function formatCountdownUntil(value?: string | null, fallbackSeconds?: number) {
+    let remainingMs = 0;
+    if (value) {
+      const target = new Date(value).getTime();
+      if (!Number.isNaN(target)) remainingMs = target - whatsappCountdownTick;
+    }
+    if (remainingMs <= 0 && typeof fallbackSeconds === "number") {
+      remainingMs = fallbackSeconds * 1000;
+    }
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
   function reasonLabel(reason?: string) {
@@ -5241,6 +5368,18 @@ function App() {
                 </div>
               </div>
 
+              <div className={whatsappBlockedNowCount > 0 ? "opsLiveMonitor alert" : "opsLiveMonitor ok"}>
+                <div>
+                  <strong>{whatsappBlockedNowCount > 0 ? "🔴 Alerta ativo" : "🟢 Monitoramento ativo"}</strong>
+                  <span>Dashboard atualiza a cada 15s; alertas anti-abuso a cada 5s, sem recarregar a página.</span>
+                </div>
+                <div className="opsLiveMeta">
+                  <span>Dashboard: {formatTimeOnly(whatsappDashboardLastUpdatedAt)}</span>
+                  <span>Alertas: {formatTimeOnly(whatsappAlertsLastUpdatedAt)}</span>
+                  {whatsappAutoRefreshError && <span className="dangerText">Falha: {whatsappAutoRefreshError}</span>}
+                </div>
+              </div>
+
               {whatsappDiagnostics ? (
                 <>
                   <div className="opsHeroGrid">
@@ -5265,13 +5404,13 @@ function App() {
                     <div className="opsKpiGrid">
                       <div className="opsKpiCard ok"><span>🟢</span><strong>{whatsappDiagnostics.summary.canaisAtivos}/{whatsappDiagnostics.summary.canaisTotal}</strong><small>Canais ativos</small></div>
                       <div className={whatsappDiagnostics.summary.failedChecks ? "opsKpiCard warning" : "opsKpiCard ok"}><span>🧪</span><strong>{whatsappDiagnostics.summary.failedChecks}</strong><small>Checks com alerta</small></div>
-                      <div className={(whatsappAntiAbuseStatus?.blockedNow || 0) > 0 ? "opsKpiCard critical pulse" : "opsKpiCard ok"}><span>🛡️</span><strong>{whatsappAntiAbuseStatus?.blockedNow || 0}</strong><small>Bloqueios ativos</small></div>
+                      <div className={whatsappBlockedNowCount > 0 ? "opsKpiCard critical pulse" : "opsKpiCard ok"}><span>🛡️</span><strong>{whatsappBlockedNowCount}</strong><small>Bloqueios ativos</small></div>
                       <div className="opsKpiCard info"><span>⏱️</span><strong>{formatDateTimeShort(whatsappDiagnostics.generatedAt)}</strong><small>Último diagnóstico</small></div>
                     </div>
                   </div>
 
                   <div className="opsAlertBoard">
-                    {whatsappCriticalChecks.length === 0 && (whatsappAntiAbuseStatus?.blockedNow || 0) === 0 ? (
+                    {whatsappCriticalChecks.length === 0 && whatsappBlockedNowCount === 0 ? (
                       <div className="opsAlert ok">
                         <strong>✅ Nenhum alerta crítico ativo</strong>
                         <span>Ambiente operacional sem falhas críticas. Canais: {whatsappDiagnostics.summary.canaisAtivos}/{whatsappDiagnostics.summary.canaisTotal} ativos.</span>
@@ -5284,10 +5423,10 @@ function App() {
                             <span>{check.details !== undefined ? String(check.details) : "Verifique a configuração do ambiente."}</span>
                           </div>
                         ))}
-                        {(whatsappAntiAbuseStatus?.blockedNow || 0) > 0 && (
+                        {whatsappBlockedNowCount > 0 && (
                           <div className="opsAlert critical pulseSoft">
                             <strong>🚨 Anti-abuso bloqueando contatos agora</strong>
-                            <span>{whatsappAntiAbuseStatus?.blockedNow} telefone(s) temporariamente bloqueado(s). Verifique a seção Segurança WhatsApp.</span>
+                            <span>{whatsappBlockedNowCount} telefone(s) temporariamente bloqueado(s). Verifique a seção Segurança WhatsApp.</span>
                           </div>
                         )}
                       </>
@@ -5325,32 +5464,66 @@ function App() {
                     <div className="antiAbuseMetric"><strong>{whatsappAntiAbuseStatus.config.enabled ? "Ativo" : "Desligado"}</strong><span>Status</span></div>
                     <div className="antiAbuseMetric"><strong>{whatsappAntiAbuseStatus.config.maxMessages}</strong><span>msg/{whatsappAntiAbuseStatus.config.windowSeconds}s</span></div>
                     <div className="antiAbuseMetric"><strong>{whatsappAntiAbuseStatus.config.maxBookingAttemptsPerDay}</strong><span>tentativas/dia</span></div>
-                    <div className={(whatsappAntiAbuseStatus.blockedNow || 0) > 0 ? "antiAbuseMetric critical pulse" : "antiAbuseMetric"}><strong>{whatsappAntiAbuseStatus.blockedNow}</strong><span>bloqueados agora</span></div>
+                    <div className={whatsappBlockedNowCount > 0 ? "antiAbuseMetric critical pulse" : "antiAbuseMetric"}><strong>{whatsappBlockedNowCount}</strong><span>bloqueados agora</span></div>
                   </div>
 
-                  {(whatsappAntiAbuseStatus.recentBlocks || []).length > 0 ? (
-                    <table className="opsTable">
-                      <thead>
-                        <tr>
-                          <th>Quando</th><th>Telefone</th><th>Canal</th><th>Motivo</th><th>Score</th><th>Expira</th><th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {whatsappAntiAbuseStatus.recentBlocks.slice(0, 12).map((event, index) => (
-                          <tr key={event.id || `${event.from}-${index}`} className={event.severity === "critical" ? "criticalRow" : ""}>
-                            <td>{formatDateTimeShort(event.createdAt)}</td>
-                            <td>{event.from}</td>
-                            <td>{event.phoneNumberId}</td>
-                            <td>{reasonLabel(event.reason)}<span className="tableHint">{event.messagePreview || ""}</span></td>
-                            <td>{event.riskScore ?? "-"}</td>
-                            <td>{formatDateTimeShort(event.blockedUntil)}</td>
-                            <td><span className="severityBadge critical">ALERTA</span></td>
+                  {whatsappActiveBlocks.length > 0 ? (
+                    <div className="activeBlockPanel">
+                      <div className="activeBlockHeader">
+                        <div>
+                          <h4>🚨 Bloqueios ativos agora</h4>
+                          <p>Uma linha por telefone/canal bloqueado. O cronômetro usa o horário de expiração recebido do backend.</p>
+                        </div>
+                        <span className="severityBadge critical">{whatsappActiveBlocks.length} ativo(s)</span>
+                      </div>
+                      <table className="opsTable activeBlocksTable">
+                        <thead>
+                          <tr>
+                            <th>Telefone</th><th>Canal</th><th>Motivo atual</th><th>Score</th><th>Desbloqueia em</th><th>Expira</th><th>Status</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {whatsappActiveBlocks.map((event, index) => (
+                            <tr key={event.id || `${event.phoneNumberId}-${event.from}-${index}`} className="criticalRow">
+                              <td>{event.from}</td>
+                              <td>{event.phoneNumberId}</td>
+                              <td>{reasonLabel(event.reason)}<span className="tableHint">{event.messagePreview || ""}</span></td>
+                              <td>{event.riskScore ?? "-"}</td>
+                              <td><span className="countdownBadge">⏱ {formatCountdownUntil(event.blockedUntil, (event as any).ttlSeconds)}</span></td>
+                              <td>{formatDateTimeShort(event.blockedUntil)}</td>
+                              <td><span className="severityBadge critical">BLOQUEADO</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   ) : (
-                    <div className="emptyState">Nenhum bloqueio anti-abuso registrado recentemente.</div>
+                    <div className="emptyState">Nenhum telefone bloqueado agora.</div>
+                  )}
+
+                  {whatsappRecentAntiAbuseHistory.length > 0 && (
+                    <div className="antiAbuseHistoryPanel">
+                      <h4>Histórico anti-abuso recente</h4>
+                      <table className="opsTable">
+                        <thead>
+                          <tr>
+                            <th>Quando</th><th>Telefone</th><th>Canal</th><th>Evento</th><th>Score</th><th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {whatsappRecentAntiAbuseHistory.map((event, index) => (
+                            <tr key={event.id || `${event.from}-history-${index}`} className={event.severity === "critical" ? "criticalRow" : ""}>
+                              <td>{formatDateTimeShort(event.createdAt)}</td>
+                              <td>{event.from}</td>
+                              <td>{event.phoneNumberId}</td>
+                              <td>{reasonLabel(event.reason)}<span className="tableHint">{event.messagePreview || ""}</span></td>
+                              <td>{event.riskScore ?? "-"}</td>
+                              <td><span className={event.severity === "critical" ? "severityBadge critical" : "severityBadge warning"}>{event.severity === "critical" ? "ALERTA" : "EVENTO"}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </>
               ) : (

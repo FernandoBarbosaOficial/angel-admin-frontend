@@ -2951,3 +2951,121 @@ html[data-theme="dark"] .listItem.selected .clientOpenButton strong {
   margin-left: auto;
   white-space: nowrap;
 }
+
+.opsLiveMonitor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.10), rgba(59, 130, 246, 0.06));
+}
+
+.opsLiveMonitor.alert {
+  border-color: rgba(239, 68, 68, 0.75);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(127, 29, 29, 0.10));
+  animation: alertPulse 1.8s ease-in-out infinite;
+}
+
+.opsLiveMonitor strong,
+.opsLiveMonitor span {
+  display: block;
+}
+
+.opsLiveMeta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.dangerText {
+  color: #ef4444 !important;
+  font-weight: 800;
+}
+
+.activeBlockPanel {
+  margin-top: 16px;
+  border: 1px solid rgba(239, 68, 68, 0.36);
+  border-radius: 18px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(15, 23, 42, 0.02));
+}
+
+.activeBlockHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.activeBlockHeader h4,
+.antiAbuseHistoryPanel h4 {
+  margin: 0 0 4px 0;
+}
+
+.activeBlockHeader p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.countdownBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.52);
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  box-shadow: inset 0 0 14px rgba(239, 68, 68, 0.10);
+}
+
+.antiAbuseHistoryPanel {
+  margin-top: 18px;
+}
+
+.activeBlocksTable td,
+.activeBlocksTable th {
+  vertical-align: middle;
+}
+
+html[data-theme="dark"] .opsLiveMonitor {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08));
+}
+
+html[data-theme="dark"] .opsLiveMonitor.alert {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.34), rgba(88, 28, 135, 0.12));
+}
+
+html[data-theme="dark"] .activeBlockPanel {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.22), rgba(15, 23, 42, 0.6));
+}
+
+html[data-theme="dark"] .countdownBadge {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.52);
+  border-color: rgba(248, 113, 113, 0.46);
+}
+
+@media (max-width: 900px) {
+  .opsLiveMonitor,
+  .activeBlockHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .opsLiveMeta {
+    justify-content: flex-start;
+  }
+}
