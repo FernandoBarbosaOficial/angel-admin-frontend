@@ -1527,6 +1527,16 @@ function App() {
   const [whatsappDiagnosticsLoading, setWhatsappDiagnosticsLoading] = useState(false);
   const [whatsappGoLiveChecklist, setWhatsappGoLiveChecklist] = useState<WhatsappGoLiveChecklist | null>(null);
   const [whatsappGoLiveLoading, setWhatsappGoLiveLoading] = useState(false);
+  const [goLiveFilters, setGoLiveFilters] = useState({
+    search: "",
+    status: "todos",
+    modo: "todos",
+    canalStatus: "todos",
+    token: "todos",
+  });
+  const [goLiveExpanded, setGoLiveExpanded] = useState<Record<number, boolean>>({});
+  const [goLivePage, setGoLivePage] = useState(1);
+  const [goLivePageSize, setGoLivePageSize] = useState(10);
   const [whatsappAntiAbuseStatus, setWhatsappAntiAbuseStatus] = useState<WhatsappAntiAbuseStatus | null>(null);
   const [whatsappAntiAbuseLoading, setWhatsappAntiAbuseLoading] = useState(false);
   const [whatsappDashboardLastUpdatedAt, setWhatsappDashboardLastUpdatedAt] = useState<string | null>(null);
@@ -3460,6 +3470,77 @@ function App() {
   }, [whatsappAntiAbuseStatus, whatsappActiveBlocks]);
 
   const whatsappBlockedNowCount = Math.max(whatsappAntiAbuseStatus?.blockedNow || 0, whatsappActiveBlocks.length);
+
+  useEffect(() => {
+    setGoLivePage(1);
+  }, [goLiveFilters.search, goLiveFilters.status, goLiveFilters.modo, goLiveFilters.canalStatus, goLiveFilters.token, goLivePageSize]);
+
+  const goLiveFilteredItems = useMemo(() => {
+    const items = whatsappGoLiveChecklist?.items || [];
+    const search = goLiveFilters.search.trim().toLowerCase();
+
+    return items.filter((item) => {
+      const haystack = [
+        item.clienteNome,
+        item.canalNome,
+        item.phoneNumberId,
+        item.modoAtendimento,
+        item.tokenRef || "fallback/global",
+      ].join(" ").toLowerCase();
+
+      const matchesSearch = !search || haystack.includes(search);
+      const matchesStatus = goLiveFilters.status === "todos" || item.status === goLiveFilters.status;
+      const matchesModo = goLiveFilters.modo === "todos" || item.modoAtendimento === goLiveFilters.modo;
+      const matchesCanalStatus =
+        goLiveFilters.canalStatus === "todos" ||
+        (goLiveFilters.canalStatus === "ativos" ? item.ativo : !item.ativo);
+      const hasTokenRef = Boolean((item.tokenRef || "").trim());
+      const tokenProblem = item.checks.some((check) =>
+        check.key.toLowerCase().includes("token") && !check.ok && check.severity === "critical",
+      );
+      const matchesToken =
+        goLiveFilters.token === "todos" ||
+        (goLiveFilters.token === "global" && !hasTokenRef) ||
+        (goLiveFilters.token === "proprio" && hasTokenRef && !tokenProblem) ||
+        (goLiveFilters.token === "problema" && tokenProblem);
+
+      return matchesSearch && matchesStatus && matchesModo && matchesCanalStatus && matchesToken;
+    });
+  }, [whatsappGoLiveChecklist, goLiveFilters]);
+
+  const goLiveStatusRank: Record<WhatsappGoLiveItem["status"], number> = {
+    critico: 0,
+    atencao: 1,
+    pronto: 2,
+  };
+
+  const goLiveSortedItems = useMemo(() => {
+    return [...goLiveFilteredItems].sort((a, b) => {
+      const rank = goLiveStatusRank[a.status] - goLiveStatusRank[b.status];
+      if (rank !== 0) return rank;
+      const scoreDiff = (a.okCount / Math.max(a.totalChecks, 1)) - (b.okCount / Math.max(b.totalChecks, 1));
+      if (scoreDiff !== 0) return scoreDiff;
+      return a.clienteNome.localeCompare(b.clienteNome, "pt-BR");
+    });
+  }, [goLiveFilteredItems]);
+
+  const goLivePageCount = Math.max(1, Math.ceil(goLiveSortedItems.length / goLivePageSize));
+  const goLiveSafePage = Math.min(goLivePage, goLivePageCount);
+  const goLiveCurrentPageItems = useMemo(() => {
+    const start = (goLiveSafePage - 1) * goLivePageSize;
+    return goLiveSortedItems.slice(start, start + goLivePageSize);
+  }, [goLiveSortedItems, goLiveSafePage, goLivePageSize]);
+
+  const goLiveFilteredSummary = useMemo(() => {
+    return goLiveFilteredItems.reduce(
+      (acc, item) => {
+        acc.total += 1;
+        acc[item.status] += 1;
+        return acc;
+      },
+      { total: 0, pronto: 0, atencao: 0, critico: 0 },
+    );
+  }, [goLiveFilteredItems]);
 
   const whatsappTestView = useMemo(() => {
     if (!whatsappTestResult) return null;
@@ -5705,33 +5786,149 @@ function App() {
                     <div className="goLiveSummaryCard info"><strong>{whatsappGoLiveChecklist.summary.total}</strong><span>Total canais</span></div>
                   </div>
 
-                  <div className="goLiveChecklistList">
-                    {whatsappGoLiveChecklist.items.map((item) => (
-                      <article key={item.canalId} className={`goLiveItem ${item.status}`}>
-                        <div className="goLiveItemHeader">
-                          <div>
-                            <span className={`severityBadge ${item.status === "pronto" ? "success" : item.status === "atencao" ? "warning" : "critical"}`}>
-                              {item.status === "pronto" ? "PRONTO" : item.status === "atencao" ? "ATENÇÃO" : "CRÍTICO"}
-                            </span>
-                            <h4>{item.clienteNome}</h4>
-                            <p>{item.canalNome} · {item.phoneNumberId || "sem phone_number_id"} · {item.modoAtendimento}</p>
-                          </div>
-                          <div className="goLiveScore">
-                            <strong>{item.okCount}/{item.totalChecks}</strong>
-                            <span>checks OK</span>
-                          </div>
-                        </div>
-                        <p className="goLiveRecommendation">{item.recommendation}</p>
-                        <div className="goLiveChecksGrid">
-                          {item.checks.map((check) => (
-                            <div key={`${item.canalId}-${check.key}`} className={`goLiveCheck ${check.ok ? "ok" : check.severity}`}>
-                              <strong>{check.ok ? "✅" : check.severity === "critical" ? "🚨" : "⚠️"} {check.label}</strong>
-                              {check.details && <span>{check.details}</span>}
+                  <div className="goLiveFiltersPanel">
+                    <div className="goLiveFilterTopline">
+                      <strong>Filtrar checklist</strong>
+                      <span>
+                        Exibindo {goLiveFilteredSummary.total} de {whatsappGoLiveChecklist.summary.total} canais ·
+                        {" "}{goLiveFilteredSummary.critico} crítico(s), {goLiveFilteredSummary.atencao} aviso(s), {goLiveFilteredSummary.pronto} pronto(s)
+                      </span>
+                    </div>
+                    <div className="goLiveFiltersGrid">
+                      <label>
+                        Buscar
+                        <input
+                          value={goLiveFilters.search}
+                          onChange={(event) => setGoLiveFilters({ ...goLiveFilters, search: event.target.value })}
+                          placeholder="Cliente, canal, phone_number_id ou token_ref"
+                        />
+                      </label>
+                      <label>
+                        Status
+                        <select value={goLiveFilters.status} onChange={(event) => setGoLiveFilters({ ...goLiveFilters, status: event.target.value })}>
+                          <option value="todos">Todos</option>
+                          <option value="critico">Críticos</option>
+                          <option value="atencao">Com avisos</option>
+                          <option value="pronto">Prontos</option>
+                        </select>
+                      </label>
+                      <label>
+                        Modo
+                        <select value={goLiveFilters.modo} onChange={(event) => setGoLiveFilters({ ...goLiveFilters, modo: event.target.value })}>
+                          <option value="todos">Todos</option>
+                          <option value="cliente_direto">Cliente direto</option>
+                          <option value="grupo_unidades">Grupo de unidades</option>
+                        </select>
+                      </label>
+                      <label>
+                        Canal
+                        <select value={goLiveFilters.canalStatus} onChange={(event) => setGoLiveFilters({ ...goLiveFilters, canalStatus: event.target.value })}>
+                          <option value="todos">Todos</option>
+                          <option value="ativos">Ativos</option>
+                          <option value="inativos">Inativos</option>
+                        </select>
+                      </label>
+                      <label>
+                        Token
+                        <select value={goLiveFilters.token} onChange={(event) => setGoLiveFilters({ ...goLiveFilters, token: event.target.value })}>
+                          <option value="todos">Todos</option>
+                          <option value="global">Fallback/global</option>
+                          <option value="proprio">Token próprio</option>
+                          <option value="problema">Token com problema</option>
+                        </select>
+                      </label>
+                      <label>
+                        Por página
+                        <select value={goLivePageSize} onChange={(event) => setGoLivePageSize(Number(event.target.value))}>
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="goLiveFilterActions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setGoLiveFilters({ search: "", status: "todos", modo: "todos", canalStatus: "todos", token: "todos" })}
+                      >
+                        Limpar filtros
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="goLivePaginationBar">
+                    <span>Página {goLiveSafePage} de {goLivePageCount}</span>
+                    <div className="buttonRow compactButtonRow">
+                      <button type="button" className="secondary" disabled={goLiveSafePage <= 1} onClick={() => setGoLivePage((page) => Math.max(1, page - 1))}>Anterior</button>
+                      <button type="button" className="secondary" disabled={goLiveSafePage >= goLivePageCount} onClick={() => setGoLivePage((page) => Math.min(goLivePageCount, page + 1))}>Próxima</button>
+                    </div>
+                  </div>
+
+                  <div className="goLiveChecklistList compactGoLiveList">
+                    {goLiveCurrentPageItems.length ? goLiveCurrentPageItems.map((item) => {
+                      const expanded = Boolean(goLiveExpanded[item.canalId]);
+                      const problematicChecks = item.checks.filter((check) => !check.ok);
+                      return (
+                        <article key={item.canalId} className={`goLiveItem compact ${item.status}`}>
+                          <button
+                            type="button"
+                            className="goLiveItemHeader compactHeader"
+                            onClick={() => setGoLiveExpanded((current) => ({ ...current, [item.canalId]: !current[item.canalId] }))}
+                            aria-expanded={expanded}
+                          >
+                            <span className="conversationChevron">{expanded ? "▾" : "▸"}</span>
+                            <div>
+                              <span className={`severityBadge ${item.status === "pronto" ? "success" : item.status === "atencao" ? "warning" : "critical"}`}>
+                                {item.status === "pronto" ? "PRONTO" : item.status === "atencao" ? "ATENÇÃO" : "CRÍTICO"}
+                              </span>
+                              <h4>{item.clienteNome}</h4>
+                              <p>{item.canalNome} · {item.phoneNumberId || "sem phone_number_id"} · {item.modoAtendimento} · {item.ativo ? "canal ativo" : "canal inativo"}</p>
                             </div>
-                          ))}
-                        </div>
-                      </article>
-                    ))}
+                            <div className="goLiveCompactMeta">
+                              <strong>{item.okCount}/{item.totalChecks}</strong>
+                              <span>checks OK</span>
+                              {problematicChecks.length > 0 ? <small>{problematicChecks.length} pendência(s)</small> : <small>sem pendências</small>}
+                            </div>
+                          </button>
+
+                          {problematicChecks.length > 0 && !expanded && (
+                            <div className="goLiveCompactProblems">
+                              {problematicChecks.slice(0, 3).map((check) => (
+                                <span key={`${item.canalId}-compact-${check.key}`} className={check.severity === "critical" ? "dangerText" : "warningText"}>
+                                  {check.severity === "critical" ? "🚨" : "⚠️"} {check.label}
+                                </span>
+                              ))}
+                              {problematicChecks.length > 3 && <span>+{problematicChecks.length - 3} pendência(s)</span>}
+                            </div>
+                          )}
+
+                          {expanded && (
+                            <div className="goLiveExpandedBody">
+                              <p className="goLiveRecommendation">{item.recommendation}</p>
+                              <div className="goLiveChecksGrid">
+                                {item.checks.map((check) => (
+                                  <div key={`${item.canalId}-${check.key}`} className={`goLiveCheck ${check.ok ? "ok" : check.severity}`}>
+                                    <strong>{check.ok ? "✅" : check.severity === "critical" ? "🚨" : "⚠️"} {check.label}</strong>
+                                    {check.details && <span>{check.details}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    }) : (
+                      <div className="emptyState">Nenhum canal encontrado com os filtros atuais.</div>
+                    )}
+                  </div>
+
+                  <div className="goLivePaginationBar bottom">
+                    <span>{goLiveSortedItems.length} resultado(s) filtrado(s)</span>
+                    <div className="buttonRow compactButtonRow">
+                      <button type="button" className="secondary" disabled={goLiveSafePage <= 1} onClick={() => setGoLivePage((page) => Math.max(1, page - 1))}>Anterior</button>
+                      <button type="button" className="secondary" disabled={goLiveSafePage >= goLivePageCount} onClick={() => setGoLivePage((page) => Math.min(goLivePageCount, page + 1))}>Próxima</button>
+                    </div>
                   </div>
                 </>
               ) : (
