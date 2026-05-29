@@ -488,6 +488,24 @@ type AdminUser = {
   clienteIds: number[];
 };
 
+type AccessScopeCliente = {
+  id: number;
+  nome_fantasia: string;
+  status?: string | null;
+  ativo?: boolean | null;
+};
+
+type AdminAccessScope = {
+  perfil: "global" | "clinica";
+  isGlobalAdmin: boolean;
+  clienteIds: number[];
+  clientes?: AccessScopeCliente[];
+  linkedClientes?: AccessScopeCliente[];
+  operationalClientes?: AccessScopeCliente[];
+  linkedCount?: number;
+  operationalCount?: number;
+};
+
 type AdminUsuario = {
   id: number;
   nome: string;
@@ -1484,6 +1502,7 @@ function App() {
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "usuarios" | "auditoria">("clientes");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
+  const [accessScope, setAccessScope] = useState<AdminAccessScope | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
   const [authLoading, setAuthLoading] = useState(true);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -1657,10 +1676,21 @@ function App() {
     [scopedClientes],
   );
 
-  const linkedClientesCount = isGlobalAdmin ? clientes.length : scopedClientes.length;
-  const operationalClientesCount = isGlobalAdmin ? clientes.filter((cliente) => cliente.ativo !== false).length : scopedOperationalClientes.length;
+  const accessLinkedClientes = !isGlobalAdmin && accessScope?.linkedClientes?.length
+    ? accessScope.linkedClientes
+    : scopedClientes;
+  const accessOperationalClientes = !isGlobalAdmin && accessScope?.operationalClientes
+    ? accessScope.operationalClientes
+    : scopedOperationalClientes;
+
+  const linkedClientesCount = isGlobalAdmin
+    ? clientes.length
+    : accessScope?.linkedCount ?? accessLinkedClientes.length;
+  const operationalClientesCount = isGlobalAdmin
+    ? clientes.filter((cliente) => cliente.ativo !== false && String(cliente.status || "ativo").toLowerCase() === "ativo").length
+    : accessScope?.operationalCount ?? accessOperationalClientes.length;
   const inactiveLinkedClientes = !isGlobalAdmin
-    ? scopedClientes.filter((cliente) => cliente.ativo === false || String(cliente.status || "ativo").toLowerCase() !== "ativo")
+    ? accessLinkedClientes.filter((cliente) => cliente.ativo === false || String(cliente.status || "ativo").toLowerCase() !== "ativo")
     : [];
 
   const accessScopeLabel = isGlobalAdmin
@@ -1669,9 +1699,11 @@ function App() {
 
   const accessScopeDetail = isGlobalAdmin
     ? "Pode cadastrar clientes, canais WhatsApp, usuários e operar o dashboard global."
-    : inactiveLinkedClientes.length > 0
-      ? `${linkedClientesCount} cliente(s) vinculado(s), ${operationalClientesCount} operacional(is). ${inactiveLinkedClientes[0]?.nome_fantasia || "Clínica"} está inativa.`
-      : "Acesso limitado aos clientes vinculados ao seu usuário.";
+    : linkedClientesCount === 0
+      ? "Nenhuma clínica vinculada ao seu usuário."
+      : operationalClientesCount === 0
+        ? `${linkedClientesCount} clínica(s) vinculada(s), mas nenhuma operacional. ${inactiveLinkedClientes[0]?.nome_fantasia || "Clínica"} está inativa.`
+        : `${linkedClientesCount} clínica(s) vinculada(s), ${operationalClientesCount} operacional(is).`;
 
 
   useEffect(() => {
@@ -2616,6 +2648,17 @@ function App() {
     Promise.all([loadClientes(), loadEspecialidadesCatalogo()]).catch((error) =>
       showToast(error.message, true),
     );
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser) {
+      setAccessScope(null);
+      return;
+    }
+
+    api<AdminAccessScope>("/api/admin/auth/access-scope")
+      .then((scope) => setAccessScope(scope))
+      .catch(() => setAccessScope(null));
   }, [authUser]);
 
   useEffect(() => {
@@ -3778,7 +3821,7 @@ function App() {
               onClick={toggleThemeMode}
               title={themeMode === "dark" ? "Alternar para tema claro" : "Alternar para tema escuro"}
             >
-              {themeMode === "dark" ? "☀️ Claro" : "🌙 Escuro"}
+              {themeMode === "dark" ? "☀️ Claro" : "🌙 Escuro"}
             </button>
             <button className="secondary" onClick={logout}>Sair</button>
           </div>
