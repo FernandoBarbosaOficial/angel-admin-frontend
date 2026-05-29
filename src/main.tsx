@@ -352,6 +352,46 @@ type WhatsappDiagnostics = {
   };
 };
 
+
+type WhatsappGoLiveCheck = {
+  key: string;
+  ok: boolean;
+  severity: "critical" | "warning" | "success";
+  label: string;
+  details?: string;
+};
+
+type WhatsappGoLiveItem = {
+  canalId: number;
+  canalNome: string;
+  clienteId: number;
+  clienteNome: string;
+  tipoCliente?: string | null;
+  phoneNumberId: string;
+  modoAtendimento: WhatsappCanalModo;
+  ativo: boolean;
+  principal: boolean;
+  tokenRef?: string | null;
+  status: "pronto" | "atencao" | "critico";
+  okCount: number;
+  totalChecks: number;
+  criticalCount: number;
+  warningCount: number;
+  recommendation: string;
+  checks: WhatsappGoLiveCheck[];
+};
+
+type WhatsappGoLiveChecklist = {
+  generatedAt: string;
+  summary: {
+    total: number;
+    pronto: number;
+    atencao: number;
+    critico: number;
+  };
+  items: WhatsappGoLiveItem[];
+};
+
 type WhatsappAntiAbuseEvent = {
   id?: string;
   type?: string;
@@ -1485,6 +1525,8 @@ function App() {
   const [whatsappCanalForm, setWhatsappCanalForm] = useState<WhatsappCanalForm>(() => createEmptyWhatsappCanalForm());
   const [whatsappDiagnostics, setWhatsappDiagnostics] = useState<WhatsappDiagnostics | null>(null);
   const [whatsappDiagnosticsLoading, setWhatsappDiagnosticsLoading] = useState(false);
+  const [whatsappGoLiveChecklist, setWhatsappGoLiveChecklist] = useState<WhatsappGoLiveChecklist | null>(null);
+  const [whatsappGoLiveLoading, setWhatsappGoLiveLoading] = useState(false);
   const [whatsappAntiAbuseStatus, setWhatsappAntiAbuseStatus] = useState<WhatsappAntiAbuseStatus | null>(null);
   const [whatsappAntiAbuseLoading, setWhatsappAntiAbuseLoading] = useState(false);
   const [whatsappDashboardLastUpdatedAt, setWhatsappDashboardLastUpdatedAt] = useState<string | null>(null);
@@ -2322,6 +2364,17 @@ function App() {
     showToast("📌 Dados copiados para bloqueio manual");
   }
 
+  async function loadWhatsappGoLiveChecklist() {
+    if (!isGlobalAdmin) return;
+    setWhatsappGoLiveLoading(true);
+    try {
+      const data = await api<WhatsappGoLiveChecklist>("/api/admin/whatsapp/golive-checklist");
+      setWhatsappGoLiveChecklist(data);
+    } finally {
+      setWhatsappGoLiveLoading(false);
+    }
+  }
+
   async function loadWhatsappDiagnostics() {
     if (!isGlobalAdmin) return;
     setWhatsappDiagnosticsLoading(true);
@@ -2331,6 +2384,7 @@ function App() {
       setWhatsappDashboardLastUpdatedAt(new Date().toISOString());
       setWhatsappAutoRefreshError(null);
       await loadWhatsappAntiAbuseStatus();
+      await loadWhatsappGoLiveChecklist();
     } finally {
       setWhatsappDiagnosticsLoading(false);
     }
@@ -2557,6 +2611,9 @@ function App() {
         const data = await api<WhatsappDiagnostics>("/api/admin/whatsapp/diagnostico");
         if (cancelled) return;
         setWhatsappDiagnostics(data);
+        const goLive = await api<WhatsappGoLiveChecklist>("/api/admin/whatsapp/golive-checklist");
+        if (cancelled) return;
+        setWhatsappGoLiveChecklist(goLive);
         setWhatsappDashboardLastUpdatedAt(new Date().toISOString());
         setWhatsappAutoRefreshError(null);
       } catch (error) {
@@ -5625,6 +5682,60 @@ function App() {
                 </>
               ) : (
                 <div className="emptyState">Clique em Atualizar dashboard para verificar o ambiente.</div>
+              )}
+            </section>
+
+            <section className="card goLiveChecklistCard">
+              <div className="sectionHeader">
+                <div>
+                  <h3>Checklist Go-Live por cliente</h3>
+                  <p>Validação operacional para liberar um cliente/canal para WhatsApp real. Corrija itens críticos antes de produção.</p>
+                </div>
+                <button className="secondary" onClick={() => loadWhatsappGoLiveChecklist()} disabled={whatsappGoLiveLoading}>
+                  {whatsappGoLiveLoading ? "Validando..." : "Atualizar checklist"}
+                </button>
+              </div>
+
+              {whatsappGoLiveChecklist ? (
+                <>
+                  <div className="goLiveSummaryGrid">
+                    <div className="goLiveSummaryCard success"><strong>{whatsappGoLiveChecklist.summary.pronto}</strong><span>Prontos</span></div>
+                    <div className="goLiveSummaryCard warning"><strong>{whatsappGoLiveChecklist.summary.atencao}</strong><span>Com avisos</span></div>
+                    <div className="goLiveSummaryCard critical"><strong>{whatsappGoLiveChecklist.summary.critico}</strong><span>Críticos</span></div>
+                    <div className="goLiveSummaryCard info"><strong>{whatsappGoLiveChecklist.summary.total}</strong><span>Total canais</span></div>
+                  </div>
+
+                  <div className="goLiveChecklistList">
+                    {whatsappGoLiveChecklist.items.map((item) => (
+                      <article key={item.canalId} className={`goLiveItem ${item.status}`}>
+                        <div className="goLiveItemHeader">
+                          <div>
+                            <span className={`severityBadge ${item.status === "pronto" ? "success" : item.status === "atencao" ? "warning" : "critical"}`}>
+                              {item.status === "pronto" ? "PRONTO" : item.status === "atencao" ? "ATENÇÃO" : "CRÍTICO"}
+                            </span>
+                            <h4>{item.clienteNome}</h4>
+                            <p>{item.canalNome} · {item.phoneNumberId || "sem phone_number_id"} · {item.modoAtendimento}</p>
+                          </div>
+                          <div className="goLiveScore">
+                            <strong>{item.okCount}/{item.totalChecks}</strong>
+                            <span>checks OK</span>
+                          </div>
+                        </div>
+                        <p className="goLiveRecommendation">{item.recommendation}</p>
+                        <div className="goLiveChecksGrid">
+                          {item.checks.map((check) => (
+                            <div key={`${item.canalId}-${check.key}`} className={`goLiveCheck ${check.ok ? "ok" : check.severity}`}>
+                              <strong>{check.ok ? "✅" : check.severity === "critical" ? "🚨" : "⚠️"} {check.label}</strong>
+                              {check.details && <span>{check.details}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="emptyState">Clique em Atualizar checklist para validar clientes/canais antes do go-live.</div>
               )}
             </section>
 
