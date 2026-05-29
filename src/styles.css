@@ -4086,3 +4086,41 @@ html[data-theme="light"] .goLiveCheck {
     min-width: 0;
   }
 }
+
+
+/* Fase 6.9.1.1 - Ajuste de escopo e contraste da clínica selecionada */
+.warningText {
+  color: #f59e0b;
+  font-weight: 800;
+}
+
+html[data-theme="light"] .listItem.selected {
+  opacity: 1 !important;
+  background: linear-gradient(135deg, #dbeafe, #eff6ff) !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.22), 0 12px 26px rgba(37, 99, 235, 0.12) !important;
+}
+
+html[data-theme="light"] .listItem.selected .clientOpenButton,
+html[data-theme="light"] .listItem.selected .clientOpenButton strong,
+html[data-theme="light"] .listItem.selected .clientOpenButton b {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .listItem.selected .clientOpenButton span,
+html[data-theme="light"] .listItem.selected .clientOpenButton p {
+  color: #1e3a8a !important;
+}
+
+html[data-theme="light"] .listItem.selected::before {
+  background: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+html[data-theme="light"] .listItem.selected .badge {
+  opacity: 1 !important;
+}
+
+.listItem.selected.mutedRow {
+  opacity: 1 !important;
+}

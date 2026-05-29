@@ -1642,17 +1642,36 @@ function App() {
   const isGlobalAdmin = authUser?.perfil === "global";
   const scopedClientes = useMemo(() => {
     if (isGlobalAdmin) return clientes;
-    const allowed = new Set(authUser?.clienteIds || []);
+    const allowedIds = authUser?.clienteIds || [];
+
+    // Em perfis de clínica, a API já retorna apenas os clientes vinculados.
+    // Se o token antigo/localStorage ainda não trouxer clienteIds, usamos a lista carregada como fonte visual.
+    if (allowedIds.length === 0) return clientes;
+
+    const allowed = new Set(allowedIds);
     return clientes.filter((cliente) => allowed.has(cliente.id));
   }, [authUser?.clienteIds, clientes, isGlobalAdmin]);
 
+  const scopedOperationalClientes = useMemo(
+    () => scopedClientes.filter((cliente) => cliente.ativo !== false && String(cliente.status || "ativo").toLowerCase() === "ativo"),
+    [scopedClientes],
+  );
+
+  const linkedClientesCount = isGlobalAdmin ? clientes.length : scopedClientes.length;
+  const operationalClientesCount = isGlobalAdmin ? clientes.filter((cliente) => cliente.ativo !== false).length : scopedOperationalClientes.length;
+  const inactiveLinkedClientes = !isGlobalAdmin
+    ? scopedClientes.filter((cliente) => cliente.ativo === false || String(cliente.status || "ativo").toLowerCase() !== "ativo")
+    : [];
+
   const accessScopeLabel = isGlobalAdmin
     ? "Acesso global a todos os clientes"
-    : `${scopedClientes.length} cliente(s) vinculado(s)`;
+    : `${linkedClientesCount} cliente(s) vinculado(s)`;
 
   const accessScopeDetail = isGlobalAdmin
     ? "Pode cadastrar clientes, canais WhatsApp, usuários e operar o dashboard global."
-    : "Acesso limitado aos clientes vinculados ao seu usuário.";
+    : inactiveLinkedClientes.length > 0
+      ? `${linkedClientesCount} cliente(s) vinculado(s), ${operationalClientesCount} operacional(is). ${inactiveLinkedClientes[0]?.nome_fantasia || "Clínica"} está inativa.`
+      : "Acesso limitado aos clientes vinculados ao seu usuário.";
 
 
   useEffect(() => {
@@ -3771,8 +3790,15 @@ function App() {
             <span>{accessScopeDetail}</span>
           </div>
           <div className="accessScopeStats">
-            <span>{isGlobalAdmin ? `${clientes.length} clientes carregados` : `${scopedClientes.length} permitidos`}</span>
-            {!isGlobalAdmin && scopedClientes.length === 0 && <strong className="criticalText">Nenhuma clínica vinculada</strong>}
+            <span>
+              {isGlobalAdmin
+                ? `${clientes.length} clientes carregados`
+                : `${linkedClientesCount} vinculada(s) · ${operationalClientesCount} operacional(is)`}
+            </span>
+            {!isGlobalAdmin && linkedClientesCount === 0 && <strong className="criticalText">Nenhuma clínica vinculada</strong>}
+            {!isGlobalAdmin && linkedClientesCount > 0 && operationalClientesCount === 0 && (
+              <strong className="warningText">Clínica vinculada, mas inativa</strong>
+            )}
           </div>
         </section>
 
