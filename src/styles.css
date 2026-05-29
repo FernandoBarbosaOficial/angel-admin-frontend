@@ -3122,3 +3122,87 @@ html[data-theme="light"] .logExpandButton {
   background: #ffffff;
   color: #1e3a8a;
 }
+
+/* Fase 6.5.3 — Bloqueio manual WhatsApp */
+.manualBlockPanel {
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.20), rgba(15, 23, 42, 0.78));
+  border-radius: 18px;
+  padding: 16px;
+  margin: 18px 0;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+}
+.manualBlockPanel h4 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.manualBlockPanel p {
+  margin: 0 0 14px;
+  color: var(--muted, #94a3b8);
+}
+.manualBlockGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.manualBlockPanel label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--text, #e5e7eb);
+}
+.manualBlockPanel input,
+.manualBlockPanel select {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(2, 6, 23, 0.55);
+  color: var(--text, #e5e7eb);
+  padding: 0 12px;
+}
+.manualBlockActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.dangerButton {
+  border: none;
+  border-radius: 12px;
+  padding: 11px 18px;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.25);
+}
+.dangerButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.miniActionButton {
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  background: rgba(37, 99, 235, 0.16);
+  color: var(--text, #e5e7eb);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.miniActionButton:hover {
+  border-color: rgba(96, 165, 250, 0.95);
+  background: rgba(37, 99, 235, 0.32);
+}
+.miniActionButton.inline {
+  margin-left: 8px;
+}
+@media (max-width: 1100px) {
+  .manualBlockGrid { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+}
+@media (max-width: 700px) {
+  .manualBlockGrid { grid-template-columns: 1fr; }
+}
