@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -837,7 +837,7 @@ function formatAdminDate(value?: string | null) {
 function prettyAuditLabel(value?: string | null) {
   return String(value || "-")
     .replace(/_/g, " ")
-    .replace(/\./g, " Â· ");
+    .replace(/\./g, " · ");
 }
 
 function compactJson(value: unknown) {
@@ -1018,10 +1018,10 @@ function AvailabilityHumanList({ title, value }: { title: string; value: unknown
           {rows.map((row) => (
             <div className="auditHumanItem" key={row.key}>
               <strong>
-                {row.dia} Â· {row.periodo}
+                {row.dia} · {row.periodo}
               </strong>
               <span>
-                {row.inicio} Ã s {row.fim} Â· intervalo de {row.intervalo}
+                {row.inicio} Ã s {row.fim} · intervalo de {row.intervalo}
               </span>
             </div>
           ))}
@@ -2082,17 +2082,17 @@ function App() {
     const normalizedNome = usuarioForm.nome.trim();
 
     if (!normalizedNome) {
-      showToast("âŒ Informe o nome do usuário", true);
+      showToast("❌ Informe o nome do usuário", true);
       return;
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      showToast("âŒ Informe um e-mail válido", true);
+      showToast("❌ Informe um e-mail válido", true);
       return;
     }
 
     if (usuarioForm.perfil === "clinica" && usuarioForm.cliente_ids.length === 0) {
-      showToast("âŒ Selecione pelo menos uma clínica para o Admin Clínica", true);
+      showToast("❌ Selecione pelo menos uma clínica para o Admin Clínica", true);
       return;
     }
 
@@ -2123,7 +2123,7 @@ function App() {
       resetUsuarioForm();
       await loadUsuarios();
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar usuário", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar usuário", true);
     } finally {
       setLoadingAction((current) => (current === "usuarios.save" || current === "usuarios.create" ? null : current));
     }
@@ -2147,7 +2147,7 @@ function App() {
         setUsuarioForm((current) => ({ ...current, ativo: nextAtivo }));
       }
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao alterar status do usuário", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao alterar status do usuário", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.toggle.${usuario.id}` ? null : current));
     }
@@ -2169,7 +2169,7 @@ function App() {
       showToast("✅ MFA resetado. O usuário deverá configurar o Authenticator no próximo login.");
       await loadUsuarios();
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao resetar MFA", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao resetar MFA", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.mfa.${usuario.id}` ? null : current));
     }
@@ -2187,7 +2187,7 @@ function App() {
       });
       showToast("✅ Convite enviado por e-mail");
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao enviar convite", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao enviar convite", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.invite.${usuario.id}` ? null : current));
     }
@@ -2205,7 +2205,7 @@ function App() {
       });
       showToast("✅ Link de redefinição enviado por e-mail");
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao enviar reset de senha", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao enviar reset de senha", true);
     } finally {
       setLoadingAction((current) => (current === `usuarios.resetmail.${usuario.id}` ? null : current));
     }
@@ -2271,7 +2271,7 @@ function App() {
   async function handleCreateWhatsappManualBlock(event?: React.FormEvent) {
     event?.preventDefault();
     if (!whatsappManualBlockForm.phoneNumberId.trim() || !whatsappManualBlockForm.from.trim()) {
-      showToast("âŒ Informe canal e telefone para bloquear", true);
+      showToast("❌ Informe canal e telefone para bloquear", true);
       return;
     }
     setWhatsappManualBlockLoading(true);
@@ -2292,7 +2292,7 @@ function App() {
       await loadWhatsappAntiAbuseStatus();
       await loadWhatsappLogs();
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao bloquear número", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao bloquear número", true);
     } finally {
       setWhatsappManualBlockLoading(false);
     }
@@ -2311,7 +2311,7 @@ function App() {
       await loadWhatsappAntiAbuseStatus();
       await loadWhatsappLogs();
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao liberar bloqueio", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao liberar bloqueio", true);
     } finally {
       setWhatsappManualBlockLoading(false);
     }
@@ -2319,7 +2319,7 @@ function App() {
 
   function fillManualBlockFromEvent(phoneNumberId: string, from: string) {
     setWhatsappManualBlockForm((current) => ({ ...current, phoneNumberId, from }));
-    showToast("ðŸ“Œ Dados copiados para bloqueio manual");
+    showToast("📌 Dados copiados para bloqueio manual");
   }
 
   async function loadWhatsappDiagnostics() {
@@ -2340,7 +2340,7 @@ function App() {
     event?.preventDefault();
     const canalId = Number(whatsappTestForm.canalId);
     if (!canalId) {
-      showToast("âŒ Selecione um canal para testar", true);
+      showToast("❌ Selecione um canal para testar", true);
       return;
     }
     setWhatsappTestLoading(true);
@@ -2357,7 +2357,7 @@ function App() {
       showToast("✅ Teste de canal executado");
       await loadWhatsappLogs();
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao testar canal", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao testar canal", true);
     } finally {
       setWhatsappTestLoading(false);
     }
@@ -2405,17 +2405,17 @@ function App() {
     const identificador = whatsappCanalForm.identificador.trim();
 
     if (!clienteId) {
-      showToast("âŒ Selecione o cliente base do canal", true);
+      showToast("❌ Selecione o cliente base do canal", true);
       return;
     }
 
     if (!nome || !identificador) {
-      showToast("âŒ Informe nome do canal e phone_number_id", true);
+      showToast("❌ Informe nome do canal e phone_number_id", true);
       return;
     }
 
     if (whatsappCanalForm.modo_atendimento === "grupo_unidades" && whatsappCanalForm.cliente_ids.length === 0) {
-      showToast("âŒ Para grupo de unidades, selecione os clientes/unidades exibidos no menu", true);
+      showToast("❌ Para grupo de unidades, selecione os clientes/unidades exibidos no menu", true);
       return;
     }
 
@@ -2444,7 +2444,7 @@ function App() {
       resetWhatsappCanalForm();
       await loadWhatsappCanais();
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar canal WhatsApp", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar canal WhatsApp", true);
     } finally {
       setLoadingAction((current) => (current === "whatsapp.canal.save" ? null : current));
     }
@@ -2461,7 +2461,7 @@ function App() {
       showToast(nextAtivo ? "✅ Canal ativado" : "✅ Canal inativado");
       await loadWhatsappCanais();
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao alterar canal WhatsApp", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao alterar canal WhatsApp", true);
     } finally {
       setLoadingAction((current) => (current === `whatsapp.canal.toggle.${canal.id}` ? null : current));
     }
@@ -2580,6 +2580,9 @@ function App() {
       }
     };
 
+    loadWhatsappCanais().catch((error) => {
+      if (!cancelled) setWhatsappAutoRefreshError(error instanceof Error ? error.message : "Falha ao carregar canais WhatsApp");
+    });
     refreshDashboardSilently();
     refreshAlertsSilently();
 
@@ -2661,7 +2664,7 @@ function App() {
       showToast(shouldDeactivate ? "✅ Cliente desativado com sucesso" : "✅ Cliente ativado com sucesso");
       await loadClientes();
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar cliente", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar cliente", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2697,7 +2700,7 @@ function App() {
       await loadClientes();
       await loadClienteOperacional(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar clínica", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar clínica", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2746,7 +2749,7 @@ function App() {
       await loadClientes();
       await loadClienteOperacional(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar regras", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar regras", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2756,7 +2759,7 @@ function App() {
     const cnpjDigits = onlyDigits(novoCliente.cnpj);
 
     if (cnpjDigits.length !== 14) {
-      showToast("âŒ Informe um CNPJ com 14 dígitos", true);
+      showToast("❌ Informe um CNPJ com 14 dígitos", true);
       return;
     }
 
@@ -2792,7 +2795,7 @@ function App() {
 
       showToast("✅ Dados do CNPJ preenchidos");
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao consultar CNPJ", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao consultar CNPJ", true);
     } finally {
       setLoadingCnpj(false);
     }
@@ -2839,7 +2842,7 @@ function App() {
       await loadClientes();
       setSelectedClienteId(cliente.id);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao criar cliente", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao criar cliente", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2885,7 +2888,7 @@ function App() {
       setEditingFormaId(null);
       await loadFormas(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar forma", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar forma", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2937,7 +2940,7 @@ function App() {
 
       await loadProdutos(selectedForma);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao criar produto", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao criar produto", true);
     } finally {
       setLoadingAction(null);
     }
@@ -2954,7 +2957,7 @@ function App() {
 
       if (selectedClienteId) await loadFormas(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar forma", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar forma", true);
     }
   }
 
@@ -2970,7 +2973,7 @@ function App() {
 
       await loadProdutos(selectedForma);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar produto", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar produto", true);
     }
   }
 
@@ -3092,7 +3095,7 @@ function App() {
         };
       });
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Dados inválidos do médico", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Dados inválidos do médico", true);
       setLoadingAction(null);
       return;
     }
@@ -3122,7 +3125,7 @@ function App() {
       await loadMedicos(selectedClienteId);
       setSelectedMedicoId(Number(medico.id));
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar médico", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar médico", true);
     } finally {
       setLoadingAction(null);
     }
@@ -3139,7 +3142,7 @@ function App() {
 
     if (!file || !selectedClienteId) return;
     if (!isGlobalAdmin) {
-      showToast("âŒ Apenas Admin Global pode importar médicos em massa", true);
+      showToast("❌ Apenas Admin Global pode importar médicos em massa", true);
       return;
     }
 
@@ -3214,7 +3217,7 @@ function App() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao importar planilha";
       setImportacaoMedicosStatus(`Falha na importação: ${errorMessage}`);
-      showToast(`âŒ ${errorMessage}`, true);
+      showToast(`❌ ${errorMessage}`, true);
     } finally {
       setLoadingAction(null);
     }
@@ -3240,7 +3243,7 @@ function App() {
       showToast(medico.ativo ? "✅ Médico desativado" : "✅ Médico ativado");
       await loadMedicos(selectedClienteId);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar médico", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar médico", true);
     } finally {
       setLoadingAction(null);
     }
@@ -3283,7 +3286,7 @@ function App() {
       setDisponibilidades(mergeDisponibilidadesFromApi(data));
       showToast("✅ Disponibilidade salva com sucesso");
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao salvar disponibilidade", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar disponibilidade", true);
     } finally {
       setLoadingAction(null);
     }
@@ -3309,7 +3312,7 @@ function App() {
       setNovoAceite({ convenio: "", plano: "" });
       await loadAceites(selectedMedicoId);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao criar aceite", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao criar aceite", true);
     } finally {
       setLoadingAction(null);
     }
@@ -3337,7 +3340,7 @@ function App() {
       showToast(aceite.ativo ? "✅ Aceite desativado" : "✅ Aceite ativado");
       await loadAceites(selectedMedicoId);
     } catch (error) {
-      showToast(error instanceof Error ? `âŒ ${error.message}` : "âŒ Erro ao atualizar aceite", true);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar aceite", true);
     } finally {
       setLoadingAction(null);
     }
@@ -3365,40 +3368,32 @@ function App() {
   const whatsappActiveBlocks = useMemo(() => {
     if (!whatsappAntiAbuseStatus) return [];
 
-    const now = whatsappCountdownTick;
-    const recent = whatsappAntiAbuseStatus.recentBlocks || [];
+    // Bloqueios ativos devem vir somente do backend/Redis.
+    // Eventos históricos com blockedUntil futuro não devem recriar uma linha ativa
+    // depois que o operador clicar em "Liberar".
     const byKey = new Map<string, WhatsappAntiAbuseEvent & { ttlSeconds?: number }>();
 
     for (const block of whatsappAntiAbuseStatus.activeBlocks || []) {
       const key = `${block.phoneNumberId}:${block.from}`;
-      const related = recent.find((event) => event.phoneNumberId === block.phoneNumberId && event.from === block.from && event.blockedUntil);
       byKey.set(key, {
         id: key,
-        type: block.kind === "manual" ? "manual_block" : related?.type || "active_block",
-        severity: related?.severity || "critical",
-        createdAt: related?.createdAt,
+        type: block.kind === "manual" ? "manual_block" : "active_block",
+        severity: "critical",
+        createdAt: undefined,
         phoneNumberId: block.phoneNumberId,
         from: block.from,
-        reason: block.reason || related?.reason || "temporarily_blocked",
-        blockedUntil: block.blockedUntil || related?.blockedUntil || null,
-        riskScore: related?.riskScore ?? null,
-        messagePreview: block.note || related?.messagePreview,
+        reason: block.reason || (block.kind === "manual" ? "manual_block" : "temporarily_blocked"),
+        blockedUntil: block.blockedUntil || null,
+        riskScore: null,
+        messagePreview: block.note || "",
         ttlSeconds: block.ttlSeconds ?? undefined,
-        manual: block.manual || block.kind === "manual" || related?.manual,
-        note: block.note || related?.note,
+        manual: block.manual || block.kind === "manual",
+        note: block.note || "",
       });
     }
 
-    for (const event of recent) {
-      if (!event.blockedUntil) continue;
-      const expiresAt = new Date(event.blockedUntil).getTime();
-      if (Number.isNaN(expiresAt) || expiresAt <= now) continue;
-      const key = `${event.phoneNumberId}:${event.from}`;
-      if (!byKey.has(key)) byKey.set(key, event);
-    }
-
     return Array.from(byKey.values());
-  }, [whatsappAntiAbuseStatus, whatsappCountdownTick]);
+  }, [whatsappAntiAbuseStatus]);
 
   const whatsappRecentAntiAbuseHistory = useMemo(() => {
     const activeKeys = new Set(whatsappActiveBlocks.map((event) => `${event.phoneNumberId}:${event.from}:${event.blockedUntil || ""}`));
@@ -4763,7 +4758,7 @@ function App() {
                 <div>
                   <h3>Detalhes da auditoria</h3>
                   <p>
-                    {formatAdminDate(selectedAuditLog.created_at)} Â· {selectedAuditLog.usuario_email || "Usuário não identificado"}
+                    {formatAdminDate(selectedAuditLog.created_at)} · {selectedAuditLog.usuario_email || "Usuário não identificado"}
                   </p>
                 </div>
                 <button className="secondary" type="button" onClick={() => setSelectedAuditLog(null)}>
@@ -5545,7 +5540,7 @@ function App() {
                       <div className="opsKpiCard ok"><span>🟢</span><strong>{whatsappDiagnostics.summary.canaisAtivos}/{whatsappDiagnostics.summary.canaisTotal}</strong><small>Canais ativos</small></div>
                       <div className={whatsappDiagnostics.summary.failedChecks ? "opsKpiCard warning" : "opsKpiCard ok"}><span>🧪</span><strong>{whatsappDiagnostics.summary.failedChecks}</strong><small>Checks com alerta</small></div>
                       <div className={whatsappBlockedNowCount > 0 ? "opsKpiCard critical pulse" : "opsKpiCard ok"}><span>🛡️</span><strong>{whatsappBlockedNowCount}</strong><small>Bloqueios ativos</small></div>
-                      <div className="opsKpiCard info"><span>â±ï¸</span><strong>{formatDateTimeShort(whatsappDiagnostics.generatedAt)}</strong><small>Último diagnóstico</small></div>
+                      <div className="opsKpiCard info"><span>⏱ï¸</span><strong>{formatDateTimeShort(whatsappDiagnostics.generatedAt)}</strong><small>Último diagnóstico</small></div>
                     </div>
                   </div>
 
@@ -5617,7 +5612,7 @@ function App() {
                         <select value={whatsappManualBlockForm.phoneNumberId} onChange={(event) => setWhatsappManualBlockForm((current) => ({ ...current, phoneNumberId: event.target.value }))}>
                           <option value="">Selecione...</option>
                           {whatsappCanais.filter((canal) => canal.ativo).map((canal) => (
-                            <option key={canal.id} value={canal.identificador}>{canal.nome} Â· {canal.identificador}</option>
+                            <option key={canal.id} value={canal.identificador}>{canal.nome} — {canal.identificador}</option>
                           ))}
                         </select>
                       </label>
@@ -5671,7 +5666,7 @@ function App() {
                               <td>{event.phoneNumberId}</td>
                               <td>{reasonLabel(event.reason)}<span className="tableHint">{event.messagePreview || ""}</span></td>
                               <td>{event.riskScore ?? "-"}</td>
-                              <td><span className="countdownBadge">â± {formatCountdownUntil(event.blockedUntil, (event as any).ttlSeconds)}</span></td>
+                              <td><span className="countdownBadge">⏱ {formatCountdownUntil(event.blockedUntil, (event as any).ttlSeconds)}</span></td>
                               <td>{formatDateTimeShort(event.blockedUntil)}</td>
                               <td><span className="severityBadge critical">{event.manual ? "MANUAL" : "BLOQUEADO"}</span></td>
                               <td><button type="button" className="miniActionButton" onClick={() => handleReleaseWhatsappManualBlock(event.phoneNumberId, event.from)} disabled={whatsappManualBlockLoading}>Liberar</button></td>
@@ -5732,7 +5727,7 @@ function App() {
                     <select value={whatsappTestForm.canalId} onChange={(event) => setWhatsappTestForm({ ...whatsappTestForm, canalId: event.target.value })} required>
                       <option value="">Selecione</option>
                       {whatsappCanais.map((canal) => (
-                        <option key={canal.id} value={canal.id}>{canal.nome} Â· {canal.identificador}</option>
+                        <option key={canal.id} value={canal.id}>{canal.nome} — {canal.identificador}</option>
                       ))}
                     </select>
                   </label>
@@ -5806,7 +5801,7 @@ function App() {
                             <td>{group.cliente}</td>
                             <td>
                               <strong>{group.phone}</strong>
-                              <span className="tableHint">{group.count} evento(s) Â· canal {group.canal}</span>
+                              <span className="tableHint">{group.count} evento(s) · canal {group.canal}</span>
                             </td>
                             <td><Badge active={!hasErrors}>{hasErrors ? `${group.errorCount} alerta(s)` : (group.statuses[0] || "ok")}</Badge></td>
                             <td>{group.intents.length ? group.intents.slice(0, 3).join(", ") : "-"}</td>
