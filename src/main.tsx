@@ -5778,52 +5778,96 @@ function App() {
               </div>
 
               {whatsappLogs.length ? (
-                <table className="opsTable groupedLogsTable">
-                  <thead><tr><th>Grupo</th><th>Cliente</th><th>Telefone</th><th>Status</th><th>Intenção</th><th>Última entrada/saída</th><th>Erro</th></tr></thead>
-                  <tbody>
-                    {whatsappLogGroups.map((group) => {
-                      const expanded = Boolean(expandedWhatsappLogGroups[group.key]);
-                      const hasErrors = group.errorCount > 0;
-                      return (
-                        <React.Fragment key={group.key}>
-                          <tr className={hasErrors ? "logGroupRow criticalRow" : "logGroupRow"}>
-                            <td>
-                              <button
-                                type="button"
-                                className="logExpandButton"
-                                onClick={() => setExpandedWhatsappLogGroups((current) => ({ ...current, [group.key]: !current[group.key] }))}
-                                aria-label={expanded ? "Recolher logs" : "Expandir logs"}
-                              >
-                                {expanded ? "â–¾" : "â–¸"}
-                              </button>
-                              <span className="logGroupDate">{formatDateTimeShort(group.latest.created_at)}</span>
-                            </td>
-                            <td>{group.cliente}</td>
-                            <td>
-                              <strong>{group.phone}</strong>
-                              <span className="tableHint">{group.count} evento(s) · canal {group.canal}</span>
-                            </td>
-                            <td><Badge active={!hasErrors}>{hasErrors ? `${group.errorCount} alerta(s)` : (group.statuses[0] || "ok")}</Badge></td>
-                            <td>{group.intents.length ? group.intents.slice(0, 3).join(", ") : "-"}</td>
-                            <td><span className="tableHint">{group.latest.inbound_text || "-"}</span><span className="tableHint">{group.latest.outbound_text || ""}</span></td>
-                            <td>{hasErrors ? `${group.errorCount} ocorrência(s)` : "-"}</td>
-                          </tr>
-                          {expanded && group.logs.map((log) => (
-                            <tr key={`${group.key}-${log.id}`} className={log.error_message ? "logChildRow criticalRow" : "logChildRow"}>
-                              <td>{formatDateTimeShort(log.created_at)}</td>
-                              <td>{log.cliente_nome || log.cliente_id || "-"}</td>
-                              <td>{log.from_number || log.from_phone || log.phone_number_id || "-"}</td>
-                              <td><Badge active={!log.error_message}>{log.status || "-"}</Badge></td>
-                              <td>{log.intent || "-"}</td>
-                              <td><span className="tableHint">{log.inbound_text || "-"}</span><span className="tableHint">{log.outbound_text || ""}</span></td>
-                              <td>{log.error_message || "-"}</td>
-                            </tr>
-                          ))}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="conversationLogList">
+                  {whatsappLogGroups.map((group) => {
+                    const expanded = Boolean(expandedWhatsappLogGroups[group.key]);
+                    const hasErrors = group.errorCount > 0;
+                    const latestInbound = group.latest.inbound_text || "";
+                    const latestOutbound = group.latest.outbound_text || "";
+                    const previewText = latestInbound || latestOutbound || group.latest.error_message || "Sem texto registrado";
+                    const orderedLogs = [...group.logs].sort((a, b) => {
+                      const aTime = new Date(a.created_at).getTime();
+                      const bTime = new Date(b.created_at).getTime();
+                      return (Number.isNaN(aTime) ? 0 : aTime) - (Number.isNaN(bTime) ? 0 : bTime);
+                    });
+
+                    return (
+                      <article key={group.key} className={hasErrors ? "conversationGroup criticalConversation" : "conversationGroup"}>
+                        <button
+                          type="button"
+                          className="conversationGroupHeader"
+                          onClick={() => setExpandedWhatsappLogGroups((current) => ({ ...current, [group.key]: !current[group.key] }))}
+                          aria-expanded={expanded}
+                        >
+                          <span className="conversationChevron">{expanded ? "▾" : "▸"}</span>
+                          <span className="conversationAvatar">{hasErrors ? "⚠️" : "💬"}</span>
+                          <span className="conversationMain">
+                            <strong>{group.phone}</strong>
+                            <span>{group.cliente} · canal {group.canal}</span>
+                          </span>
+                          <span className="conversationMeta">
+                            <strong>{group.count} evento(s)</strong>
+                            <span>{formatDateTimeShort(group.latest.created_at)}</span>
+                          </span>
+                          <span className={hasErrors ? "conversationStatus danger" : "conversationStatus ok"}>
+                            {hasErrors ? `${group.errorCount} alerta(s)` : (group.statuses[0] || "ok")}
+                          </span>
+                        </button>
+
+                        <div className="conversationPreview">
+                          <span className="conversationPreviewLabel">Último registro</span>
+                          <span>{previewText}</span>
+                        </div>
+
+                        {expanded && (
+                          <div className="conversationTimeline">
+                            {orderedLogs.map((log) => {
+                              const inbound = log.inbound_text;
+                              const outbound = log.outbound_text;
+                              const isSystem = Boolean(log.error_message) || log.status === "ignored" || log.status === "failed";
+                              const displayPhone = log.from_number || log.from_phone || log.to_phone || group.phone;
+                              return (
+                                <div key={`${group.key}-${log.id}`} className={isSystem ? "timelineEvent systemEvent" : "timelineEvent"}>
+                                  <div className="timelineMarker">{isSystem ? "🛡️" : inbound ? "👤" : "🤖"}</div>
+                                  <div className="timelineContent">
+                                    <div className="timelineTopline">
+                                      <strong>{isSystem ? "Sistema" : inbound ? "Paciente" : "Angel"}</strong>
+                                      <span>{formatDateTimeShort(log.created_at)}</span>
+                                      <Badge active={!log.error_message}>{log.status || "-"}</Badge>
+                                    </div>
+                                    <div className="timelineDetails">
+                                      <span>{displayPhone}</span>
+                                      {log.intent ? <span>Intenção: {log.intent}</span> : null}
+                                      {log.stage ? <span>Etapa: {log.stage}</span> : null}
+                                    </div>
+                                    {inbound ? (
+                                      <div className="chatBubble patientBubble">
+                                        <span>Paciente</span>
+                                        <p>{inbound}</p>
+                                      </div>
+                                    ) : null}
+                                    {outbound ? (
+                                      <div className="chatBubble botBubble">
+                                        <span>Angel</span>
+                                        <p>{outbound}</p>
+                                      </div>
+                                    ) : null}
+                                    {log.error_message ? (
+                                      <div className="chatBubble systemBubble">
+                                        <span>Evento do sistema</span>
+                                        <p>{log.error_message}</p>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="emptyState">{whatsappLogsLoading ? "Carregando logs..." : "Nenhum log encontrado."}</div>
               )}
