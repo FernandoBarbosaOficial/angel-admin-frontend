@@ -1640,6 +1640,20 @@ function App() {
   );
 
   const isGlobalAdmin = authUser?.perfil === "global";
+  const scopedClientes = useMemo(() => {
+    if (isGlobalAdmin) return clientes;
+    const allowed = new Set(authUser?.clienteIds || []);
+    return clientes.filter((cliente) => allowed.has(cliente.id));
+  }, [authUser?.clienteIds, clientes, isGlobalAdmin]);
+
+  const accessScopeLabel = isGlobalAdmin
+    ? "Acesso global a todos os clientes"
+    : `${scopedClientes.length} cliente(s) vinculado(s)`;
+
+  const accessScopeDetail = isGlobalAdmin
+    ? "Pode cadastrar clientes, canais WhatsApp, usuários e operar o dashboard global."
+    : "Acesso limitado aos clientes vinculados ao seu usuário.";
+
 
   useEffect(() => {
     applyDocumentTheme(themeMode);
@@ -3666,6 +3680,10 @@ function App() {
           <h1>AgendAI</h1>
           <p>{authUser.perfil === "global" ? "Admin Global" : "Admin Clínica"}</p>
           <small>{authUser.email}</small>
+          <span className={isGlobalAdmin ? "accessScopePill global" : "accessScopePill scoped"}>
+            {isGlobalAdmin ? "Escopo global" : "Escopo limitado"}
+          </span>
+          <small className="sidebarScopeHint">{accessScopeLabel}</small>
           <button className="sidebarPasswordButton" type="button" onClick={() => setShowChangePassword(true)}>
             Trocar minha senha
           </button>
@@ -3676,7 +3694,7 @@ function App() {
             className={activeTab === "clientes" ? "navActive" : ""}
             onClick={() => setActiveTab("clientes")}
           >
-            Clientes
+            {isGlobalAdmin ? "Clientes" : "Minhas clínicas"}
           </button>
           <button
             className={activeTab === "medicos" ? "navActive" : ""}
@@ -3746,6 +3764,17 @@ function App() {
             <button className="secondary" onClick={logout}>Sair</button>
           </div>
         </header>
+
+        <section className={isGlobalAdmin ? "accessScopeBanner global" : "accessScopeBanner scoped"}>
+          <div>
+            <strong>{isGlobalAdmin ? "Admin Global" : "Acesso por cliente"}</strong>
+            <span>{accessScopeDetail}</span>
+          </div>
+          <div className="accessScopeStats">
+            <span>{isGlobalAdmin ? `${clientes.length} clientes carregados` : `${scopedClientes.length} permitidos`}</span>
+            {!isGlobalAdmin && scopedClientes.length === 0 && <strong className="criticalText">Nenhuma clínica vinculada</strong>}
+          </div>
+        </section>
 
         {toast && <div className="toast">{toast}</div>}
 
