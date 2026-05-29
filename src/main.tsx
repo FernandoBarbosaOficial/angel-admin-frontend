@@ -1459,6 +1459,7 @@ function App() {
   const [clienteConfig, setClienteConfig] = useState<ClienteConfiguracao | null>(null);
   const [clienteCadastro, setClienteCadastro] = useState<ClienteCadastroDraft | null>(null);
   const [whatsappLogs, setWhatsappLogs] = useState<WhatsappMessageLog[]>([]);
+  const [expandedWhatsappLogGroups, setExpandedWhatsappLogGroups] = useState<Record<string, boolean>>({});
   const [whatsappLogFilters, setWhatsappLogFilters] = useState({
     phone: "",
     status: "todos",
@@ -1771,6 +1772,63 @@ function App() {
     const failed = whatsappLogs.filter((log) => log.status === "failed" || log.error_message).length;
     const sent = whatsappLogs.filter((log) => log.status === "sent").length;
     return { total, failed, sent };
+  }, [whatsappLogs]);
+
+  const whatsappLogGroups = useMemo(() => {
+    const groups = new Map<string, {
+      key: string;
+      phone: string;
+      cliente: string;
+      canal: string;
+      latest: WhatsappMessageLog;
+      logs: WhatsappMessageLog[];
+      count: number;
+      errorCount: number;
+      statuses: string[];
+      intents: string[];
+    }>();
+
+    for (const log of whatsappLogs) {
+      const phone = log.from_number || log.from_phone || log.to_phone || "sem-telefone";
+      const canal = log.phone_number_id || "sem-canal";
+      const cliente = String(log.cliente_nome || log.cliente_id || "sem-cliente");
+      const key = `${canal}:${phone}:${cliente}`;
+      const current = groups.get(key);
+
+      if (!current) {
+        groups.set(key, {
+          key,
+          phone,
+          cliente,
+          canal,
+          latest: log,
+          logs: [log],
+          count: 1,
+          errorCount: log.error_message || log.status === "failed" ? 1 : 0,
+          statuses: log.status ? [log.status] : [],
+          intents: log.intent ? [log.intent] : [],
+        });
+        continue;
+      }
+
+      current.logs.push(log);
+      current.count += 1;
+      if (log.error_message || log.status === "failed") current.errorCount += 1;
+      if (log.status && !current.statuses.includes(log.status)) current.statuses.push(log.status);
+      if (log.intent && !current.intents.includes(log.intent)) current.intents.push(log.intent);
+
+      const latestTime = new Date(current.latest.created_at).getTime();
+      const logTime = new Date(log.created_at).getTime();
+      if (!Number.isNaN(logTime) && (Number.isNaN(latestTime) || logTime > latestTime)) {
+        current.latest = log;
+      }
+    }
+
+    return Array.from(groups.values()).sort((a, b) => {
+      const aTime = new Date(a.latest.created_at).getTime();
+      const bTime = new Date(b.latest.created_at).getTime();
+      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+    });
   }, [whatsappLogs]);
 
 
@@ -5597,20 +5655,50 @@ function App() {
               </div>
 
               {whatsappLogs.length ? (
-                <table className="opsTable">
-                  <thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th><th>Status</th><th>Intenção</th><th>Entrada/Saída</th><th>Erro</th></tr></thead>
+                <table className="opsTable groupedLogsTable">
+                  <thead><tr><th>Grupo</th><th>Cliente</th><th>Telefone</th><th>Status</th><th>Intenção</th><th>Última entrada/saída</th><th>Erro</th></tr></thead>
                   <tbody>
-                    {whatsappLogs.map((log) => (
-                      <tr key={log.id} className={log.error_message ? "criticalRow" : ""}>
-                        <td>{formatDateTimeShort(log.created_at)}</td>
-                        <td>{log.cliente_nome || log.cliente_id || "-"}</td>
-                        <td>{log.from_number || log.from_phone || log.phone_number_id || "-"}</td>
-                        <td><Badge active={!log.error_message}>{log.status || "-"}</Badge></td>
-                        <td>{log.intent || "-"}</td>
-                        <td><span className="tableHint">{log.inbound_text || "-"}</span><span className="tableHint">{log.outbound_text || ""}</span></td>
-                        <td>{log.error_message || "-"}</td>
-                      </tr>
-                    ))}
+                    {whatsappLogGroups.map((group) => {
+                      const expanded = Boolean(expandedWhatsappLogGroups[group.key]);
+                      const hasErrors = group.errorCount > 0;
+                      return (
+                        <React.Fragment key={group.key}>
+                          <tr className={hasErrors ? "logGroupRow criticalRow" : "logGroupRow"}>
+                            <td>
+                              <button
+                                type="button"
+                                className="logExpandButton"
+                                onClick={() => setExpandedWhatsappLogGroups((current) => ({ ...current, [group.key]: !current[group.key] }))}
+                                aria-label={expanded ? "Recolher logs" : "Expandir logs"}
+                              >
+                                {expanded ? "▾" : "▸"}
+                              </button>
+                              <span className="logGroupDate">{formatDateTimeShort(group.latest.created_at)}</span>
+                            </td>
+                            <td>{group.cliente}</td>
+                            <td>
+                              <strong>{group.phone}</strong>
+                              <span className="tableHint">{group.count} evento(s) · canal {group.canal}</span>
+                            </td>
+                            <td><Badge active={!hasErrors}>{hasErrors ? `${group.errorCount} alerta(s)` : (group.statuses[0] || "ok")}</Badge></td>
+                            <td>{group.intents.length ? group.intents.slice(0, 3).join(", ") : "-"}</td>
+                            <td><span className="tableHint">{group.latest.inbound_text || "-"}</span><span className="tableHint">{group.latest.outbound_text || ""}</span></td>
+                            <td>{hasErrors ? `${group.errorCount} ocorrência(s)` : "-"}</td>
+                          </tr>
+                          {expanded && group.logs.map((log) => (
+                            <tr key={`${group.key}-${log.id}`} className={log.error_message ? "logChildRow criticalRow" : "logChildRow"}>
+                              <td>{formatDateTimeShort(log.created_at)}</td>
+                              <td>{log.cliente_nome || log.cliente_id || "-"}</td>
+                              <td>{log.from_number || log.from_phone || log.phone_number_id || "-"}</td>
+                              <td><Badge active={!log.error_message}>{log.status || "-"}</Badge></td>
+                              <td>{log.intent || "-"}</td>
+                              <td><span className="tableHint">{log.inbound_text || "-"}</span><span className="tableHint">{log.outbound_text || ""}</span></td>
+                              <td>{log.error_message || "-"}</td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (
