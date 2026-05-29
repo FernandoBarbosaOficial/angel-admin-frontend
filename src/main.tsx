@@ -3404,6 +3404,52 @@ function App() {
 
   const whatsappBlockedNowCount = Math.max(whatsappAntiAbuseStatus?.blockedNow || 0, whatsappActiveBlocks.length);
 
+  const whatsappTestView = useMemo(() => {
+    if (!whatsappTestResult) return null;
+
+    const raw = whatsappTestResult.raw as any;
+    const processed = Array.isArray(raw?.processed) ? raw.processed[0] : raw?.processed;
+    const flow = processed?.flow || raw?.flow || {};
+    const canalContext = (whatsappTestResult.resolved.canalContext as any) || processed?.canalContext || flow?.canalContext || {};
+    const selectedCanal = whatsappCanais.find((canal) => String(canal.id) === String(whatsappTestResult.request.canalId || whatsappTestForm.canalId));
+    const token = whatsappTestResult.resolved.token || {};
+    const sessionId = whatsappTestResult.resolved.sessionId || processed?.sessionId || flow?.session?.sessionId || "-";
+    const assistantText = whatsappTestResult.resolved.assistantText || processed?.assistantText || flow?.assistantMessage || flow?.nextPrompt || "Sem resposta";
+    const stage = flow?.session?.stage || "-";
+    const intent = flow?.parsed?.intencao || "-";
+    const confidence = flow?.parsed?.confidence || "-";
+    const source = flow?.parsed?.source || "-";
+    const missingFields = Array.isArray(flow?.missingFields) ? flow.missingFields : Array.isArray(flow?.parsed?.missingFields) ? flow.parsed.missingFields : [];
+    const clienteNome = flow?.clienteSelecionado?.nomeFantasia || canalContext?.clienteNome || selectedCanal?.cliente_nome || "-";
+    const modo = canalContext?.modoAtendimento || selectedCanal?.modo_atendimento || "-";
+    const tokenLabel = token.token_ref || selectedCanal?.token_ref || "fallback/global";
+    const tokenStatus = token.status || (token.literalFalse ? "false" : token.configured || token.present ? "configurado" : token.token_ref ? "ausente" : "ok");
+    const tokenOk = tokenStatus === "ok" || tokenStatus === "configurado" || token.present || token.configured || (!token.token_ref && !selectedCanal?.token_ref);
+    const antiAbuseBlocked = Boolean((processed?.assistantText || "").toLowerCase().includes("bloque") || (processed?.assistantText || "").toLowerCase().includes("aguarde"));
+
+    return {
+      selectedCanal,
+      canalContext,
+      sessionId,
+      assistantText,
+      stage,
+      intent,
+      confidence,
+      source,
+      missingFields,
+      clienteNome,
+      modo,
+      tokenLabel,
+      tokenStatus,
+      tokenOk,
+      antiAbuseBlocked,
+      phoneNumberId: whatsappTestResult.request.phoneNumberId,
+      from: whatsappTestResult.request.from,
+      text: whatsappTestResult.request.text,
+      ok: whatsappTestResult.ok,
+    };
+  }, [whatsappTestResult, whatsappCanais, whatsappTestForm.canalId]);
+
   if (authLoading) {
     return <div className="app"><main className="content"><p>Carregando sessão...</p></main></div>;
   }
@@ -5743,15 +5789,67 @@ function App() {
                 <button type="submit" disabled={whatsappTestLoading}>{whatsappTestLoading ? "Testando..." : "Testar canal"}</button>
               </form>
 
-              {whatsappTestResult && (
-                <div className="resultPanel">
-                  <h4>Resultado do teste</h4>
-                  <div className="summaryGrid">
-                    <span><strong>SessionId:</strong> {whatsappTestResult.resolved.sessionId || "-"}</span>
-                    <span><strong>phoneNumberId:</strong> {whatsappTestResult.request.phoneNumberId}</span>
-                    <span><strong>Token:</strong> {whatsappTestResult.resolved.token?.token_ref || "fallback/global"} ({whatsappTestResult.resolved.token?.status || "ok"})</span>
+              {whatsappTestView && (
+                <div className="channelTestDashboard">
+                  <div className="channelTestHeader">
+                    <div>
+                      <span className={whatsappTestView.antiAbuseBlocked ? "severityBadge critical pulse" : "severityBadge success"}>
+                        {whatsappTestView.antiAbuseBlocked ? "BLOQUEADO" : "ROTEAMENTO OK"}
+                      </span>
+                      <h4>Resultado do teste do canal</h4>
+                      <p>Simulação executada sem usar a Meta. Use este painel para validar roteamento, sessão, token e resposta do Angel.</p>
+                    </div>
+                    <div className="channelTestScore">
+                      <strong>{whatsappTestView.ok ? "OK" : "ERRO"}</strong>
+                      <span>Status do teste</span>
+                    </div>
                   </div>
-                  <pre>{whatsappTestResult.resolved.assistantText || "Sem resposta"}</pre>
+
+                  <div className="channelTestGrid">
+                    <div className="channelTestCard">
+                      <span className="channelTestIcon">📡</span>
+                      <small>Canal</small>
+                      <strong>{whatsappTestView.selectedCanal?.nome || "Canal resolvido"}</strong>
+                      <span>{whatsappTestView.phoneNumberId}</span>
+                    </div>
+                    <div className="channelTestCard">
+                      <span className="channelTestIcon">🏢</span>
+                      <small>Cliente</small>
+                      <strong>{whatsappTestView.clienteNome}</strong>
+                      <span>{whatsappTestView.modo}</span>
+                    </div>
+                    <div className="channelTestCard">
+                      <span className="channelTestIcon">🔐</span>
+                      <small>Token</small>
+                      <strong className={whatsappTestView.tokenOk ? "okText" : "dangerText"}>{whatsappTestView.tokenLabel}</strong>
+                      <span>{whatsappTestView.tokenStatus}</span>
+                    </div>
+                    <div className="channelTestCard">
+                      <span className="channelTestIcon">🧠</span>
+                      <small>Fluxo</small>
+                      <strong>{whatsappTestView.stage}</strong>
+                      <span>{whatsappTestView.intent}</span>
+                    </div>
+                  </div>
+
+                  <div className="channelTestDetails">
+                    <div className="channelTestPanel">
+                      <h5>Roteamento e sessão</h5>
+                      <dl>
+                        <div><dt>SessionId</dt><dd>{whatsappTestView.sessionId}</dd></div>
+                        <div><dt>Telefone simulado</dt><dd>{whatsappTestView.from}</dd></div>
+                        <div><dt>Mensagem enviada</dt><dd>{whatsappTestView.text}</dd></div>
+                        <div><dt>Origem da intenção</dt><dd>{whatsappTestView.source}</dd></div>
+                        <div><dt>Confiança</dt><dd>{whatsappTestView.confidence}</dd></div>
+                        <div><dt>Campos faltantes</dt><dd>{whatsappTestView.missingFields.length ? whatsappTestView.missingFields.join(", ") : "Nenhum"}</dd></div>
+                      </dl>
+                    </div>
+
+                    <div className="channelTestPanel answer">
+                      <h5>Resposta que o Angel enviaria</h5>
+                      <pre>{whatsappTestView.assistantText}</pre>
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
