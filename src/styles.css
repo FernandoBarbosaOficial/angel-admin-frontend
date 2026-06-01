@@ -4685,3 +4685,141 @@ html[data-theme="light"] .reportBuilderBox {
   .managementKpiGrid,
   .dashboardSplitGrid { grid-template-columns: 1fr; }
 }
+
+/* Fase 7.1.3 - dashboard gerencial: escopo, contraste e overflow */
+.managementDashboardCard,
+.managementDashboardCard * {
+  min-width: 0;
+}
+
+.managementDashboardCard {
+  overflow-x: hidden;
+}
+
+.dashboardHeaderRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboardFiltersGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  align-items: end;
+  margin: 18px 0;
+}
+
+.dashboardFiltersGrid label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+}
+
+.dashboardFiltersGrid select,
+.dashboardFiltersGrid input {
+  width: 100%;
+  max-width: 100%;
+}
+
+.dashboardScopeNotice {
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-radius: 14px;
+  padding: 10px 12px;
+  margin: -4px 0 16px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1e3a8a;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.reportBuilderBox,
+.managementKpi,
+.dashboardPanel,
+.dayTrendItem,
+.emptyStateBox {
+  color: inherit;
+}
+
+.reportBuilderBox,
+.dashboardPanel,
+.dayTrendItem {
+  overflow: hidden;
+}
+
+.topListRow > i {
+  max-width: 100%;
+}
+
+.dashboardTableWrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.dashboardTableWrap table {
+  min-width: 900px;
+}
+
+html[data-theme="dark"] .managementDashboardCard,
+html[data-theme="dark"] .reportBuilderBox,
+html[data-theme="dark"] .managementKpi,
+html[data-theme="dark"] .dashboardPanel,
+html[data-theme="dark"] .dayTrendItem,
+html[data-theme="dark"] .emptyStateBox {
+  background: #0f172a;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .reportBuilderBox,
+html[data-theme="dark"] .dayTrendItem {
+  background: #111827;
+}
+
+html[data-theme="dark"] .dashboardScopeNotice {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(147, 197, 253, 0.28);
+  color: #bfdbfe;
+}
+
+html[data-theme="dark"] .managementKpi small,
+html[data-theme="dark"] .dayTrendItem small,
+html[data-theme="dark"] .mutedText {
+  color: #cbd5e1;
+}
+
+html[data-theme="light"] .managementDashboardCard,
+html[data-theme="light"] .dashboardPanel,
+html[data-theme="light"] .managementKpi,
+html[data-theme="light"] .dayTrendItem,
+html[data-theme="light"] .emptyStateBox {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #dbe3ef;
+}
+
+html[data-theme="light"] .reportBuilderBox {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+@media (max-width: 980px) {
+  .dashboardHeaderRow {
+    grid-template-columns: 1fr;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboardFiltersGrid,
+  .managementKpiGrid,
+  .dashboardSplitGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
