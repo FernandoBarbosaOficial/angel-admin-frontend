@@ -2117,7 +2117,7 @@ function App() {
     setClienteCadastro(toCadastroDraft(cliente));
     setClienteConfig(
       config || {
-        cliente_id: clienteId,
+        cliente_id: Number(clienteId),
         usa_convenio: Boolean(cliente.usa_convenio),
         usa_particular: Boolean(cliente.usa_particular),
         usa_cartao: Boolean(cliente.usa_cartao),
@@ -2566,7 +2566,9 @@ function App() {
       provider: canal.provider || "meta",
       token_ref: canal.token_ref || "",
       modo_atendimento: canal.modo_atendimento || "cliente_direto",
-      cliente_ids: canal.cliente_ids || [],
+      cliente_ids: (canal.cliente_ids || [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id)),
       whatsapp_numero: canal.whatsapp_numero || "",
       nome_exibicao: canal.nome_exibicao || canal.nome || "",
       ativo: canal.ativo,
@@ -2603,7 +2605,15 @@ function App() {
       return;
     }
 
-    if (whatsappCanalForm.modo_atendimento === "grupo_unidades" && whatsappCanalForm.cliente_ids.length === 0) {
+    const normalizedClienteIds = Array.from(
+      new Set(
+        whatsappCanalForm.cliente_ids
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      )
+    );
+
+    if (whatsappCanalForm.modo_atendimento === "grupo_unidades" && normalizedClienteIds.length === 0) {
       showToast("❌ Para grupo de unidades, selecione os clientes/unidades exibidos no menu", true);
       return;
     }
@@ -2616,7 +2626,7 @@ function App() {
       provider: whatsappCanalForm.provider.trim() || "meta",
       token_ref: whatsappCanalForm.token_ref.trim() || null,
       modo_atendimento: whatsappCanalForm.modo_atendimento,
-      cliente_ids: whatsappCanalForm.modo_atendimento === "grupo_unidades" ? whatsappCanalForm.cliente_ids : [],
+      cliente_ids: whatsappCanalForm.modo_atendimento === "grupo_unidades" ? normalizedClienteIds : [],
       whatsapp_numero: whatsappCanalForm.whatsapp_numero.trim() || null,
       nome_exibicao: whatsappCanalForm.nome_exibicao.trim() || nome,
       ativo: whatsappCanalForm.ativo,
@@ -2662,7 +2672,10 @@ function App() {
     }
 
     const nomes = (canal.cliente_ids || [])
-      .map((id) => clientes.find((cliente) => cliente.id === id)?.nome_fantasia || `#${id}`)
+      .map((rawId) => {
+        const id = Number(rawId);
+        return clientes.find((cliente) => cliente.id === id)?.nome_fantasia || `#${rawId}`;
+      })
       .filter(Boolean);
 
     return nomes.join(", ") || "Grupo sem unidades configuradas";
@@ -5823,10 +5836,10 @@ function App() {
                 </div>
 
                 {whatsappCanalForm.modo_atendimento === "grupo_unidades" && (
-                  <div className="checkboxPanel">
+                  <div className="checkboxPanel whatsappUnitsSelector">
                     <strong>Clientes/unidades que aparecem neste telefone</strong>
                     <p>Use este campo para o cenário Amor e Saúde com várias unidades no mesmo WhatsApp.</p>
-                    <div className="checkboxGrid">
+                    <div className="checkboxGrid whatsappUnitsGrid">
                       {clientes.map((cliente) => (
                         <label key={cliente.id} className="inlineCheck">
                           <input
@@ -5868,7 +5881,8 @@ function App() {
               </form>
 
               {whatsappCanais.length > 0 ? (
-                <table>
+                <div className="tableWrap whatsappCanaisTableWrap">
+                <table className="whatsappCanaisTable">
                   <thead>
                     <tr>
                       <th>Canal</th>
@@ -5909,6 +5923,7 @@ function App() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               ) : (
                 <div className="emptyState">
                   {whatsappCanaisLoading ? "Carregando canais..." : "Nenhum canal WhatsApp configurado ainda."}
