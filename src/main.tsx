@@ -398,6 +398,44 @@ type WhatsappGruposUnidadesOverview = {
   items: WhatsappGrupoUnidadeItem[];
 };
 
+type DashboardTopItem = { label: string; total: number };
+type DashboardDayItem = {
+  date: string;
+  label: string;
+  mensagens: number;
+  pacientes: number;
+  agendamentosIniciados: number;
+  agendamentosConcluidos: number;
+};
+type DashboardGerencial = {
+  generatedAt: string;
+  filters: { days: number; clienteId?: number | null; canalId?: number | null; groupId?: number | null };
+  summary: {
+    totalMensagens: number;
+    pacientesUnicos: number;
+    conversas: number;
+    agendamentosIniciados: number;
+    agendamentosConcluidos: number;
+    conversasAbandonadas: number;
+    bloqueiosAntiAbuso: number;
+    erros: number;
+    taxaConversao: number;
+  };
+  groups: Array<{ id: number; nome: string; canalNome?: string; phoneNumberId?: string; totalUnidades: number; unidadesOperacionais: number; status: string }>;
+  breakdowns: {
+    byCliente: DashboardTopItem[];
+    byCanal: DashboardTopItem[];
+    byIntent: DashboardTopItem[];
+    byStage: DashboardTopItem[];
+    byEspecialidade: DashboardTopItem[];
+    byConvenioPlano: DashboardTopItem[];
+    byDay: DashboardDayItem[];
+  };
+  reportRows: Array<Record<string, string>>;
+};
+
+type DashboardSectionKey = "resumo" | "evolucao" | "unidades" | "especialidades" | "convenios" | "etapas" | "logs";
+
 type WhatsappGoLiveCheck = {
   key: string;
   ok: boolean;
@@ -924,6 +962,30 @@ function EmailTokenPasswordScreen({ kind }: EmailTokenPasswordScreenProps) {
           Ir para login
         </button>
       </main>
+    </div>
+  );
+}
+
+function TopListPanel({ title, rows }: { title: string; rows: DashboardTopItem[] }) {
+  const max = Math.max(...rows.map((row) => row.total), 1);
+  return (
+    <div className="dashboardPanel topListPanel">
+      <h4>{title}</h4>
+      {rows.length === 0 ? (
+        <p className="mutedText">Sem dados no período.</p>
+      ) : (
+        <div className="topListRows">
+          {rows.map((row) => (
+            <div className="topListRow" key={row.label}>
+              <div>
+                <strong>{row.label}</strong>
+                <span>{row.total}</span>
+              </div>
+              <i style={{ width: `${Math.max(6, (row.total / max) * 100)}%` }} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1545,7 +1607,7 @@ function App() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [importacaoMedicosStatus, setImportacaoMedicosStatus] = useState("");
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "usuarios" | "auditoria">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "dashboard_gerencial" | "usuarios" | "auditoria">("clientes");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
   const [accessScope, setAccessScope] = useState<AdminAccessScope | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
@@ -1594,6 +1656,23 @@ function App() {
   const [whatsappGruposUnidades, setWhatsappGruposUnidades] = useState<WhatsappGruposUnidadesOverview | null>(null);
   const [whatsappGruposLoading, setWhatsappGruposLoading] = useState(false);
   const [whatsappGrupoExpanded, setWhatsappGrupoExpanded] = useState<Record<number, boolean>>({});
+  const [dashboardGerencial, setDashboardGerencial] = useState<DashboardGerencial | null>(null);
+  const [dashboardGerencialLoading, setDashboardGerencialLoading] = useState(false);
+  const [dashboardGerencialFilters, setDashboardGerencialFilters] = useState({
+    days: "7",
+    clienteId: "todos",
+    canalId: "todos",
+    groupId: "todos",
+  });
+  const [dashboardReportSections, setDashboardReportSections] = useState<Record<DashboardSectionKey, boolean>>({
+    resumo: true,
+    evolucao: true,
+    unidades: true,
+    especialidades: true,
+    convenios: true,
+    etapas: true,
+    logs: false,
+  });
   const [goLiveFilters, setGoLiveFilters] = useState({
     search: "",
     status: "todos",
@@ -2519,6 +2598,110 @@ function App() {
     ]);
   }
 
+
+  async function loadDashboardGerencial() {
+    if (!isGlobalAdmin) return;
+    setDashboardGerencialLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("days", dashboardGerencialFilters.days);
+      if (dashboardGerencialFilters.clienteId !== "todos") params.set("clienteId", dashboardGerencialFilters.clienteId);
+      if (dashboardGerencialFilters.canalId !== "todos") params.set("canalId", dashboardGerencialFilters.canalId);
+      if (dashboardGerencialFilters.groupId !== "todos") params.set("groupId", dashboardGerencialFilters.groupId);
+      const data = await api<DashboardGerencial>(`/api/admin/dashboard/gerencial?${params.toString()}`);
+      setDashboardGerencial(data);
+    } finally {
+      setDashboardGerencialLoading(false);
+    }
+  }
+
+  function toggleDashboardReportSection(section: DashboardSectionKey) {
+    setDashboardReportSections((current) => ({ ...current, [section]: !current[section] }));
+  }
+
+  function dashboardFilterLabel() {
+    const days = dashboardGerencial?.filters.days || Number(dashboardGerencialFilters.days || 7);
+    const cliente = dashboardGerencialFilters.clienteId === "todos"
+      ? "Todos os clientes"
+      : clientes.find((item) => String(item.id) === dashboardGerencialFilters.clienteId)?.nome_fantasia || `Cliente #${dashboardGerencialFilters.clienteId}`;
+    const grupo = dashboardGerencialFilters.groupId === "todos"
+      ? "Todos os grupos"
+      : dashboardGerencial?.groups.find((item) => String(item.id) === dashboardGerencialFilters.groupId)?.nome || `Grupo #${dashboardGerencialFilters.groupId}`;
+    return `${days} dia(s) · ${cliente} · ${grupo}`;
+  }
+
+  function makeDashboardWorkbook() {
+    if (!dashboardGerencial) throw new Error("Carregue o dashboard antes de exportar.");
+    const wb = XLSX.utils.book_new();
+    if (dashboardReportSections.resumo) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+        { Indicador: "Mensagens", Valor: dashboardGerencial.summary.totalMensagens },
+        { Indicador: "Pacientes únicos", Valor: dashboardGerencial.summary.pacientesUnicos },
+        { Indicador: "Conversas", Valor: dashboardGerencial.summary.conversas },
+        { Indicador: "Agendamentos iniciados", Valor: dashboardGerencial.summary.agendamentosIniciados },
+        { Indicador: "Agendamentos concluídos", Valor: dashboardGerencial.summary.agendamentosConcluidos },
+        { Indicador: "Abandonadas", Valor: dashboardGerencial.summary.conversasAbandonadas },
+        { Indicador: "Taxa de conversão", Valor: `${dashboardGerencial.summary.taxaConversao}%` },
+        { Indicador: "Bloqueios anti-abuso", Valor: dashboardGerencial.summary.bloqueiosAntiAbuso },
+      ]), "Resumo");
+    }
+    if (dashboardReportSections.evolucao) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashboardGerencial.breakdowns.byDay), "Evolucao");
+    if (dashboardReportSections.unidades) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashboardGerencial.breakdowns.byCliente), "Unidades");
+    if (dashboardReportSections.especialidades) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashboardGerencial.breakdowns.byEspecialidade), "Especialidades");
+    if (dashboardReportSections.convenios) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashboardGerencial.breakdowns.byConvenioPlano), "Convenios");
+    if (dashboardReportSections.etapas) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashboardGerencial.breakdowns.byStage), "Etapas");
+    if (dashboardReportSections.logs) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashboardGerencial.reportRows), "Logs");
+    return wb;
+  }
+
+  function exportDashboardExcel() {
+    try {
+      const wb = makeDashboardWorkbook();
+      XLSX.writeFile(wb, `angel-dashboard-gerencial-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (error) {
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao gerar Excel", true);
+    }
+  }
+
+  function topListHtml(title: string, rows: DashboardTopItem[]) {
+    if (!rows.length) return `<h3>${title}</h3><p>Sem dados no período.</p>`;
+    return `<h3>${title}</h3><table><thead><tr><th>Item</th><th>Total</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${row.label}</td><td>${row.total}</td></tr>`).join("")}</tbody></table>`;
+  }
+
+  function printDashboardPdf() {
+    if (!dashboardGerencial) {
+      showToast("❌ Carregue o dashboard antes de gerar PDF", true);
+      return;
+    }
+    const sections: string[] = [];
+    if (dashboardReportSections.resumo) sections.push(`
+      <h2>Resumo executivo</h2>
+      <div class="kpis">
+        <div><strong>${dashboardGerencial.summary.totalMensagens}</strong><span>Mensagens</span></div>
+        <div><strong>${dashboardGerencial.summary.pacientesUnicos}</strong><span>Pacientes únicos</span></div>
+        <div><strong>${dashboardGerencial.summary.agendamentosIniciados}</strong><span>Agendamentos iniciados</span></div>
+        <div><strong>${dashboardGerencial.summary.agendamentosConcluidos}</strong><span>Agendamentos concluídos</span></div>
+        <div><strong>${dashboardGerencial.summary.taxaConversao}%</strong><span>Conversão estimada</span></div>
+      </div>`);
+    if (dashboardReportSections.evolucao) sections.push(topListHtml("Evolução por dia", dashboardGerencial.breakdowns.byDay.map((row) => ({ label: row.label, total: row.mensagens }))));
+    if (dashboardReportSections.unidades) sections.push(topListHtml("Unidades / clientes", dashboardGerencial.breakdowns.byCliente));
+    if (dashboardReportSections.especialidades) sections.push(topListHtml("Especialidades", dashboardGerencial.breakdowns.byEspecialidade));
+    if (dashboardReportSections.convenios) sections.push(topListHtml("Convênios / planos", dashboardGerencial.breakdowns.byConvenioPlano));
+    if (dashboardReportSections.etapas) sections.push(topListHtml("Etapas do fluxo", dashboardGerencial.breakdowns.byStage));
+    if (dashboardReportSections.logs) sections.push(`<h3>Logs recentes</h3><table><thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th><th>Status</th><th>Etapa</th><th>Intenção</th></tr></thead><tbody>${dashboardGerencial.reportRows.slice(0, 80).map((row) => `<tr><td>${formatDateTimeShort(row.data)}</td><td>${row.cliente}</td><td>${row.telefone}</td><td>${row.status}</td><td>${row.etapa}</td><td>${row.intencao}</td></tr>`).join("")}</tbody></table>`);
+
+    const win = window.open("", "_blank", "width=1100,height=800");
+    if (!win) {
+      showToast("❌ Pop-up bloqueado. Libere pop-ups para gerar PDF.", true);
+      return;
+    }
+    win.document.write(`<!doctype html><html><head><title>Relatório gerencial Angel</title><style>
+      body{font-family:Arial,sans-serif;color:#0f172a;margin:32px} h1{margin-bottom:4px} .meta{color:#64748b;margin-bottom:24px}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:16px 0}.kpis div{border:1px solid #cbd5e1;border-radius:12px;padding:14px}.kpis strong{font-size:28px;display:block}table{border-collapse:collapse;width:100%;margin:12px 0 24px}th,td{border-bottom:1px solid #e2e8f0;text-align:left;padding:8px;font-size:12px}th{background:#f8fafc} @media print{button{display:none}}
+    </style></head><body><button onclick="window.print()">Salvar/imprimir PDF</button><h1>Relatório gerencial Angel</h1><div class="meta">${dashboardFilterLabel()} · Gerado em ${formatDateTimeShort(dashboardGerencial.generatedAt)}</div>${sections.join("")}</body></html>`);
+    win.document.close();
+    win.focus();
+  }
+
   async function loadWhatsappDiagnostics() {
     if (!isGlobalAdmin) return;
     setWhatsappDiagnosticsLoading(true);
@@ -2838,6 +3021,14 @@ function App() {
   useEffect(() => {
     if (activeTab === "auditoria" && isGlobalAdmin) {
       loadAdminAuditLogs().catch((error) => showToast(error.message, true));
+    }
+  }, [activeTab, isGlobalAdmin]);
+
+  useEffect(() => {
+    if (activeTab === "dashboard_gerencial" && isGlobalAdmin) {
+      Promise.all([loadDashboardGerencial(), loadWhatsappCanais(), loadWhatsappGruposUnidades()]).catch((error) =>
+        showToast(error.message, true),
+      );
     }
   }, [activeTab, isGlobalAdmin]);
 
@@ -3879,6 +4070,12 @@ function App() {
                 onClick={() => setActiveTab("whatsapp_operacao")}
               >
                 Operação WhatsApp
+              </button>
+              <button
+                className={activeTab === "dashboard_gerencial" ? "navActive" : ""}
+                onClick={() => setActiveTab("dashboard_gerencial")}
+              >
+                Dashboard gerencial
               </button>
             </>
           )}
@@ -5946,6 +6143,137 @@ function App() {
             </section>
 
 
+          </>
+        )}
+
+        {activeTab === "dashboard_gerencial" && isGlobalAdmin && (
+          <>
+            <section className="card managementDashboardCard">
+              <div className="sectionHeader dashboardHeaderRow">
+                <div>
+                  <h3>Dashboard gerencial</h3>
+                  <p>Visão comercial por grupo, unidade, especialidade e canal. Use os filtros para montar o dashboard e exportar o mesmo recorte em Excel ou PDF.</p>
+                </div>
+                <div className="headerActions">
+                  <button type="button" onClick={() => loadDashboardGerencial()} disabled={dashboardGerencialLoading}>
+                    {dashboardGerencialLoading ? "Atualizando..." : "Atualizar dashboard"}
+                  </button>
+                  <button type="button" className="secondaryButton" onClick={exportDashboardExcel} disabled={!dashboardGerencial}>Excel</button>
+                  <button type="button" className="secondaryButton" onClick={printDashboardPdf} disabled={!dashboardGerencial}>PDF</button>
+                </div>
+              </div>
+
+              <div className="dashboardFiltersGrid">
+                <label>
+                  Período
+                  <select value={dashboardGerencialFilters.days} onChange={(event) => setDashboardGerencialFilters((current) => ({ ...current, days: event.target.value }))}>
+                    <option value="1">Hoje</option>
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="30">Últimos 30 dias</option>
+                    <option value="90">Últimos 90 dias</option>
+                  </select>
+                </label>
+                <label>
+                  Cliente/unidade
+                  <select value={dashboardGerencialFilters.clienteId} onChange={(event) => setDashboardGerencialFilters((current) => ({ ...current, clienteId: event.target.value }))}>
+                    <option value="todos">Todos</option>
+                    {clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Grupo
+                  <select value={dashboardGerencialFilters.groupId} onChange={(event) => setDashboardGerencialFilters((current) => ({ ...current, groupId: event.target.value }))}>
+                    <option value="todos">Todos</option>
+                    {(whatsappGruposUnidades?.items || []).map((grupo) => <option key={grupo.canalId} value={grupo.canalId}>{grupo.nomeGrupo}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Canal
+                  <select value={dashboardGerencialFilters.canalId} onChange={(event) => setDashboardGerencialFilters((current) => ({ ...current, canalId: event.target.value }))}>
+                    <option value="todos">Todos</option>
+                    {whatsappCanais.map((canal) => <option key={canal.id} value={canal.id}>{canal.nome} · {canal.identificador}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <div className="reportBuilderBox">
+                <strong>Montar relatório</strong>
+                <span>Marque o que deve aparecer no Excel/PDF.</span>
+                <div className="reportSectionToggles">
+                  {([
+                    ["resumo", "Resumo"],
+                    ["evolucao", "Evolução"],
+                    ["unidades", "Unidades"],
+                    ["especialidades", "Especialidades"],
+                    ["convenios", "Convênios"],
+                    ["etapas", "Etapas"],
+                    ["logs", "Logs"],
+                  ] as Array<[DashboardSectionKey, string]>).map(([key, label]) => (
+                    <label key={key} className="inlineCheckbox">
+                      <input type="checkbox" checked={dashboardReportSections[key]} onChange={() => toggleDashboardReportSection(key)} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {!dashboardGerencial && (
+                <div className="emptyStateBox">Clique em Atualizar dashboard para carregar os indicadores gerenciais.</div>
+              )}
+
+              {dashboardGerencial && (
+                <>
+                  <div className="managementKpiGrid">
+                    <div className="managementKpi"><span>💬</span><strong>{dashboardGerencial.summary.totalMensagens}</strong><small>Mensagens</small></div>
+                    <div className="managementKpi"><span>👤</span><strong>{dashboardGerencial.summary.pacientesUnicos}</strong><small>Pacientes únicos</small></div>
+                    <div className="managementKpi"><span>📌</span><strong>{dashboardGerencial.summary.agendamentosIniciados}</strong><small>Agendamentos iniciados</small></div>
+                    <div className="managementKpi success"><span>✅</span><strong>{dashboardGerencial.summary.agendamentosConcluidos}</strong><small>Agendamentos concluídos</small></div>
+                    <div className="managementKpi warning"><span>↩️</span><strong>{dashboardGerencial.summary.conversasAbandonadas}</strong><small>Abandonadas</small></div>
+                    <div className="managementKpi"><span>📈</span><strong>{dashboardGerencial.summary.taxaConversao}%</strong><small>Conversão estimada</small></div>
+                  </div>
+
+                  {dashboardReportSections.evolucao && (
+                    <div className="dashboardPanel">
+                      <h4>Evolução no período</h4>
+                      <div className="dayTrendGrid">
+                        {dashboardGerencial.breakdowns.byDay.length ? dashboardGerencial.breakdowns.byDay.map((day) => {
+                          const max = Math.max(...dashboardGerencial.breakdowns.byDay.map((item) => item.mensagens), 1);
+                          return (
+                            <div className="dayTrendItem" key={day.date}>
+                              <span>{day.label}</span>
+                              <div className="miniBar"><i style={{ width: `${Math.max(4, (day.mensagens / max) * 100)}%` }} /></div>
+                              <strong>{day.mensagens}</strong>
+                              <small>{day.agendamentosConcluidos} concluído(s)</small>
+                            </div>
+                          );
+                        }) : <p>Sem dados no período.</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="dashboardSplitGrid">
+                    {dashboardReportSections.unidades && <TopListPanel title="Unidades / clientes" rows={dashboardGerencial.breakdowns.byCliente} />}
+                    {dashboardReportSections.especialidades && <TopListPanel title="Especialidades buscadas" rows={dashboardGerencial.breakdowns.byEspecialidade} />}
+                    {dashboardReportSections.convenios && <TopListPanel title="Convênios / planos citados" rows={dashboardGerencial.breakdowns.byConvenioPlano} />}
+                    {dashboardReportSections.etapas && <TopListPanel title="Etapas do fluxo" rows={dashboardGerencial.breakdowns.byStage} />}
+                  </div>
+
+                  {dashboardReportSections.logs && (
+                    <div className="dashboardPanel dashboardTableWrap">
+                      <h4>Logs recentes no relatório</h4>
+                      <table>
+                        <thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th><th>Status</th><th>Etapa</th><th>Intenção</th></tr></thead>
+                        <tbody>
+                          {dashboardGerencial.reportRows.slice(0, 80).map((row, index) => (
+                            <tr key={`${row.data}-${index}`}><td>{formatDateTimeShort(row.data)}</td><td>{row.cliente}</td><td>{row.telefone}</td><td>{row.status}</td><td>{row.etapa}</td><td>{row.intencao}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
           </>
         )}
 
