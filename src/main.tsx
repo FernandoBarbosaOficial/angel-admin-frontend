@@ -2510,6 +2510,15 @@ function App() {
     }
   }
 
+  async function refreshWhatsappCanaisArea() {
+    if (!isGlobalAdmin) return;
+    await Promise.all([
+      loadWhatsappCanais(),
+      loadWhatsappGruposUnidades(),
+      loadWhatsappGoLiveChecklist(),
+    ]);
+  }
+
   async function loadWhatsappDiagnostics() {
     if (!isGlobalAdmin) return;
     setWhatsappDiagnosticsLoading(true);
@@ -2641,7 +2650,7 @@ function App() {
       });
       showToast(editingWhatsappCanalId ? "✅ Canal WhatsApp atualizado" : "✅ Canal WhatsApp criado");
       resetWhatsappCanalForm();
-      await loadWhatsappCanais();
+      await refreshWhatsappCanaisArea();
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao salvar canal WhatsApp", true);
     } finally {
@@ -2658,7 +2667,7 @@ function App() {
         body: JSON.stringify({ ativo: nextAtivo }),
       });
       showToast(nextAtivo ? "✅ Canal ativado" : "✅ Canal inativado");
-      await loadWhatsappCanais();
+      await refreshWhatsappCanaisArea();
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao alterar canal WhatsApp", true);
     } finally {
@@ -5650,8 +5659,8 @@ function App() {
                     Configure vários telefones Meta Cloud API na mesma Railway. O backend resolve o cliente ou grupo pelo phone_number_id recebido no webhook.
                   </p>
                 </div>
-                <button onClick={() => loadWhatsappCanais()} disabled={whatsappCanaisLoading}>
-                  {whatsappCanaisLoading ? "Atualizando..." : "Atualizar canais"}
+                <button onClick={() => refreshWhatsappCanaisArea()} disabled={whatsappCanaisLoading || whatsappGruposLoading || whatsappGoLiveLoading}>
+                  {whatsappCanaisLoading || whatsappGruposLoading || whatsappGoLiveLoading ? "Atualizando..." : "Atualizar canais"}
                 </button>
               </div>
 
