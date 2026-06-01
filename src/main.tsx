@@ -2586,13 +2586,18 @@ function App() {
   }
 
   function toggleWhatsappCanalClienteId(clienteId: number) {
+    const numericClienteId = Number(clienteId);
+    if (!Number.isFinite(numericClienteId)) return;
+
     setWhatsappCanalForm((current) => {
-      const exists = current.cliente_ids.includes(clienteId);
+      const normalizedIds = current.cliente_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+      const exists = normalizedIds.includes(numericClienteId);
+
       return {
         ...current,
         cliente_ids: exists
-          ? current.cliente_ids.filter((id) => id !== clienteId)
-          : [...current.cliente_ids, clienteId],
+          ? normalizedIds.filter((id) => id !== numericClienteId)
+          : [...normalizedIds, numericClienteId],
       };
     });
   }
@@ -5853,7 +5858,7 @@ function App() {
                         <label key={cliente.id} className="inlineCheck">
                           <input
                             type="checkbox"
-                            checked={whatsappCanalForm.cliente_ids.includes(cliente.id)}
+                            checked={whatsappCanalForm.cliente_ids.map((id) => Number(id)).includes(Number(cliente.id))}
                             onChange={() => toggleWhatsappCanalClienteId(cliente.id)}
                           />
                           {cliente.nome_fantasia}
