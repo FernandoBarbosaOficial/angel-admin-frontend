@@ -4589,3 +4589,99 @@ html[data-theme="light"] .reportBuilderBox {
   .dashboardFiltersGrid, .managementKpiGrid, .dashboardSplitGrid { grid-template-columns: 1fr; }
   .headerActions { justify-content: flex-start; }
 }
+
+
+/* Fase 7.1.2 - Dashboard gerencial para operador e correções de overflow */
+.content,
+.card,
+.managementDashboardCard {
+  min-width: 0;
+  max-width: 100%;
+}
+.managementDashboardCard { overflow-x: hidden; }
+.dashboardHeaderRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+.dashboardHeaderRow > div:first-child { min-width: 0; }
+.headerActions { max-width: 100%; }
+.dashboardFiltersGrid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: end;
+}
+.dashboardFiltersGrid label,
+.dashboardFiltersGrid select,
+.dashboardFiltersGrid input {
+  min-width: 0;
+  max-width: 100%;
+}
+.managementKpiGrid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.reportBuilderBox,
+.reportSectionToggles {
+  min-width: 0;
+  max-width: 100%;
+}
+.tableWrapper,
+.tableWrap,
+.dashboardTableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+@media (max-width: 980px) {
+  .dashboardHeaderRow { grid-template-columns: 1fr; }
+  .headerActions { justify-content: flex-start; }
+}
+@media (max-width: 720px) {
+  .dashboardFiltersGrid,
+  .managementKpiGrid,
+  .dashboardSplitGrid { grid-template-columns: 1fr; }
+}
+
+
+/* Fase 7.1.2 - Dashboard gerencial para operador e correções de overflow */
+.content,
+.card,
+.managementDashboardCard {
+  min-width: 0;
+  max-width: 100%;
+}
+.managementDashboardCard { overflow-x: hidden; }
+.dashboardHeaderRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+.dashboardHeaderRow > div:first-child { min-width: 0; }
+.headerActions { max-width: 100%; }
+.dashboardFiltersGrid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: end;
+}
+.dashboardFiltersGrid label,
+.dashboardFiltersGrid select,
+.dashboardFiltersGrid input {
+  min-width: 0;
+  max-width: 100%;
+}
+.managementKpiGrid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.reportBuilderBox,
+.reportSectionToggles {
+  min-width: 0;
+  max-width: 100%;
+}
+.tableWrapper,
+.tableWrap,
+.dashboardTableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+@media (max-width: 980px) {
+  .dashboardHeaderRow { grid-template-columns: 1fr; }
+  .headerActions { justify-content: flex-start; }
+}
+@media (max-width: 720px) {
+  .dashboardFiltersGrid,
+  .managementKpiGrid,
+  .dashboardSplitGrid { grid-template-columns: 1fr; }
+}
