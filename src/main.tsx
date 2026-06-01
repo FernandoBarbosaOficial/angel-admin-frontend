@@ -353,6 +353,51 @@ type WhatsappDiagnostics = {
 };
 
 
+
+
+type WhatsappGrupoUnidadeItem = {
+  grupoId: number;
+  canalId: number;
+  nomeGrupo: string;
+  canalNome: string;
+  clienteBaseId?: number | null;
+  clienteBaseNome?: string | null;
+  phoneNumberId?: string | null;
+  whatsappNumero?: string | null;
+  tokenRef?: string | null;
+  ativo: boolean;
+  principal: boolean;
+  totalUnidades: number;
+  unidadesOperacionais: number;
+  criticalCount: number;
+  warningCount: number;
+  status: "pronto" | "atencao" | "critico";
+  unidades: Array<{
+    id: number;
+    nomeFantasia: string;
+    ativo: boolean;
+    status?: string | null;
+    operacional: boolean;
+    tipoCliente?: string | null;
+    papel?: string;
+    duplicadoEmOutrosGrupos?: boolean;
+  }>;
+  alerts: Array<{ severity: "critical" | "warning"; message: string }>;
+};
+
+type WhatsappGruposUnidadesOverview = {
+  generatedAt: string;
+  summary: {
+    totalGrupos: number;
+    gruposProntos: number;
+    gruposAtencao: number;
+    gruposCriticos: number;
+    totalUnidades: number;
+    unidadesOperacionais: number;
+  };
+  items: WhatsappGrupoUnidadeItem[];
+};
+
 type WhatsappGoLiveCheck = {
   key: string;
   ok: boolean;
@@ -1546,6 +1591,9 @@ function App() {
   const [whatsappDiagnosticsLoading, setWhatsappDiagnosticsLoading] = useState(false);
   const [whatsappGoLiveChecklist, setWhatsappGoLiveChecklist] = useState<WhatsappGoLiveChecklist | null>(null);
   const [whatsappGoLiveLoading, setWhatsappGoLiveLoading] = useState(false);
+  const [whatsappGruposUnidades, setWhatsappGruposUnidades] = useState<WhatsappGruposUnidadesOverview | null>(null);
+  const [whatsappGruposLoading, setWhatsappGruposLoading] = useState(false);
+  const [whatsappGrupoExpanded, setWhatsappGrupoExpanded] = useState<Record<number, boolean>>({});
   const [goLiveFilters, setGoLiveFilters] = useState({
     search: "",
     status: "todos",
@@ -2450,6 +2498,18 @@ function App() {
     }
   }
 
+
+  async function loadWhatsappGruposUnidades() {
+    if (!isGlobalAdmin) return;
+    setWhatsappGruposLoading(true);
+    try {
+      const data = await api<WhatsappGruposUnidadesOverview>("/api/admin/whatsapp/grupos-unidades");
+      setWhatsappGruposUnidades(data);
+    } finally {
+      setWhatsappGruposLoading(false);
+    }
+  }
+
   async function loadWhatsappDiagnostics() {
     if (!isGlobalAdmin) return;
     setWhatsappDiagnosticsLoading(true);
@@ -2683,7 +2743,7 @@ function App() {
 
   useEffect(() => {
     if (activeTab === "whatsapp") {
-      Promise.all([loadWhatsappLogs(), loadWhatsappCanais()]).catch((error) => showToast(error.message, true));
+      Promise.all([loadWhatsappLogs(), loadWhatsappCanais(), loadWhatsappGruposUnidades()]).catch((error) => showToast(error.message, true));
     }
   }, [activeTab, selectedClienteId, isGlobalAdmin]);
 
@@ -2700,6 +2760,9 @@ function App() {
         const goLive = await api<WhatsappGoLiveChecklist>("/api/admin/whatsapp/golive-checklist");
         if (cancelled) return;
         setWhatsappGoLiveChecklist(goLive);
+        const grupos = await api<WhatsappGruposUnidadesOverview>("/api/admin/whatsapp/grupos-unidades");
+        if (cancelled) return;
+        setWhatsappGruposUnidades(grupos);
         setWhatsappDashboardLastUpdatedAt(new Date().toISOString());
         setWhatsappAutoRefreshError(null);
       } catch (error) {
@@ -3617,6 +3680,16 @@ function App() {
       { total: 0, pronto: 0, atencao: 0, critico: 0 },
     );
   }, [goLiveFilteredItems]);
+
+
+  const whatsappGruposOrdenados = useMemo(() => {
+    const rank: Record<WhatsappGrupoUnidadeItem["status"], number> = { critico: 0, atencao: 1, pronto: 2 };
+    return [...(whatsappGruposUnidades?.items || [])].sort((a, b) => {
+      const statusDiff = rank[a.status] - rank[b.status];
+      if (statusDiff !== 0) return statusDiff;
+      return a.nomeGrupo.localeCompare(b.nomeGrupo, "pt-BR");
+    });
+  }, [whatsappGruposUnidades]);
 
   const whatsappTestView = useMemo(() => {
     if (!whatsappTestResult) return null;
@@ -5574,6 +5647,86 @@ function App() {
                 Em staging, simule cada número chamando <strong>/api/whatsapp/test-message</strong> com o campo <strong>phoneNumberId</strong>.
               </div>
 
+
+              <div className="groupOverviewPanel">
+                <div className="groupOverviewHeader">
+                  <div>
+                    <span className="sectionEyebrow">Multi-clínica agrupada</span>
+                    <h4>Grupos e unidades derivados dos canais</h4>
+                    <p>Visualize redes que usam um WhatsApp único com menu de escolha de unidade, sem alterar a estrutura atual do banco.</p>
+                  </div>
+                  <button type="button" className="secondary" onClick={() => loadWhatsappGruposUnidades()} disabled={whatsappGruposLoading}>
+                    {whatsappGruposLoading ? "Atualizando..." : "Atualizar grupos"}
+                  </button>
+                </div>
+
+                {whatsappGruposUnidades ? (
+                  <>
+                    <div className="groupOverviewSummary">
+                      <div><strong>{whatsappGruposUnidades.summary.totalGrupos}</strong><span>Grupos</span></div>
+                      <div><strong>{whatsappGruposUnidades.summary.unidadesOperacionais}/{whatsappGruposUnidades.summary.totalUnidades}</strong><span>Unidades operacionais</span></div>
+                      <div><strong>{whatsappGruposUnidades.summary.gruposCriticos}</strong><span>Críticos</span></div>
+                      <div><strong>{whatsappGruposUnidades.summary.gruposProntos}</strong><span>Prontos</span></div>
+                    </div>
+
+                    {whatsappGruposOrdenados.length ? (
+                      <div className="groupOverviewList">
+                        {whatsappGruposOrdenados.map((grupo) => {
+                          const expanded = Boolean(whatsappGrupoExpanded[grupo.grupoId]);
+                          return (
+                            <article key={grupo.grupoId} className={`groupOverviewItem ${grupo.status}`}>
+                              <button
+                                type="button"
+                                className="groupOverviewToggle"
+                                onClick={() => setWhatsappGrupoExpanded((current) => ({ ...current, [grupo.grupoId]: !current[grupo.grupoId] }))}
+                                aria-expanded={expanded}
+                              >
+                                <span className="conversationChevron">{expanded ? "▾" : "▸"}</span>
+                                <div>
+                                  <strong>{grupo.nomeGrupo}</strong>
+                                  <span>{grupo.canalNome} · {grupo.phoneNumberId || "sem phone_number_id"} · {grupo.totalUnidades} unidade(s)</span>
+                                </div>
+                                <span className={`severityBadge ${grupo.status === "pronto" ? "success" : grupo.status === "atencao" ? "warning" : "critical"}`}>
+                                  {grupo.status === "pronto" ? "PRONTO" : grupo.status === "atencao" ? "ATENÇÃO" : "CRÍTICO"}
+                                </span>
+                              </button>
+
+                              {grupo.alerts.length > 0 && (
+                                <div className="groupAlertRow">
+                                  {grupo.alerts.slice(0, 2).map((alert, index) => (
+                                    <span key={`${grupo.grupoId}-alert-${index}`} className={alert.severity === "critical" ? "dangerText" : "warningText"}>
+                                      {alert.severity === "critical" ? "🚨" : "⚠️"} {alert.message}
+                                    </span>
+                                  ))}
+                                  {grupo.alerts.length > 2 && <span>+{grupo.alerts.length - 2} alerta(s)</span>}
+                                </div>
+                              )}
+
+                              {expanded && (
+                                <div className="groupUnitsGrid">
+                                  {grupo.unidades.map((unidade) => (
+                                    <div key={`${grupo.grupoId}-${unidade.id}`} className={`groupUnitCard ${unidade.operacional ? "ok" : "critical"}`}>
+                                      <strong>{unidade.nomeFantasia}</strong>
+                                      <span>{unidade.papel === "base" ? "Cliente base" : "Unidade"} · {unidade.status || "sem status"}</span>
+                                      <small>{unidade.operacional ? "Operacional" : "Inativa / fora de operação"}</small>
+                                      {unidade.duplicadoEmOutrosGrupos && <small className="warningText">Também vinculada a outro grupo</small>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="emptyState">Nenhum canal configurado como grupo de unidades.</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="emptyState">Atualize os grupos para visualizar a estrutura multi-clínica.</div>
+                )}
+              </div>
+
               <form className="form whatsappCanalForm" onSubmit={handleSaveWhatsappCanal}>
                 <div className="twoColumns">
                   <label>
@@ -5861,6 +6014,29 @@ function App() {
                 </>
               ) : (
                 <div className="emptyState">Clique em Atualizar dashboard para verificar o ambiente.</div>
+              )}
+            </section>
+
+            <section className="card groupOverviewPanel operationalGroupPanel">
+              <div className="groupOverviewHeader">
+                <div>
+                  <span className="sectionEyebrow">Rede / grupo de unidades</span>
+                  <h3>Multi-clínica agrupada</h3>
+                  <p>Resumo dos canais que roteiam um único WhatsApp para múltiplas unidades.</p>
+                </div>
+                <button type="button" className="secondary" onClick={() => loadWhatsappGruposUnidades()} disabled={whatsappGruposLoading}>
+                  {whatsappGruposLoading ? "Atualizando..." : "Atualizar grupos"}
+                </button>
+              </div>
+              {whatsappGruposUnidades ? (
+                <div className="groupOverviewSummary large">
+                  <div><strong>{whatsappGruposUnidades.summary.totalGrupos}</strong><span>Grupos</span></div>
+                  <div><strong>{whatsappGruposUnidades.summary.unidadesOperacionais}/{whatsappGruposUnidades.summary.totalUnidades}</strong><span>Unidades operacionais</span></div>
+                  <div><strong>{whatsappGruposUnidades.summary.gruposCriticos}</strong><span>Grupos críticos</span></div>
+                  <div><strong>{whatsappGruposUnidades.summary.gruposAtencao}</strong><span>Com atenção</span></div>
+                </div>
+              ) : (
+                <div className="emptyState">Sem resumo de grupos carregado.</div>
               )}
             </section>
 
