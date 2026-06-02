@@ -4834,3 +4834,105 @@ html[data-theme="light"] .reportBuilderBox {
   }
 }
 
+/* Fase 7.3.1.2 - ajuste fino frontend: menu fixo, contraste e paginação */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  flex: 0 0 260px;
+  z-index: 20;
+}
+
+.content { min-width: 0; }
+
+.paginationBar,
+.goLivePaginationBar,
+.dashboardPaginationBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(248, 250, 252, 0.9);
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.paginationButtons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.medicoClinicSelectorCard {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.medicoClinicSelectorCard label { margin: 0; }
+.medicoClinicSelectorCard span { color: #475569; font-size: 0.9rem; }
+
+.kpiTextIcon,
+.channelTestIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.10);
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.opsTable,
+.opsTable td,
+.opsTable th,
+.antiAbuseHistoryPanel,
+.activeBlockPanel { color: #0f172a; }
+
+.opsTable th { color: #334155; background: rgba(248, 250, 252, 0.95); }
+.opsTable .tableHint,
+.timelineDetails,
+.conversationPreviewLabel { color: #475569; }
+.opsTable .criticalRow { background: rgba(239, 68, 68, 0.08) !important; color: #111827; }
+.conversationLogList { max-height: 900px; overflow-y: auto; padding-right: 4px; }
+
+html[data-theme="dark"] .paginationBar,
+html[data-theme="dark"] .goLivePaginationBar,
+html[data-theme="dark"] .dashboardPaginationBar {
+  background: rgba(15, 23, 42, 0.84);
+  border-color: rgba(148, 163, 184, 0.28);
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .medicoClinicSelectorCard span,
+html[data-theme="dark"] .opsTable .tableHint,
+html[data-theme="dark"] .timelineDetails,
+html[data-theme="dark"] .conversationPreviewLabel { color: #cbd5e1; }
+
+html[data-theme="dark"] .opsTable,
+html[data-theme="dark"] .opsTable td,
+html[data-theme="dark"] .opsTable th,
+html[data-theme="dark"] .antiAbuseHistoryPanel,
+html[data-theme="dark"] .activeBlockPanel { color: #f8fafc; }
+
+html[data-theme="dark"] .opsTable th { background: rgba(15, 23, 42, 0.95); color: #dbeafe; }
+html[data-theme="dark"] .opsTable .criticalRow { background: rgba(127, 29, 29, 0.34) !important; color: #fff7ed; }
+html[data-theme="dark"] .kpiTextIcon,
+html[data-theme="dark"] .channelTestIcon { background: rgba(96, 165, 250, 0.18); color: #dbeafe; }
+
+@media (max-width: 760px) {
+  .sidebar { position: static; height: auto; flex-basis: auto; }
+  .paginationBar,
+  .goLivePaginationBar,
+  .medicoClinicSelectorCard { grid-template-columns: 1fr; align-items: stretch; flex-direction: column; }
+}
+

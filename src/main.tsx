@@ -7,9 +7,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000
 const ADMIN_TOKEN_STORAGE_KEY = "agendai_admin_token";
 const ADMIN_USER_STORAGE_KEY = "agendai_admin_user";
 const ADMIN_THEME_STORAGE_KEY = "agendai_admin_theme";
+const CLIENTES_PAGE_SIZE = 20;
+const FORMAS_PAGE_SIZE = 15;
+const MEDICOS_PAGE_SIZE = 15;
 const PRODUTOS_PAGE_SIZE = 25;
 const ACEITES_PAGE_SIZE = 25;
 const WHATSAPP_LOGS_PAGE_SIZE = 50;
+const WHATSAPP_LOG_GROUPS_PAGE_SIZE = 12;
 const ADMIN_AUDIT_PAGE_SIZE = 80;
 const DIAS_SEMANA = [
   { value: 1, label: "Segunda" },
@@ -990,6 +994,33 @@ function TopListPanel({ title, rows }: { title: string; rows: DashboardTopItem[]
   );
 }
 
+
+function PaginationBar({
+  page,
+  pageCount,
+  total,
+  label,
+  onPrev,
+  onNext,
+}: {
+  page: number;
+  pageCount: number;
+  total: number;
+  label: string;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="paginationBar">
+      <span>{label}: página {page} de {pageCount} · {total} registro(s)</span>
+      <div className="paginationButtons">
+        <button type="button" className="secondary small" disabled={page <= 1} onClick={onPrev}>Anterior</button>
+        <button type="button" className="secondary small" disabled={page >= pageCount} onClick={onNext}>Próxima</button>
+      </div>
+    </div>
+  );
+}
+
 function Badge({ children, active = true }: { children: React.ReactNode; active?: boolean }) {
   return <span className={active ? "badge badgeOn" : "badge"}>{children}</span>;
 }
@@ -1596,9 +1627,11 @@ function App() {
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteFiltro, setClienteFiltro] = useState<"todos" | "ativos" | "inativos">("todos");
+  const [clientesPage, setClientesPage] = useState(1);
   const [selectedClienteId, setSelectedClienteId] = useState<number | null>(null);
   const [formas, setFormas] = useState<FormaAtendimento[]>([]);
   const [formasSearch, setFormasSearch] = useState("");
+  const [formasPage, setFormasPage] = useState(1);
   const [selectedForma, setSelectedForma] = useState<FormaAtendimento | null>(null);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [produtoSearch, setProdutoSearch] = useState("");
@@ -1628,6 +1661,7 @@ function App() {
   const [especialidadesCatalogo, setEspecialidadesCatalogo] = useState<EspecialidadeCatalogo[]>([]);
   const [medicoSearch, setMedicoSearch] = useState("");
   const [medicoStatusFiltro, setMedicoStatusFiltro] = useState<"ativos" | "inativos" | "todos">("ativos");
+  const [medicosPage, setMedicosPage] = useState(1);
   const [selectedMedicoId, setSelectedMedicoId] = useState<number | null>(null);
   const [aceites, setAceites] = useState<AceiteMedico[]>([]);
   const [aceiteSearch, setAceiteSearch] = useState("");
@@ -1645,6 +1679,7 @@ function App() {
     onlyErrors: false,
   });
   const [whatsappLogsLoading, setWhatsappLogsLoading] = useState(false);
+  const [whatsappLogGroupsPage, setWhatsappLogGroupsPage] = useState(1);
   const [whatsappCanais, setWhatsappCanais] = useState<ClienteCanalWhatsapp[]>([]);
   const [whatsappCanaisLoading, setWhatsappCanaisLoading] = useState(false);
   const [editingWhatsappCanalId, setEditingWhatsappCanalId] = useState<number | null>(null);
@@ -1995,6 +2030,13 @@ function App() {
     });
   }, [clientes, clienteFiltro]);
 
+  const totalClientePages = Math.max(1, Math.ceil(clientesFiltrados.length / CLIENTES_PAGE_SIZE));
+  const clientesPageSafe = Math.min(clientesPage, totalClientePages);
+  const clientesPaginados = useMemo(() => {
+    const start = (clientesPageSafe - 1) * CLIENTES_PAGE_SIZE;
+    return clientesFiltrados.slice(start, start + CLIENTES_PAGE_SIZE);
+  }, [clientesFiltrados, clientesPageSafe]);
+
 
   const formasFiltradas = useMemo(() => {
     const q = normalizeSearch(formasSearch);
@@ -2013,6 +2055,14 @@ function App() {
           .some((value) => normalizeSearch(value).includes(q));
       });
   }, [formas, formasSearch]);
+
+  const totalFormasPages = Math.max(1, Math.ceil(formasFiltradas.length / FORMAS_PAGE_SIZE));
+  const formasPageSafe = Math.min(formasPage, totalFormasPages);
+  const formasPaginadas = useMemo(() => {
+    const start = (formasPageSafe - 1) * FORMAS_PAGE_SIZE;
+    return formasFiltradas.slice(start, start + FORMAS_PAGE_SIZE);
+  }, [formasFiltradas, formasPageSafe]);
+
 
   const medicosFiltrados = useMemo(() => {
     const q = normalizeSearch(medicoSearch);
@@ -2035,6 +2085,14 @@ function App() {
         .some((value) => normalizeSearch(value).includes(q));
     });
   }, [medicos, medicoSearch, medicoStatusFiltro]);
+
+  const totalMedicosPages = Math.max(1, Math.ceil(medicosFiltrados.length / MEDICOS_PAGE_SIZE));
+  const medicosPageSafe = Math.min(medicosPage, totalMedicosPages);
+  const medicosPaginados = useMemo(() => {
+    const start = (medicosPageSafe - 1) * MEDICOS_PAGE_SIZE;
+    return medicosFiltrados.slice(start, start + MEDICOS_PAGE_SIZE);
+  }, [medicosFiltrados, medicosPageSafe]);
+
 
   const aceitesFiltrados = useMemo(() => {
     const q = normalizeSearch(aceiteSearch);
@@ -2177,6 +2235,13 @@ function App() {
       return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
     });
   }, [whatsappLogs]);
+
+  const totalWhatsappLogGroupPages = Math.max(1, Math.ceil(whatsappLogGroups.length / WHATSAPP_LOG_GROUPS_PAGE_SIZE));
+  const whatsappLogGroupsPageSafe = Math.min(whatsappLogGroupsPage, totalWhatsappLogGroupPages);
+  const whatsappLogGroupsPaginados = useMemo(() => {
+    const start = (whatsappLogGroupsPageSafe - 1) * WHATSAPP_LOG_GROUPS_PAGE_SIZE;
+    return whatsappLogGroups.slice(start, start + WHATSAPP_LOG_GROUPS_PAGE_SIZE);
+  }, [whatsappLogGroups, whatsappLogGroupsPageSafe]);
 
 
   const whatsappCanaisResumo = useMemo(() => {
@@ -2767,13 +2832,13 @@ function App() {
         <div><strong>${dashboardGerencial.summary.pacientesUnicos}</strong><span>Pacientes únicos</span></div>
         <div><strong>${dashboardGerencial.summary.agendamentosIniciados}</strong><span>Agendamentos iniciados</span></div>
         <div><strong>${dashboardGerencial.summary.agendamentosConcluidos}</strong><span>Agendamentos concluídos</span></div>
-        <div><strong>${dashboardGerencial.summary.taxaConversao}%</strong><span>Conversão estimada</span></div>
+        <div><strong>${dashboardGerencial.summary.taxaConversao}%</strong><span>Conversão</span></div>
       </div>`);
     if (dashboardReportSections.evolucao) sections.push(topListHtml("Evolução por dia", dashboardGerencial.breakdowns.byDay.map((row) => ({ label: row.label, total: row.mensagens }))));
     if (dashboardReportSections.unidades) sections.push(topListHtml("Unidades / clientes", dashboardGerencial.breakdowns.byCliente));
     if (dashboardReportSections.especialidades) sections.push(topListHtml("Especialidades", dashboardGerencial.breakdowns.byEspecialidade));
     if (dashboardReportSections.convenios) sections.push(topListHtml("Convênios / planos", dashboardGerencial.breakdowns.byConvenioPlano));
-    if (dashboardReportSections.etapas) sections.push(topListHtml("Etapas do fluxo", dashboardGerencial.breakdowns.byStage));
+    if (dashboardReportSections.etapas) sections.push(topListHtml("Atendimentos por etapa final", dashboardGerencial.breakdowns.byStage));
     if (dashboardReportSections.logs) sections.push(`<h3>Logs recentes</h3><table><thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th><th>Status</th><th>Etapa</th><th>Intenção</th></tr></thead><tbody>${dashboardGerencial.reportRows.slice(0, 80).map((row) => `<tr><td>${formatDateTimeShort(row.data)}</td><td>${row.cliente}</td><td>${row.telefone}</td><td>${row.status}</td><td>${row.etapa}</td><td>${row.intencao}</td></tr>`).join("")}</tbody></table>`);
 
     const win = window.open("", "_blank", "width=1100,height=800");
@@ -4478,7 +4543,7 @@ function App() {
               <button
                 type="button"
                 className={clienteFiltro === "todos" ? "active" : ""}
-                onClick={() => setClienteFiltro("todos")}
+                onClick={() => { setClienteFiltro("todos"); setClientesPage(1); }}
               >
                 Todos
               </button>
@@ -4486,7 +4551,7 @@ function App() {
               <button
                 type="button"
                 className={clienteFiltro === "ativos" ? "active" : ""}
-                onClick={() => setClienteFiltro("ativos")}
+                onClick={() => { setClienteFiltro("ativos"); setClientesPage(1); }}
               >
                 Ativos
               </button>
@@ -4494,7 +4559,7 @@ function App() {
               <button
                 type="button"
                 className={clienteFiltro === "inativos" ? "active" : ""}
-                onClick={() => setClienteFiltro("inativos")}
+                onClick={() => { setClienteFiltro("inativos"); setClientesPage(1); }}
               >
                 Inativos
               </button>
@@ -4503,7 +4568,7 @@ function App() {
             </div>
 
             <div className="list">
-              {clientesFiltrados.map((cliente) => {
+              {clientesPaginados.map((cliente) => {
                 const clienteAtivo = cliente.status === "ativo";
 
                 return (
@@ -4548,6 +4613,14 @@ function App() {
                 );
               })}
             </div>
+            <PaginationBar
+              page={clientesPageSafe}
+              pageCount={totalClientePages}
+              total={clientesFiltrados.length}
+              label="Clientes"
+              onPrev={() => setClientesPage((page) => Math.max(1, page - 1))}
+              onNext={() => setClientesPage((page) => Math.min(totalClientePages, page + 1))}
+            />
           </div>
         </section>
 
@@ -4901,7 +4974,7 @@ function App() {
             <div className="toolbar">
               <input
                 value={formasSearch}
-                onChange={(event) => setFormasSearch(event.target.value)}
+                onChange={(event) => { setFormasSearch(event.target.value); setFormasPage(1); }}
                 placeholder="Buscar forma de atendimento. Ex.: Bradesco, Sul America, Particular..."
               />
               <span>{formasFiltradas.length} registros</span>
@@ -4919,7 +4992,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {formasFiltradas.map((forma) => (
+                {formasPaginadas.map((forma) => (
                   <tr key={forma.id}>
                     <td>{forma.tipo}</td>
                     <td>{forma.nome}</td>
@@ -4943,6 +5016,14 @@ function App() {
                 ))}
               </tbody>
             </table>
+            <PaginationBar
+              page={formasPageSafe}
+              pageCount={totalFormasPages}
+              total={formasFiltradas.length}
+              label="Formas de atendimento"
+              onPrev={() => setFormasPage((page) => Math.max(1, page - 1))}
+              onNext={() => setFormasPage((page) => Math.min(totalFormasPages, page + 1))}
+            />
           </section>
         )}
 
@@ -5472,6 +5553,22 @@ function App() {
 
         {activeTab === "medicos" && selectedCliente && (
           <section className="grid medicosGrid">
+
+            <div className="card full medicoClinicSelectorCard">
+              <label>
+                Clínica / unidade em configuração
+                <select
+                  value={selectedClienteId || ""}
+                  onChange={(event) => selecionarCliente(Number(event.target.value))}
+                >
+                  {clientes.map((cliente) => (
+                    <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>
+                  ))}
+                </select>
+              </label>
+              <span>Troque a clínica aqui sem voltar ao menu Clientes.</span>
+            </div>
+
             <div className="card">
               <div className="sectionHeader compact">
                 <div>
@@ -5620,28 +5717,28 @@ function App() {
               <div className="toolbar single medicoToolbar">
                 <input
                   value={medicoSearch}
-                  onChange={(event) => setMedicoSearch(event.target.value)}
+                  onChange={(event) => { setMedicoSearch(event.target.value); setMedicosPage(1); }}
                   placeholder="Buscar médico, CRM, especialidade, dia..."
                 />
                 <div className="clientFilter medicoStatusFilter">
                   <button
                     type="button"
                     className={medicoStatusFiltro === "ativos" ? "active" : ""}
-                    onClick={() => setMedicoStatusFiltro("ativos")}
+                    onClick={() => { setMedicoStatusFiltro("ativos"); setMedicosPage(1); }}
                   >
                     Ativos
                   </button>
                   <button
                     type="button"
                     className={medicoStatusFiltro === "inativos" ? "active" : ""}
-                    onClick={() => setMedicoStatusFiltro("inativos")}
+                    onClick={() => { setMedicoStatusFiltro("inativos"); setMedicosPage(1); }}
                   >
                     Inativos
                   </button>
                   <button
                     type="button"
                     className={medicoStatusFiltro === "todos" ? "active" : ""}
-                    onClick={() => setMedicoStatusFiltro("todos")}
+                    onClick={() => { setMedicoStatusFiltro("todos"); setMedicosPage(1); }}
                   >
                     Todos
                   </button>
@@ -5649,7 +5746,7 @@ function App() {
               </div>
 
               <div className="list medicosList">
-                {medicosFiltrados.map((medico) => (
+                {medicosPaginados.map((medico) => (
                   <button
                     key={medico.id}
                     className={
@@ -5687,6 +5784,14 @@ function App() {
                   </button>
                 ))}
               </div>
+                <PaginationBar
+                  page={medicosPageSafe}
+                  pageCount={totalMedicosPages}
+                  total={medicosFiltrados.length}
+                  label="Médicos"
+                  onPrev={() => setMedicosPage((page) => Math.max(1, page - 1))}
+                  onNext={() => setMedicosPage((page) => Math.min(totalMedicosPages, page + 1))}
+                />
             </div>
 
             <div className="card">
@@ -6324,12 +6429,12 @@ function App() {
               {dashboardGerencial && (
                 <>
                   <div className="managementKpiGrid">
-                    <div className="managementKpi"><span>💬</span><strong>{dashboardGerencial.summary.totalMensagens}</strong><small>Mensagens</small></div>
-                    <div className="managementKpi"><span>👤</span><strong>{dashboardGerencial.summary.pacientesUnicos}</strong><small>Pacientes únicos</small></div>
-                    <div className="managementKpi"><span>📌</span><strong>{dashboardGerencial.summary.agendamentosIniciados}</strong><small>Agendamentos iniciados</small></div>
-                    <div className="managementKpi success"><span>✅</span><strong>{dashboardGerencial.summary.agendamentosConcluidos}</strong><small>Agendamentos concluídos</small></div>
-                    <div className="managementKpi warning"><span>↩️</span><strong>{dashboardGerencial.summary.conversasAbandonadas}</strong><small>Abandonadas</small></div>
-                    <div className="managementKpi"><span>📈</span><strong>{dashboardGerencial.summary.taxaConversao}%</strong><small>Conversão estimada</small></div>
+                    <div className="managementKpi"><span className="kpiTextIcon">MSG</span><strong>{dashboardGerencial.summary.totalMensagens}</strong><small>Mensagens</small></div>
+                    <div className="managementKpi"><span className="kpiTextIcon">PAC</span><strong>{dashboardGerencial.summary.pacientesUnicos}</strong><small>Pacientes únicos</small></div>
+                    <div className="managementKpi"><span className="kpiTextIcon">INI</span><strong>{dashboardGerencial.summary.agendamentosIniciados}</strong><small>Agendamentos iniciados</small></div>
+                    <div className="managementKpi success"><span className="kpiTextIcon">OK</span><strong>{dashboardGerencial.summary.agendamentosConcluidos}</strong><small>Agendamentos concluídos</small></div>
+                    <div className="managementKpi warning"><span className="kpiTextIcon">AB</span><strong>{dashboardGerencial.summary.conversasAbandonadas}</strong><small>Abandonadas</small></div>
+                    <div className="managementKpi"><span className="kpiTextIcon">%</span><strong>{dashboardGerencial.summary.taxaConversao}%</strong><small>Conversão</small></div>
                   </div>
 
                   {dashboardReportSections.evolucao && (
@@ -6353,9 +6458,9 @@ function App() {
 
                   <div className="dashboardSplitGrid">
                     {dashboardReportSections.unidades && <TopListPanel title="Unidades / clientes" rows={dashboardGerencial.breakdowns.byCliente} />}
-                    {dashboardReportSections.especialidades && <TopListPanel title="Especialidades buscadas" rows={dashboardGerencial.breakdowns.byEspecialidade} />}
-                    {dashboardReportSections.convenios && <TopListPanel title="Convênios / planos citados" rows={dashboardGerencial.breakdowns.byConvenioPlano} />}
-                    {dashboardReportSections.etapas && <TopListPanel title="Etapas do fluxo" rows={dashboardGerencial.breakdowns.byStage} />}
+                    {dashboardReportSections.especialidades && <TopListPanel title="Atendimentos por especialidade" rows={dashboardGerencial.breakdowns.byEspecialidade} />}
+                    {dashboardReportSections.convenios && <TopListPanel title="Atendimentos por convênio/plano" rows={dashboardGerencial.breakdowns.byConvenioPlano} />}
+                    {dashboardReportSections.etapas && <TopListPanel title="Atendimentos por etapa final" rows={dashboardGerencial.breakdowns.byStage} />}
                   </div>
 
                   {dashboardReportSections.logs && (
@@ -6905,8 +7010,8 @@ function App() {
               </div>
 
               <div className="toolbar">
-                <input value={whatsappLogFilters.phone} onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, phone: event.target.value })} placeholder="Buscar por telefone" />
-                <select value={whatsappLogFilters.status} onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, status: event.target.value })}>
+                <input value={whatsappLogFilters.phone} onChange={(event) => { setWhatsappLogFilters({ ...whatsappLogFilters, phone: event.target.value }); setWhatsappLogGroupsPage(1); }} placeholder="Buscar por telefone" />
+                <select value={whatsappLogFilters.status} onChange={(event) => { setWhatsappLogFilters({ ...whatsappLogFilters, status: event.target.value }); setWhatsappLogGroupsPage(1); }}>
                   <option value="todos">Todos os status</option>
                   <option value="received">received</option><option value="queued">queued</option><option value="processing">processing</option><option value="processed">processed</option><option value="sent">sent</option><option value="failed">failed</option><option value="duplicate">duplicate</option><option value="ignored">ignored</option>
                 </select>
@@ -6915,8 +7020,17 @@ function App() {
               </div>
 
               {whatsappLogs.length ? (
+                <>
+                <PaginationBar
+                  page={whatsappLogGroupsPageSafe}
+                  pageCount={totalWhatsappLogGroupPages}
+                  total={whatsappLogGroups.length}
+                  label="Conversas/logs"
+                  onPrev={() => setWhatsappLogGroupsPage((page) => Math.max(1, page - 1))}
+                  onNext={() => setWhatsappLogGroupsPage((page) => Math.min(totalWhatsappLogGroupPages, page + 1))}
+                />
                 <div className="conversationLogList">
-                  {whatsappLogGroups.map((group) => {
+                  {whatsappLogGroupsPaginados.map((group) => {
                     const expanded = Boolean(expandedWhatsappLogGroups[group.key]);
                     const hasErrors = group.errorCount > 0;
                     const latestInbound = group.latest.inbound_text || "";
@@ -7005,6 +7119,7 @@ function App() {
                     );
                   })}
                 </div>
+                </>
               ) : (
                 <div className="emptyState">{whatsappLogsLoading ? "Carregando logs..." : "Nenhum log encontrado."}</div>
               )}
