@@ -2775,10 +2775,7 @@ function App() {
     const cliente = dashboardGerencialFilters.clienteId === "todos"
       ? "Todos os clientes"
       : clientes.find((item) => String(item.id) === dashboardGerencialFilters.clienteId)?.nome_fantasia || `Cliente #${dashboardGerencialFilters.clienteId}`;
-    const grupo = dashboardGerencialFilters.groupId === "todos"
-      ? "Todos os grupos"
-      : dashboardGerencial?.groups.find((item) => String(item.id) === dashboardGerencialFilters.groupId)?.nome || `Grupo #${dashboardGerencialFilters.groupId}`;
-    return `${days} dia(s) · ${cliente} · ${grupo}`;
+    return `${days} dia(s) · ${cliente}`;
   }
 
   function makeDashboardWorkbook() {
@@ -2836,8 +2833,8 @@ function App() {
       </div>`);
     if (dashboardReportSections.evolucao) sections.push(topListHtml("Evolução por dia", dashboardGerencial.breakdowns.byDay.map((row) => ({ label: row.label, total: row.mensagens }))));
     if (dashboardReportSections.unidades) sections.push(topListHtml("Unidades / clientes", dashboardGerencial.breakdowns.byCliente));
-    if (dashboardReportSections.especialidades) sections.push(topListHtml("Especialidades", dashboardGerencial.breakdowns.byEspecialidade));
-    if (dashboardReportSections.convenios) sections.push(topListHtml("Convênios / planos", dashboardGerencial.breakdowns.byConvenioPlano));
+    if (dashboardReportSections.especialidades) sections.push(topListHtml("Atendimentos por especialidade", dashboardGerencial.breakdowns.byEspecialidade));
+    if (dashboardReportSections.convenios) sections.push(topListHtml("Atendimentos por convênio/plano", dashboardGerencial.breakdowns.byConvenioPlano));
     if (dashboardReportSections.etapas) sections.push(topListHtml("Atendimentos por etapa final", dashboardGerencial.breakdowns.byStage));
     if (dashboardReportSections.logs) sections.push(`<h3>Logs recentes</h3><table><thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th><th>Status</th><th>Etapa</th><th>Intenção</th></tr></thead><tbody>${dashboardGerencial.reportRows.slice(0, 80).map((row) => `<tr><td>${formatDateTimeShort(row.data)}</td><td>${row.cliente}</td><td>${row.telefone}</td><td>${row.status}</td><td>${row.etapa}</td><td>${row.intencao}</td></tr>`).join("")}</tbody></table>`);
 
@@ -5764,7 +5761,7 @@ function App() {
                     </div>
                     {(medico.dias || medico.andar) && (
                       <span>
-                        {[medico.dias, medico.andar].filter(Boolean).join(" ”Â¢ ")}
+                        {[medico.dias, medico.andar].filter(Boolean).join(" - ")}
                       </span>
                     )}
                     <span className="listItemHint">Clique para editar cadastro</span>
@@ -5989,7 +5986,7 @@ function App() {
                             <span className="tableHint">
                               {[aceite.produto_tipo, aceite.codigo_operadora, aceite.acomodacao_ou_uf]
                                 .filter(Boolean)
-                                .join(" ”Â¢ ") || "-"}
+                                .join(" - ") || "-"}
                             </span>
                           </td>
                           <td>{aceite.especialidade || "-"}</td>
@@ -6502,7 +6499,7 @@ function App() {
 
               <div className={whatsappBlockedNowCount > 0 ? "opsLiveMonitor alert" : "opsLiveMonitor ok"}>
                 <div>
-                  <strong>{whatsappBlockedNowCount > 0 ? "🔴 Alerta ativo" : "🟢 Monitoramento ativo"}</strong>
+                  <strong>{whatsappBlockedNowCount > 0 ? "Alerta ativo" : "Monitoramento ativo"}</strong>
                   <span>Dashboard atualiza a cada 15s; alertas anti-abuso a cada 5s, sem recarregar a página.</span>
                 </div>
                 <div className="opsLiveMeta">
@@ -6537,7 +6534,7 @@ function App() {
                       <div className="opsKpiCard ok"><span>🟢</span><strong>{whatsappDiagnostics.summary.canaisAtivos}/{whatsappDiagnostics.summary.canaisTotal}</strong><small>Canais ativos</small></div>
                       <div className={whatsappDiagnostics.summary.failedChecks ? "opsKpiCard warning" : "opsKpiCard ok"}><span>🧪</span><strong>{whatsappDiagnostics.summary.failedChecks}</strong><small>Checks com alerta</small></div>
                       <div className={whatsappBlockedNowCount > 0 ? "opsKpiCard critical pulse" : "opsKpiCard ok"}><span>🛡️Â</span><strong>{whatsappBlockedNowCount}</strong><small>Bloqueios ativos</small></div>
-                      <div className="opsKpiCard info"><span>â±Ã¯Â¸Â</span><strong>{formatDateTimeShort(whatsappDiagnostics.generatedAt)}</strong><small>Último diagnóstico</small></div>
+                      <div className="opsKpiCard info"><span className="opsTextIcon">DIAG</span><strong>{formatDateTimeShort(whatsappDiagnostics.generatedAt)}</strong><small>Último diagnóstico</small></div>
                     </div>
                   </div>
 
@@ -6856,7 +6853,7 @@ function App() {
                               <td>{event.phoneNumberId}</td>
                               <td>{reasonLabel(event.reason)}<span className="tableHint">{event.messagePreview || ""}</span></td>
                               <td>{event.riskScore ?? "-"}</td>
-                              <td><span className="countdownBadge">â± {formatCountdownUntil(event.blockedUntil, (event as any).ttlSeconds)}</span></td>
+                              <td><span className="countdownBadge">Expira em {formatCountdownUntil(event.blockedUntil, (event as any).ttlSeconds)}</span></td>
                               <td>{formatDateTimeShort(event.blockedUntil)}</td>
                               <td><span className="severityBadge critical">{event.manual ? "MANUAL" : "BLOQUEADO"}</span></td>
                               <td><button type="button" className="miniActionButton" onClick={() => handleReleaseWhatsappManualBlock(event.phoneNumberId, event.from)} disabled={whatsappManualBlockLoading}>Liberar</button></td>

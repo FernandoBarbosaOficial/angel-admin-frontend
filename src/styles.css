@@ -4936,3 +4936,133 @@ html[data-theme="dark"] .channelTestIcon { background: rgba(96, 165, 250, 0.18);
   .medicoClinicSelectorCard { grid-template-columns: 1fr; align-items: stretch; flex-direction: column; }
 }
 
+/* ANGEL_FASE_7_3_1_3_FRONTEND_REAL */
+.app {
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  z-index: 30;
+  flex-shrink: 0;
+}
+
+.content {
+  min-width: 0;
+  width: 100%;
+}
+
+.opsTextIcon,
+.kpiTextIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #0f172a;
+  background: #eaf1ff;
+  border: 1px solid #bfd4ff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
+.opsKpiCard.info .opsTextIcon {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #1e3a8a;
+}
+
+.opsKpiCard.critical .opsTextIcon {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.antiAbuseHistoryPanel,
+.securityDashboardCard,
+.operationDashboardCard,
+.whatsappLogsCard {
+  color: #0f172a;
+}
+
+.antiAbuseHistoryPanel .opsTable,
+.securityDashboardCard .opsTable,
+.operationDashboardCard .opsTable {
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.antiAbuseHistoryPanel .opsTable th,
+.antiAbuseHistoryPanel .opsTable td,
+.securityDashboardCard .opsTable th,
+.securityDashboardCard .opsTable td {
+  color: #0f172a;
+}
+
+.antiAbuseHistoryPanel .tableHint,
+.securityDashboardCard .tableHint,
+.operationDashboardCard .tableHint {
+  color: #475569;
+}
+
+.opsTable button:disabled,
+.opsTable .miniActionButton:disabled,
+.miniActionButton:disabled,
+.tableActionButton:disabled {
+  color: #334155 !important;
+  background: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+  opacity: 0.95 !important;
+}
+
+.countdownBadge {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.whatsappLogsCard,
+.whatsappLogsPanel,
+.logsPanel,
+.logsGroups,
+.logsTimeline,
+.conversationTimeline,
+.whatsappTimeline,
+.timelineList {
+  max-height: 780px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.whatsappLogsCard .timelineEvent,
+.logsTimeline .timelineEvent,
+.conversationTimeline .timelineEvent {
+  color: #0f172a;
+}
+
+.paginationBar {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: relative;
+    height: auto;
+    max-height: none;
+  }
+}
