@@ -4201,7 +4201,12 @@ function App() {
           </button>
           <button
             className={activeTab === "medicos" ? "navActive" : ""}
-            onClick={() => setActiveTab("medicos")}
+            onClick={() => {
+              if (!selectedClienteId && scopedClientes.length > 0) {
+                selecionarCliente(scopedClientes[0].id);
+              }
+              setActiveTab("medicos");
+            }}
           >
             Médicos e aceites
           </button>
@@ -5538,13 +5543,27 @@ function App() {
         )}
 
         {activeTab === "medicos" && !selectedCliente && (
-          <section className="card full selectionRequiredCard">
+          <section className="card full selectionRequiredCard medicoClinicSelectorCard">
             <div className="selectionRequiredIcon">🏥</div>
             <div>
-              <h3>Selecione um cliente para gerenciar médicos e aceites</h3>
-              <p>Escolha uma clínica na tela Clientes. O cliente selecionado ficará destacado antes de abrir Médicos e aceites.</p>
+              <h3>Selecione uma clínica para gerenciar médicos e aceites</h3>
+              <p>Escolha a clínica aqui mesmo. Não é necessário voltar para Clientes.</p>
+              <label>
+                Clínica / unidade
+                <select
+                  value={selectedClienteId || ""}
+                  onChange={(event) => {
+                    const id = Number(event.target.value);
+                    if (Number.isFinite(id) && id > 0) selecionarCliente(id);
+                  }}
+                >
+                  <option value="">Selecione</option>
+                  {scopedClientes.map((cliente) => (
+                    <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <button type="button" onClick={() => setActiveTab("clientes")}>Ir para Clientes</button>
           </section>
         )}
 
@@ -6426,12 +6445,12 @@ function App() {
               {dashboardGerencial && (
                 <>
                   <div className="managementKpiGrid">
-                    <div className="managementKpi"><span className="kpiTextIcon">MSG</span><strong>{dashboardGerencial.summary.totalMensagens}</strong><small>Mensagens</small></div>
-                    <div className="managementKpi"><span className="kpiTextIcon">PAC</span><strong>{dashboardGerencial.summary.pacientesUnicos}</strong><small>Pacientes únicos</small></div>
-                    <div className="managementKpi"><span className="kpiTextIcon">INI</span><strong>{dashboardGerencial.summary.agendamentosIniciados}</strong><small>Agendamentos iniciados</small></div>
-                    <div className="managementKpi success"><span className="kpiTextIcon">OK</span><strong>{dashboardGerencial.summary.agendamentosConcluidos}</strong><small>Agendamentos concluídos</small></div>
-                    <div className="managementKpi warning"><span className="kpiTextIcon">AB</span><strong>{dashboardGerencial.summary.conversasAbandonadas}</strong><small>Abandonadas</small></div>
-                    <div className="managementKpi"><span className="kpiTextIcon">%</span><strong>{dashboardGerencial.summary.taxaConversao}%</strong><small>Conversão</small></div>
+                    <div className="managementKpi"><span>💬</span><strong>{dashboardGerencial.summary.totalMensagens}</strong><small>Mensagens</small></div>
+                    <div className="managementKpi"><span>👤</span><strong>{dashboardGerencial.summary.pacientesUnicos}</strong><small>Pacientes únicos</small></div>
+                    <div className="managementKpi"><span>📌</span><strong>{dashboardGerencial.summary.agendamentosIniciados}</strong><small>Agendamentos iniciados</small></div>
+                    <div className="managementKpi success"><span>✅</span><strong>{dashboardGerencial.summary.agendamentosConcluidos}</strong><small>Agendamentos concluídos</small></div>
+                    <div className="managementKpi warning"><span>↩️</span><strong>{dashboardGerencial.summary.conversasAbandonadas}</strong><small>Abandonadas</small></div>
+                    <div className="managementKpi"><span>📈</span><strong>{dashboardGerencial.summary.taxaConversao}%</strong><small>Conversão</small></div>
                   </div>
 
                   {dashboardReportSections.evolucao && (
@@ -6533,7 +6552,7 @@ function App() {
                     <div className="opsKpiGrid">
                       <div className="opsKpiCard ok"><span>🟢</span><strong>{whatsappDiagnostics.summary.canaisAtivos}/{whatsappDiagnostics.summary.canaisTotal}</strong><small>Canais ativos</small></div>
                       <div className={whatsappDiagnostics.summary.failedChecks ? "opsKpiCard warning" : "opsKpiCard ok"}><span>🧪</span><strong>{whatsappDiagnostics.summary.failedChecks}</strong><small>Checks com alerta</small></div>
-                      <div className={whatsappBlockedNowCount > 0 ? "opsKpiCard critical pulse" : "opsKpiCard ok"}><span>🛡️Â</span><strong>{whatsappBlockedNowCount}</strong><small>Bloqueios ativos</small></div>
+                      <div className={whatsappBlockedNowCount > 0 ? "opsKpiCard critical pulse" : "opsKpiCard ok"}><span className="opsTextIcon">SEG</span><strong>{whatsappBlockedNowCount}</strong><small>Bloqueios ativos</small></div>
                       <div className="opsKpiCard info"><span className="opsTextIcon">DIAG</span><strong>{formatDateTimeShort(whatsappDiagnostics.generatedAt)}</strong><small>Último diagnóstico</small></div>
                     </div>
                   </div>

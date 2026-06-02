@@ -5066,3 +5066,139 @@ html[data-theme="dark"] .channelTestIcon { background: rgba(96, 165, 250, 0.18);
     max-height: none;
   }
 }
+
+/* ANGEL_FASE_7_3_1_4_FRONTEND_HOTFIX_REAL */
+:root {
+  --angel-sidebar-width: 250px;
+}
+
+.app:not(.loginApp) {
+  display: block;
+  min-height: 100vh;
+}
+
+.app:not(.loginApp) .sidebar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: var(--angel-sidebar-width) !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow-y: auto !important;
+  z-index: 100 !important;
+}
+
+.app:not(.loginApp) .content {
+  margin-left: var(--angel-sidebar-width) !important;
+  width: calc(100% - var(--angel-sidebar-width)) !important;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.opsTextIcon {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #0f172a !important;
+  background: #eaf1ff !important;
+  border: 1px solid #bfd4ff !important;
+  text-shadow: none !important;
+}
+
+.opsKpiCard.critical .opsTextIcon {
+  background: #fee2e2 !important;
+  border-color: #fecaca !important;
+  color: #991b1b !important;
+}
+
+.opsKpiCard.info .opsTextIcon {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #1e3a8a !important;
+}
+
+.antiAbuseHistoryPanel,
+.antiAbuseHistoryPanel *,
+.securityDashboardCard,
+.securityDashboardCard *,
+.operationDashboardCard,
+.operationDashboardCard * {
+  text-shadow: none !important;
+}
+
+.antiAbuseHistoryPanel,
+.securityDashboardCard,
+.operationDashboardCard {
+  color: #0f172a !important;
+}
+
+.antiAbuseHistoryPanel .opsTable,
+.securityDashboardCard .opsTable,
+.operationDashboardCard .opsTable {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.antiAbuseHistoryPanel .opsTable th,
+.antiAbuseHistoryPanel .opsTable td,
+.securityDashboardCard .opsTable th,
+.securityDashboardCard .opsTable td,
+.operationDashboardCard .opsTable th,
+.operationDashboardCard .opsTable td {
+  color: #0f172a !important;
+}
+
+.antiAbuseHistoryPanel button:disabled,
+.antiAbuseHistoryPanel button[disabled],
+.securityDashboardCard button:disabled,
+.securityDashboardCard button[disabled],
+.operationDashboardCard button:disabled,
+.operationDashboardCard button[disabled] {
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+  -webkit-text-fill-color: #1e293b !important;
+  border: 1px solid #94a3b8 !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.countdownBadge {
+  color: #7f1d1d !important;
+  background: #fee2e2 !important;
+  border: 1px solid #fecaca !important;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.medicoClinicSelectorCard select {
+  min-width: min(520px, 100%);
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .app:not(.loginApp) {
+    display: flex;
+  }
+
+  .app:not(.loginApp) .sidebar {
+    position: relative !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .app:not(.loginApp) .content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+}
