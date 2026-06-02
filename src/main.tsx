@@ -1838,6 +1838,16 @@ function App() {
     [scopedClientes],
   );
 
+  const medicosClienteSelecionado = useMemo(() => {
+    if (selectedCliente) return selectedCliente;
+    if (!selectedClienteId) return null;
+    return (
+      scopedClientes.find((cliente) => Number(cliente.id) === Number(selectedClienteId)) ||
+      clientes.find((cliente) => Number(cliente.id) === Number(selectedClienteId)) ||
+      null
+    );
+  }, [clientes, scopedClientes, selectedCliente, selectedClienteId]);
+
   const accessLinkedClientes = !isGlobalAdmin && accessScope?.linkedClientes?.length
     ? accessScope.linkedClientes
     : scopedClientes;
@@ -2373,6 +2383,33 @@ function App() {
     setProdutos([]);
     setEditingFormaId(null);
     setNovaForma(emptyFormaForm);
+  }
+
+  async function selecionarClienteParaMedicos(rawClienteId: number) {
+    const clienteId = Number(rawClienteId);
+    if (!Number.isFinite(clienteId) || clienteId <= 0) return;
+
+    setToast("");
+    setSelectedClienteId(clienteId);
+    setSelectedMedicoId(null);
+    setEditingMedicoId(null);
+    setMedicoForm(emptyMedicoForm);
+    setMedicos([]);
+    setAceites([]);
+    setDisponibilidades(buildDefaultDisponibilidades());
+    setLoadingAction("medicos.cliente.select");
+
+    try {
+      await Promise.all([
+        loadClienteOperacional(clienteId),
+        loadFormas(clienteId),
+        loadMedicos(clienteId),
+      ]);
+    } catch (error) {
+      showToast(error instanceof Error ? `Erro: ${error.message}` : "Erro ao carregar médicos da clínica", true);
+    } finally {
+      setLoadingAction((current) => current === "medicos.cliente.select" ? null : current);
+    }
   }
 
   async function loadMedicos(clienteId: number) {
@@ -4203,7 +4240,7 @@ function App() {
             className={activeTab === "medicos" ? "navActive" : ""}
             onClick={() => {
               if (!selectedClienteId && scopedClientes.length > 0) {
-                selecionarCliente(scopedClientes[0].id);
+                void selecionarClienteParaMedicos(scopedClientes[0].id);
               }
               setActiveTab("medicos");
             }}
@@ -4911,7 +4948,7 @@ function App() {
             <div className="sectionHeader">
               <div>
                 <h3>Formas de atendimento</h3>
-                <p>{selectedCliente.nome_fantasia}</p>
+                <p>{medicosClienteSelecionado!.nome_fantasia}</p>
               </div>
             </div>
 
@@ -5542,7 +5579,7 @@ function App() {
           </div>
         )}
 
-        {activeTab === "medicos" && !selectedCliente && (
+        {activeTab === "medicos" && !medicosClienteSelecionado && (
           <section className="card full selectionRequiredCard medicoClinicSelectorCard">
             <div className="selectionRequiredIcon">🏥</div>
             <div>
@@ -5554,7 +5591,7 @@ function App() {
                   value={selectedClienteId || ""}
                   onChange={(event) => {
                     const id = Number(event.target.value);
-                    if (Number.isFinite(id) && id > 0) selecionarCliente(id);
+                    if (Number.isFinite(id) && id > 0) void selecionarClienteParaMedicos(id);
                   }}
                 >
                   <option value="">Selecione</option>
@@ -5567,7 +5604,7 @@ function App() {
           </section>
         )}
 
-        {activeTab === "medicos" && selectedCliente && (
+        {activeTab === "medicos" && medicosClienteSelecionado && (
           <section className="grid medicosGrid">
 
             <div className="card full medicoClinicSelectorCard">
@@ -5575,7 +5612,7 @@ function App() {
                 Clínica / unidade em configuração
                 <select
                   value={selectedClienteId || ""}
-                  onChange={(event) => selecionarCliente(Number(event.target.value))}
+                  onChange={(event) => void selecionarClienteParaMedicos(Number(event.target.value))}
                 >
                   {clientes.map((cliente) => (
                     <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>
@@ -5589,7 +5626,7 @@ function App() {
               <div className="sectionHeader compact">
                 <div>
                   <h3>Médicos</h3>
-                  <p>{selectedCliente.nome_fantasia}</p>
+                  <p>{medicosClienteSelecionado!.nome_fantasia}</p>
                 </div>
                 <span>{medicosFiltrados.length} registros</span>
               </div>

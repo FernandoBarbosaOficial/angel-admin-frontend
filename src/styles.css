@@ -5202,3 +5202,75 @@ html[data-theme="dark"] .channelTestIcon { background: rgba(96, 165, 250, 0.18);
     width: 100% !important;
   }
 }
+
+/* ANGEL_FASE_7_3_1_5B_MEDICOS_ANTIABUSO */
+.antiAbuseHistoryPanel {
+  color: #0f172a !important;
+  background: #ffffff !important;
+}
+
+.antiAbuseHistoryPanel table,
+.antiAbuseHistoryPanel .opsTable {
+  color: #0f172a !important;
+  background: #ffffff !important;
+}
+
+.antiAbuseHistoryPanel th,
+.antiAbuseHistoryPanel td,
+.antiAbuseHistoryPanel td *,
+.antiAbuseHistoryPanel th * {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+.antiAbuseHistoryPanel .severityBadge.warning,
+.antiAbuseHistoryPanel .severityBadge.success,
+.antiAbuseHistoryPanel .severityBadge.critical,
+.antiAbuseHistoryPanel .severityBadge {
+  -webkit-text-fill-color: currentColor !important;
+  opacity: 1 !important;
+}
+
+.antiAbuseHistoryPanel button,
+.antiAbuseHistoryPanel .miniActionButton,
+.antiAbuseHistoryPanel .tableActionButton,
+.antiAbuseHistoryPanel .small,
+.antiAbuseHistoryPanel .secondary {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.antiAbuseHistoryPanel button:disabled,
+.antiAbuseHistoryPanel button[disabled],
+.antiAbuseHistoryPanel .miniActionButton:disabled,
+.antiAbuseHistoryPanel .miniActionButton[disabled],
+.antiAbuseHistoryPanel .tableActionButton:disabled,
+.antiAbuseHistoryPanel .tableActionButton[disabled] {
+  background: #dbeafe !important;
+  color: #1e3a8a !important;
+  -webkit-text-fill-color: #1e3a8a !important;
+  border: 1px solid #93c5fd !important;
+  opacity: 1 !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+.medicoClinicSelectorCard {
+  align-items: center;
+}
+
+.medicoClinicSelectorCard label {
+  display: grid;
+  gap: 6px;
+  width: min(560px, 100%);
+  color: #0f172a !important;
+}
+
+.medicoClinicSelectorCard select {
+  width: 100%;
+  min-height: 44px;
+}
