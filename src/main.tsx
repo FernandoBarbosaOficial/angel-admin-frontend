@@ -2684,25 +2684,13 @@ function App() {
 
 
   async function loadDashboardGerencial() {
-    if (dashboardGerencialFilters.canalId !== "todos" && !dashboardSelectedCanal) {
-      showToast("❌ O canal selecionado não pertence à empresa/unidade atual. O filtro de canal foi limpo.", true);
-      handleDashboardCanalChange("todos");
-      return;
-    }
-
-    if (dashboardGerencialFilters.groupId !== "todos" && !dashboardSelectedGroup) {
-      showToast("❌ O grupo selecionado não pertence à empresa/unidade atual. O filtro de grupo foi limpo.", true);
-      handleDashboardGroupChange("todos");
-      return;
-    }
-
     setDashboardGerencialLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("days", dashboardGerencialFilters.days);
-      if (dashboardGerencialFilters.clienteId !== "todos") params.set("clienteId", dashboardGerencialFilters.clienteId);
-      if (dashboardGerencialFilters.canalId !== "todos") params.set("canalId", dashboardGerencialFilters.canalId);
-      if (dashboardGerencialFilters.groupId !== "todos") params.set("groupId", dashboardGerencialFilters.groupId);
+      if (dashboardGerencialFilters.clienteId !== "todos") {
+        params.set("clienteId", dashboardGerencialFilters.clienteId);
+      }
       const data = await api<DashboardGerencial>(`/api/admin/dashboard/gerencial?${params.toString()}`);
       setDashboardGerencial(data);
     } catch (error) {
@@ -6252,7 +6240,7 @@ function App() {
               <div className="sectionHeader dashboardHeaderRow">
                 <div>
                   <h3>Dashboard gerencial</h3>
-                  <p>Visão comercial por grupo, unidade, especialidade e canal. Use os filtros para escolher a empresa/unidade, montar o dashboard e exportar o mesmo recorte em Excel ou PDF.</p>
+                  <p>Visão comercial por empresa/unidade. Selecione a empresa, monte o dashboard e exporte o mesmo recorte em Excel ou PDF.</p>
                 </div>
                 <div className="headerActions">
                   <button type="button" onClick={() => loadDashboardGerencial()} disabled={dashboardGerencialLoading}>
@@ -6263,10 +6251,21 @@ function App() {
                 </div>
               </div>
 
-              <div className="dashboardFiltersGrid">
+              <div className="dashboardFiltersGrid dashboardFiltersGridCompanyOnly">
                 <label>
                   Período
-                  <select value={dashboardGerencialFilters.days} onChange={(event) => handleDashboardDaysChange(event.target.value)}>
+                  <select
+                    value={dashboardGerencialFilters.days}
+                    onChange={(event) => {
+                      setDashboardGerencial(null);
+                      setDashboardGerencialFilters((current) => ({
+                        ...current,
+                        days: event.target.value,
+                        canalId: "todos",
+                        groupId: "todos",
+                      }));
+                    }}
+                  >
                     <option value="1">Hoje</option>
                     <option value="7">Últimos 7 dias</option>
                     <option value="30">Últimos 30 dias</option>
@@ -6275,31 +6274,26 @@ function App() {
                 </label>
                 <label>
                   Empresa / cliente / unidade
-                  <select value={dashboardGerencialFilters.clienteId} onChange={(event) => handleDashboardClienteChange(event.target.value)}>
+                  <select
+                    value={dashboardGerencialFilters.clienteId}
+                    onChange={(event) => {
+                      setDashboardGerencial(null);
+                      setDashboardGerencialFilters((current) => ({
+                        ...current,
+                        clienteId: event.target.value,
+                        canalId: "todos",
+                        groupId: "todos",
+                      }));
+                    }}
+                  >
                     <option value="todos">Todos os permitidos</option>
                     {scopedOperationalClientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>)}
-                  </select>
-                </label>
-                <label>
-                  Grupo
-                  <select value={dashboardGerencialFilters.groupId} onChange={(event) => handleDashboardGroupChange(event.target.value)} disabled={!isGlobalAdmin || dashboardGroupOptions.length === 0}>
-                    <option value="todos">Todos</option>
-                    {dashboardGroupOptions.map((grupo) => <option key={grupo.id} value={grupo.id}>{grupo.nome}</option>)}
-                  </select>
-                </label>
-                <label>
-                  Canal
-                  <select value={dashboardGerencialFilters.canalId} onChange={(event) => handleDashboardCanalChange(event.target.value)} disabled={!isGlobalAdmin || dashboardCanalOptions.length === 0}>
-                    <option value="todos">Todos</option>
-                    {dashboardCanalOptions.map((canal) => <option key={canal.id} value={canal.id}>{canal.nome} · {canal.identificador}</option>)}
                   </select>
                 </label>
               </div>
 
               <div className="dashboardScopeNotice">
-                {dashboardSelectedClienteId
-                  ? "Escopo travado: grupo e canal são recarregados apenas para a empresa/unidade selecionada."
-                  : "Escopo global: selecione uma empresa/unidade para travar grupo e canal no mesmo cliente."}
+                Relatório por empresa: grupo e canal não entram mais como filtro aqui. O recorte do dashboard é sempre pelo cliente_id da empresa/unidade selecionada.
               </div>
 
               <div className="reportBuilderBox">

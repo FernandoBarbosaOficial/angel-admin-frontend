@@ -4823,3 +4823,14 @@ html[data-theme="light"] .reportBuilderBox {
   }
 }
 
+/* Fase 7.1.4 - dashboard gerencial por empresa */
+.dashboardFiltersGridCompanyOnly {
+  grid-template-columns: minmax(220px, 320px) minmax(320px, 1fr);
+}
+
+@media (max-width: 720px) {
+  .dashboardFiltersGridCompanyOnly {
+    grid-template-columns: 1fr;
+  }
+}
+
