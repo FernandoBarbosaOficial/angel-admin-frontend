@@ -5274,3 +5274,113 @@ html[data-theme="dark"] .channelTestIcon { background: rgba(96, 165, 250, 0.18);
   width: 100%;
   min-height: 44px;
 }
+
+/* ANGEL_FASE_7_3_3B_FOLLOWUPS_PANEL */
+.followupOperationalPanel {
+  display: grid;
+  gap: 18px;
+}
+
+.followupFiltersGrid {
+  align-items: end;
+}
+
+.followupSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.followupSummaryCard {
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+  padding: 16px;
+  background: #f8fafc;
+  display: grid;
+  gap: 4px;
+}
+
+.followupSummaryCard strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.followupSummaryCard span {
+  font-weight: 800;
+  color: #334155;
+}
+
+.followupSummaryCard.success {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+}
+
+.followupSummaryCard.warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.followupSummaryCard.critical {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.followupSummaryCard.info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.followupStatusLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.followupStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.followupStatusBadge.success {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.followupStatusBadge.warning {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.followupStatusBadge.critical {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+.followupStatusBadge.info {
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+.followupStatusBadge.muted {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.followupTableWrap table td {
+  vertical-align: top;
+}

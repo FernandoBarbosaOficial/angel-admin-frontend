@@ -15,6 +15,7 @@ const ACEITES_PAGE_SIZE = 25;
 const WHATSAPP_LOGS_PAGE_SIZE = 50;
 const WHATSAPP_LOG_GROUPS_PAGE_SIZE = 12;
 const ADMIN_AUDIT_PAGE_SIZE = 80;
+const FOLLOWUPS_PAGE_SIZE = 25;
 const DIAS_SEMANA = [
   { value: 1, label: "Segunda" },
   { value: 2, label: "Terça" },
@@ -440,6 +441,67 @@ type DashboardGerencial = {
 
 type DashboardSectionKey = "resumo" | "evolucao" | "unidades" | "especialidades" | "convenios" | "etapas" | "logs";
 
+type FollowupJobStatus =
+  | "pending"
+  | "processing"
+  | "sent"
+  | "confirmed"
+  | "reschedule_requested"
+  | "cancel_requested"
+  | "failed"
+  | "cancelled"
+  | "expired";
+
+type FollowupJobPanelItem = {
+  id: number;
+  clienteId?: number | null;
+  clienteNome?: string | null;
+  sessionId?: string | null;
+  telefone: string;
+  pacienteNome?: string | null;
+  tipo: string;
+  status: FollowupJobStatus | string;
+  scheduledAt?: string | null;
+  sentAt?: string | null;
+  respondedAt?: string | null;
+  attempts: number;
+  maxAttempts: number;
+  lastError?: string | null;
+  payload?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+type FollowupOperationalPanel = {
+  generatedAt: string;
+  filters: {
+    days: number;
+    status: string;
+    clienteId?: number | null;
+    q?: string;
+    page: number;
+    pageSize: number;
+  };
+  summary: {
+    total: number;
+    pending: number;
+    processing: number;
+    sent: number;
+    semResposta: number;
+    confirmed: number;
+    rescheduleRequested: number;
+    cancelRequested: number;
+    failed: number;
+    cancelled: number;
+    expired: number;
+  };
+  byStatus: Array<{ status: string; label: string; total: number }>;
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  items: FollowupJobPanelItem[];
+};
+
+
 type WhatsappGoLiveCheck = {
   key: string;
   ok: boolean;
@@ -788,6 +850,46 @@ function formatPhone(value: string): string {
 function getApiText(value?: string | null): string {
   return String(value || "").trim();
 }
+
+function followupStatusLabel(status?: string | null): string {
+  const map: Record<string, string> = {
+    pending: "Pendente",
+    processing: "Processando",
+    sent: "Enviado sem resposta",
+    confirmed: "Confirmado",
+    reschedule_requested: "Remarcação solicitada",
+    cancel_requested: "Cancelamento solicitado",
+    failed: "Falha",
+    cancelled: "Cancelado",
+    expired: "Expirado",
+  };
+  return map[String(status || "")] || String(status || "-");
+}
+
+function followupStatusClass(status?: string | null): string {
+  const map: Record<string, string> = {
+    pending: "warning",
+    processing: "info",
+    sent: "info",
+    confirmed: "success",
+    reschedule_requested: "warning",
+    cancel_requested: "critical",
+    failed: "critical",
+    cancelled: "muted",
+    expired: "muted",
+  };
+  return map[String(status || "")] || "muted";
+}
+
+function asPayloadText(payload: Record<string, unknown> | null | undefined, keys: string[]): string {
+  if (!payload) return "-";
+  for (const key of keys) {
+    const value = payload[key];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value);
+  }
+  return "-";
+}
+
 
 
 type ChangePasswordScreenProps = {
@@ -1640,7 +1742,7 @@ function App() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [importacaoMedicosStatus, setImportacaoMedicosStatus] = useState("");
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "dashboard_gerencial" | "usuarios" | "auditoria">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "dashboard_gerencial" | "followups" | "usuarios" | "auditoria">("clientes");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
   const [accessScope, setAccessScope] = useState<AdminAccessScope | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
@@ -1708,6 +1810,18 @@ function App() {
     etapas: true,
     logs: false,
   });
+
+  const [followupsPanel, setFollowupsPanel] = useState<FollowupOperationalPanel | null>(null);
+  const [followupsLoading, setFollowupsLoading] = useState(false);
+  const [followupsFilters, setFollowupsFilters] = useState({
+    days: "30",
+    status: "todos",
+    clienteId: "todos",
+    q: "",
+    page: 1,
+    pageSize: FOLLOWUPS_PAGE_SIZE,
+  });
+
   const [goLiveFilters, setGoLiveFilters] = useState({
     search: "",
     status: "todos",
@@ -2803,6 +2917,23 @@ function App() {
     }
   }
 
+  async function loadFollowupsPanel() {
+    setFollowupsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("days", followupsFilters.days);
+      params.set("status", followupsFilters.status);
+      params.set("page", String(followupsFilters.page));
+      params.set("pageSize", String(followupsFilters.pageSize));
+      if (followupsFilters.clienteId !== "todos") params.set("clienteId", followupsFilters.clienteId);
+      if (followupsFilters.q.trim()) params.set("q", followupsFilters.q.trim());
+      const data = await api<FollowupOperationalPanel>(`/api/admin/followups?${params.toString()}`);
+      setFollowupsPanel(data);
+    } finally {
+      setFollowupsLoading(false);
+    }
+  }
+
   function toggleDashboardReportSection(section: DashboardSectionKey) {
     setDashboardReportSections((current) => ({ ...current, [section]: !current[section] }));
   }
@@ -3218,6 +3349,13 @@ function App() {
       Promise.all(tasks).catch((error) => showToast(error.message, true));
     }
   }, [activeTab, isGlobalAdmin]);
+
+  useEffect(() => {
+    if (activeTab === "followups") {
+      loadFollowupsPanel().catch((error) => showToast(error.message, true));
+    }
+  }, [activeTab, followupsFilters.days, followupsFilters.status, followupsFilters.clienteId, followupsFilters.page, followupsFilters.pageSize]);
+
 
   useEffect(() => {
     setAceitePage(1);
@@ -4270,6 +4408,12 @@ function App() {
             onClick={() => setActiveTab("dashboard_gerencial")}
           >
             Dashboard gerencial
+          </button>
+          <button
+            className={activeTab === "followups" ? "navActive" : ""}
+            onClick={() => setActiveTab("followups")}
+          >
+            Follow-ups
           </button>
           {isGlobalAdmin && (
             <button
@@ -6533,6 +6677,153 @@ function App() {
               )}
             </section>
           </>
+        )}
+
+
+        {activeTab === "followups" && (
+          <section className="card followupOperationalPanel">
+            <div className="sectionHeader dashboardHeaderRow">
+              <div>
+                <h3>Follow-ups operacionais</h3>
+                <p>Fila de lembretes, confirmações, pedidos de remarcação e cancelamento por cliente.</p>
+              </div>
+              <div className="headerActions">
+                <button type="button" onClick={() => loadFollowupsPanel()} disabled={followupsLoading}>
+                  {followupsLoading ? "Atualizando..." : "Atualizar follow-ups"}
+                </button>
+              </div>
+            </div>
+
+            <div className="dashboardFiltersGrid followupFiltersGrid">
+              <label>
+                Período
+                <select value={followupsFilters.days} onChange={(event) => setFollowupsFilters((current) => ({ ...current, days: event.target.value, page: 1 }))}>
+                  <option value="1">Hoje</option>
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30">Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                </select>
+              </label>
+              <label>
+                Cliente
+                <select value={followupsFilters.clienteId} onChange={(event) => setFollowupsFilters((current) => ({ ...current, clienteId: event.target.value, page: 1 }))}>
+                  <option value="todos">Todos os permitidos</option>
+                  {scopedClientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>)}
+                </select>
+              </label>
+              <label>
+                Status
+                <select value={followupsFilters.status} onChange={(event) => setFollowupsFilters((current) => ({ ...current, status: event.target.value, page: 1 }))}>
+                  <option value="todos">Todos</option>
+                  <option value="pending">Pendentes</option>
+                  <option value="sent">Enviados sem resposta</option>
+                  <option value="confirmed">Confirmados</option>
+                  <option value="reschedule_requested">Pedidos de remarcação</option>
+                  <option value="cancel_requested">Pedidos de cancelamento</option>
+                  <option value="failed">Falhas</option>
+                  <option value="cancelled">Cancelados</option>
+                  <option value="expired">Expirados</option>
+                </select>
+              </label>
+              <label>
+                Buscar
+                <input
+                  value={followupsFilters.q}
+                  onChange={(event) => setFollowupsFilters((current) => ({ ...current, q: event.target.value }))}
+                  onKeyDown={(event) => { if (event.key === "Enter") setFollowupsFilters((current) => ({ ...current, page: 1 })); }}
+                  placeholder="Paciente, telefone, clínica, erro ou payload"
+                />
+              </label>
+              <label>
+                Por página
+                <select value={followupsFilters.pageSize} onChange={(event) => setFollowupsFilters((current) => ({ ...current, pageSize: Number(event.target.value), page: 1 }))}>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
+            </div>
+
+            {!followupsPanel && <div className="emptyStateBox">Clique em Atualizar follow-ups para carregar a fila operacional.</div>}
+
+            {followupsPanel && (
+              <>
+                <div className="followupSummaryGrid">
+                  <div className="followupSummaryCard"><strong>{followupsPanel.summary.total}</strong><span>Total</span></div>
+                  <div className="followupSummaryCard warning"><strong>{followupsPanel.summary.pending}</strong><span>Pendentes</span></div>
+                  <div className="followupSummaryCard info"><strong>{followupsPanel.summary.semResposta}</strong><span>Sem resposta</span></div>
+                  <div className="followupSummaryCard success"><strong>{followupsPanel.summary.confirmed}</strong><span>Confirmados</span></div>
+                  <div className="followupSummaryCard warning"><strong>{followupsPanel.summary.rescheduleRequested}</strong><span>Remarcação</span></div>
+                  <div className="followupSummaryCard critical"><strong>{followupsPanel.summary.cancelRequested}</strong><span>Cancelamento</span></div>
+                  <div className="followupSummaryCard critical"><strong>{followupsPanel.summary.failed}</strong><span>Falhas</span></div>
+                </div>
+
+                <div className="followupStatusLine">
+                  {(followupsPanel.byStatus || []).map((item) => (
+                    <span key={item.status} className={`followupStatusBadge ${followupStatusClass(item.status)}`}>
+                      {item.label}: {item.total}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="goLivePaginationBar">
+                  <span>Página {followupsPanel.pagination.page} de {followupsPanel.pagination.totalPages} · {followupsPanel.pagination.total} registro(s)</span>
+                  <div className="buttonRow compactButtonRow">
+                    <button type="button" className="secondary" disabled={followupsPanel.pagination.page <= 1 || followupsLoading} onClick={() => setFollowupsFilters((current) => ({ ...current, page: Math.max(1, current.page - 1) }))}>Anterior</button>
+                    <button type="button" className="secondary" disabled={followupsPanel.pagination.page >= followupsPanel.pagination.totalPages || followupsLoading} onClick={() => setFollowupsFilters((current) => ({ ...current, page: Math.min(followupsPanel.pagination.totalPages, current.page + 1) }))}>Próxima</button>
+                  </div>
+                </div>
+
+                <div className="dashboardTableWrap followupTableWrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Status</th>
+                        <th>Paciente</th>
+                        <th>Cliente</th>
+                        <th>Telefone</th>
+                        <th>Consulta</th>
+                        <th>Agendado/envio</th>
+                        <th>Resposta</th>
+                        <th>Erro</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {followupsPanel.items.length ? followupsPanel.items.map((item) => (
+                        <tr key={item.id}>
+                          <td><span className={`followupStatusBadge ${followupStatusClass(item.status)}`}>{followupStatusLabel(item.status)}</span></td>
+                          <td>
+                            <strong>{item.pacienteNome || "Paciente sem nome"}</strong>
+                            <span className="tableHint">Job #{item.id} · {item.tipo}</span>
+                          </td>
+                          <td>{item.clienteNome || getClienteNomeById(item.clienteId)}</td>
+                          <td>{item.telefone}</td>
+                          <td>
+                            <strong>{asPayloadText(item.payload, ["especialidade", "especialidadeNome", "especialidade_normalizada"])}</strong>
+                            <span className="tableHint">
+                              {asPayloadText(item.payload, ["medico", "medicoNome"])} · {asPayloadText(item.payload, ["horario", "slotLabel", "dataHora"])}
+                            </span>
+                          </td>
+                          <td>
+                            <span>Agendado: {formatDateTimeShort(item.scheduledAt)}</span>
+                            <span className="tableHint">Enviado: {formatDateTimeShort(item.sentAt)} · Tentativas: {item.attempts}/{item.maxAttempts}</span>
+                          </td>
+                          <td>
+                            <span>{formatDateTimeShort(item.respondedAt)}</span>
+                            <span className="tableHint">{String(item.metadata?.responseText || item.metadata?.responseAction || "Sem resposta")}</span>
+                          </td>
+                          <td>{item.lastError ? <span className="dangerText">{item.lastError}</span> : "-"}</td>
+                        </tr>
+                      )) : (
+                        <tr><td colSpan={8}>Nenhum follow-up encontrado para os filtros.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
         )}
 
         {activeTab === "whatsapp_operacao" && isGlobalAdmin && (
