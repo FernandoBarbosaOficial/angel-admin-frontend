@@ -4208,7 +4208,7 @@ function App() {
     event.preventDefault();
     if (!selectedClienteId || !selectedMedicoId || !clienteUsaConvenio) return;
 
-    if (!selectedAceiteForma || !selectedAceiteForma.convenio_id) {
+    if (!selectedAceiteForma) {
       showToast("❌ Selecione um convênio válido da lista", true);
       return;
     }
@@ -4225,7 +4225,8 @@ function App() {
       await api<AceiteMedico>(`/api/admin/clientes/${selectedClienteId}/medicos/${selectedMedicoId}/aceites`, {
         method: "POST",
         body: JSON.stringify({
-          convenio_id: Number(selectedAceiteForma.convenio_id),
+          forma_atendimento_id: Number(selectedAceiteForma.id),
+          convenio_id: selectedAceiteForma.convenio_id ? Number(selectedAceiteForma.convenio_id) : undefined,
           convenio_produto_id: selectedAceiteForma.exige_plano ? selectedAceiteProduto?.id : null,
         }),
       });
