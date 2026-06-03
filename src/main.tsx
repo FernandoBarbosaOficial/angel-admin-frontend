@@ -691,12 +691,43 @@ function getStoredAdminToken() {
 function setStoredAuth(token: string, user: AdminUser) {
   window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
   window.localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(user));
+  window.sessionStorage.removeItem("agendai_session_expired_reload");
 }
 
 function clearStoredAuth() {
   window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
   window.localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
 }
+
+function scheduleSessionExpiredReload(message = "Sessão expirada. Faça login novamente.") {
+  clearStoredAuth();
+  if (typeof window === "undefined") return;
+
+  const flag = "agendai_session_expired_reload";
+  if (window.sessionStorage.getItem(flag) === "1") return;
+  window.sessionStorage.setItem(flag, "1");
+  window.sessionStorage.setItem("agendai_session_expired_message", message);
+
+  window.setTimeout(() => {
+    window.location.reload();
+  }, 50);
+}
+
+function getTokenExpirationMs(token: string | null): number | null {
+  if (!token || token.split(".").length < 2) return null;
+
+  try {
+    const payload = token.split(".")[1];
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = JSON.parse(window.atob(padded));
+    const exp = Number(decoded?.exp);
+    return Number.isFinite(exp) && exp > 0 ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 
 function getStoredTheme(): ThemeMode {
   const stored = window.localStorage.getItem(ADMIN_THEME_STORAGE_KEY);
@@ -750,7 +781,7 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
   if (response.status === 401) {
     const hasToken = Boolean(token);
     const message = json.details || json.error || (hasToken ? "Sessão expirada. Faça login novamente." : "Não foi possível autenticar.");
-    if (hasToken) clearStoredAuth();
+    if (hasToken) scheduleSessionExpiredReload(message);
     throw new Error(message);
   }
 
@@ -1968,6 +1999,29 @@ function App() {
   const accessOperationalClientes = !isGlobalAdmin && accessScope?.operationalClientes
     ? accessScope.operationalClientes
     : scopedOperationalClientes;
+
+  const operationalFilterClientes = useMemo(() => {
+    const source = isGlobalAdmin
+      ? scopedOperationalClientes
+      : (accessOperationalClientes.length > 0 ? accessOperationalClientes : accessLinkedClientes);
+
+    const seen = new Set<number>();
+    return source
+      .map((cliente) => ({
+        id: Number(cliente.id),
+        nome_fantasia: cliente.nome_fantasia || `Cliente #${cliente.id}`,
+        status: cliente.status || "ativo",
+        ativo: cliente.ativo,
+      }))
+      .filter((cliente) => {
+        if (!Number.isFinite(cliente.id) || cliente.id <= 0 || seen.has(cliente.id)) return false;
+        seen.add(cliente.id);
+        const statusAtivo = String(cliente.status || "ativo").toLowerCase() === "ativo";
+        return cliente.ativo !== false && statusAtivo;
+      })
+      .sort((a, b) => a.nome_fantasia.localeCompare(b.nome_fantasia));
+  }, [accessLinkedClientes, accessOperationalClientes, isGlobalAdmin, scopedOperationalClientes]);
+
 
 
   const dashboardSelectedClienteId = useMemo(() => {
@@ -3245,6 +3299,42 @@ function App() {
     api<AdminAccessScope>("/api/admin/auth/access-scope")
       .then((scope) => setAccessScope(scope))
       .catch(() => setAccessScope(null));
+  }, [authUser]);
+
+
+  useEffect(() => {
+    if (!authUser) return;
+    const allowedIds = new Set(operationalFilterClientes.map((cliente) => cliente.id));
+
+    setDashboardGerencialFilters((current) => {
+      if (current.clienteId === "todos") return current;
+      return allowedIds.has(Number(current.clienteId)) ? current : { ...current, clienteId: "todos", canalId: "todos", groupId: "todos" };
+    });
+
+    setFollowupsFilters((current) => {
+      if (current.clienteId === "todos") return current;
+      return allowedIds.has(Number(current.clienteId)) ? current : { ...current, clienteId: "todos", page: 1 };
+    });
+  }, [authUser, operationalFilterClientes]);
+
+  useEffect(() => {
+    if (!authUser) return;
+
+    const token = getStoredAdminToken();
+    const expiresAtMs = getTokenExpirationMs(token);
+    if (!expiresAtMs) return;
+
+    const delayMs = expiresAtMs - Date.now();
+    if (delayMs <= 0) {
+      scheduleSessionExpiredReload("Sessão expirada por inatividade. Faça login novamente.");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      scheduleSessionExpiredReload("Sessão expirada por inatividade. Faça login novamente.");
+    }, delayMs + 500);
+
+    return () => window.clearTimeout(timer);
   }, [authUser]);
 
   useEffect(() => {
@@ -6589,7 +6679,7 @@ function App() {
                     }}
                   >
                     <option value="todos">Todos os permitidos</option>
-                    {scopedOperationalClientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>)}
+                    {operationalFilterClientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>)}
                   </select>
                 </label>
               </div>
@@ -6708,7 +6798,7 @@ function App() {
                 Cliente
                 <select value={followupsFilters.clienteId} onChange={(event) => setFollowupsFilters((current) => ({ ...current, clienteId: event.target.value, page: 1 }))}>
                   <option value="todos">Todos os permitidos</option>
-                  {scopedClientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>)}
+                  {operationalFilterClientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome_fantasia}</option>)}
                 </select>
               </label>
               <label>
