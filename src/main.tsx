@@ -134,6 +134,8 @@ type FormaAtendimento = {
   cliente_id: number;
   tipo: string;
   nome: string;
+  convenio_id?: number | null;
+  cliente_convenio_id?: number | null;
   exige_plano: boolean;
   permite_agendamento_online: boolean;
   ativo: boolean;
@@ -1896,6 +1898,8 @@ function App() {
     convenio: "",
     plano: "",
   });
+  const [aceiteProdutos, setAceiteProdutos] = useState<Produto[]>([]);
+  const [aceiteProdutosLoading, setAceiteProdutosLoading] = useState(false);
 
   const emptyMedicoForm = {
     nome: "",
@@ -2152,6 +2156,45 @@ function App() {
   const clienteTemFormaConvenio = useMemo(() => {
     return formas.some((forma) => forma.ativo && forma.tipo === "convenio");
   }, [formas]);
+
+  const formasConvenioAceite = useMemo(() => {
+    return formas
+      .filter((forma) => forma.ativo && forma.tipo === "convenio")
+      .slice()
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [formas]);
+
+  const selectedAceiteForma = useMemo(() => {
+    const query = normalizeSearch(novoAceite.convenio);
+    if (!query) return null;
+
+    return (
+      formasConvenioAceite.find((forma) => normalizeSearch(forma.nome) === query) ||
+      formasConvenioAceite.find((forma) => normalizeSearch(forma.convenio_global || "") === query) ||
+      null
+    );
+  }, [formasConvenioAceite, novoAceite.convenio]);
+
+  const aceiteExigePlano = Boolean(selectedAceiteForma?.exige_plano);
+
+  const selectedAceiteProduto = useMemo(() => {
+    const query = normalizeSearch(novoAceite.plano);
+    if (!query) return null;
+
+    return (
+      aceiteProdutos.find((produto) => normalizeSearch(produto.nome) === query) ||
+      aceiteProdutos.find((produto) => normalizeSearch(produto.codigo_operadora || "") === query) ||
+      null
+    );
+  }, [aceiteProdutos, novoAceite.plano]);
+
+  const aceiteProdutoHint = useMemo(() => {
+    if (!selectedAceiteForma) return "Selecione um convênio da lista.";
+    if (!selectedAceiteForma.exige_plano) return "Este convênio não exige plano/produto. O aceite será salvo para o convênio inteiro.";
+    if (aceiteProdutosLoading) return "Carregando planos/produtos do convênio...";
+    if (aceiteProdutos.length === 0) return "Nenhum plano/produto ativo encontrado para este convênio.";
+    return `${aceiteProdutos.length} plano(s)/produto(s) disponível(is) para seleção.`;
+  }, [aceiteProdutos.length, aceiteProdutosLoading, selectedAceiteForma]);
 
   const especialidadeOptions = useMemo(() => {
     const items = new Set<string>();
@@ -2634,6 +2677,16 @@ function App() {
     setProdutoPage(1);
     const data = await api<ProdutosResponse>(`/api/admin/formas-atendimento/${forma.id}/produtos`);
     setProdutos(data.produtos);
+  }
+
+  async function loadAceiteProdutos(forma: FormaAtendimento) {
+    setAceiteProdutosLoading(true);
+    try {
+      const data = await api<ProdutosResponse>(`/api/admin/formas-atendimento/${forma.id}/produtos`);
+      setAceiteProdutos((data.produtos || []).filter((produto) => produto.ativo !== false));
+    } finally {
+      setAceiteProdutosLoading(false);
+    }
   }
 
 
@@ -3448,6 +3501,26 @@ function App() {
 
 
   useEffect(() => {
+    if (!selectedAceiteForma) {
+      setAceiteProdutos([]);
+      return;
+    }
+
+    if (!selectedAceiteForma.exige_plano) {
+      setAceiteProdutos([]);
+      if (novoAceite.plano) {
+        setNovoAceite((current) => ({ ...current, plano: "" }));
+      }
+      return;
+    }
+
+    loadAceiteProdutos(selectedAceiteForma).catch((error) => {
+      setAceiteProdutos([]);
+      showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao carregar planos do convênio", true);
+    });
+  }, [selectedAceiteForma?.id, selectedAceiteForma?.exige_plano]);
+
+  useEffect(() => {
     setAceitePage(1);
     const medicoValido = selectedMedicoId
       ? medicos.find((medico) => medico.id === selectedMedicoId && medico.cliente_id === selectedClienteId)
@@ -4135,6 +4208,16 @@ function App() {
     event.preventDefault();
     if (!selectedClienteId || !selectedMedicoId || !clienteUsaConvenio) return;
 
+    if (!selectedAceiteForma || !selectedAceiteForma.convenio_id) {
+      showToast("❌ Selecione um convênio válido da lista", true);
+      return;
+    }
+
+    if (selectedAceiteForma.exige_plano && !selectedAceiteProduto) {
+      showToast("❌ Selecione um plano/produto válido da lista", true);
+      return;
+    }
+
     setToast("");
     setLoadingAction("aceite");
 
@@ -4142,13 +4225,14 @@ function App() {
       await api<AceiteMedico>(`/api/admin/clientes/${selectedClienteId}/medicos/${selectedMedicoId}/aceites`, {
         method: "POST",
         body: JSON.stringify({
-          convenio: novoAceite.convenio.trim(),
-          plano: novoAceite.plano.trim(),
+          convenio_id: Number(selectedAceiteForma.convenio_id),
+          convenio_produto_id: selectedAceiteForma.exige_plano ? selectedAceiteProduto?.id : null,
         }),
       });
 
       showToast("✅ Aceite criado ou reativado com sucesso");
       setNovoAceite({ convenio: "", plano: "" });
+      setAceiteProdutos([]);
       await loadAceites(selectedMedicoId);
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao criar aceite", true);
@@ -6191,29 +6275,76 @@ function App() {
                     </div>
                   )}
                   <form onSubmit={criarAceite} className="inlineForm aceiteForm">
-                    <input
-                      value={novoAceite.convenio}
-                      onChange={(event) =>
-                        setNovoAceite({ ...novoAceite, convenio: event.target.value })
-                      }
-                      placeholder="Convênio exato. Ex.: ASSEFAZ"
-                      required
-                    />
-                    <input
-                      value={novoAceite.plano}
-                      onChange={(event) =>
-                        setNovoAceite({ ...novoAceite, plano: event.target.value })
-                      }
-                      placeholder="Plano/produto exato. Ex.: DIAMANTE"
-                      required
-                    />
-                    <button type="submit" disabled={loadingAction === "aceite"}>
+                    <div className="fieldStack autocompleteField">
+                      <input
+                        list="aceite-convenio-options"
+                        value={novoAceite.convenio}
+                        onChange={(event) =>
+                          setNovoAceite({ convenio: event.target.value, plano: "" })
+                        }
+                        placeholder="Convênio. Ex.: BANCO CENTRAL DO BRASIL"
+                        required
+                      />
+                      <datalist id="aceite-convenio-options">
+                        {formasConvenioAceite.map((forma) => (
+                          <option
+                            key={forma.id}
+                            value={forma.nome}
+                            label={forma.convenio_global || forma.nome}
+                          />
+                        ))}
+                      </datalist>
+                      <small>
+                        {selectedAceiteForma
+                          ? selectedAceiteForma.exige_plano
+                            ? "Convênio exige plano/produto."
+                            : "Convênio inteiro: plano/produto não exigido."
+                          : "Escolha um convênio cadastrado em Formas de atendimento."}
+                      </small>
+                    </div>
+
+                    <div className="fieldStack autocompleteField">
+                      <input
+                        list="aceite-produto-options"
+                        value={novoAceite.plano}
+                        onChange={(event) =>
+                          setNovoAceite({ ...novoAceite, plano: event.target.value })
+                        }
+                        placeholder={aceiteExigePlano ? "Plano/produto. Ex.: TOP NACIONAL" : "Sem plano/produto"}
+                        required={aceiteExigePlano}
+                        disabled={!selectedAceiteForma || !aceiteExigePlano || aceiteProdutosLoading}
+                      />
+                      <datalist id="aceite-produto-options">
+                        {aceiteProdutos.map((produto) => (
+                          <option
+                            key={`produto-nome-${produto.id}`}
+                            value={produto.nome}
+                            label={[produto.codigo_operadora, produto.tipo, produto.acomodacao_ou_uf]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          />
+                        ))}
+                        {aceiteProdutos
+                          .filter((produto) => produto.codigo_operadora)
+                          .map((produto) => (
+                            <option
+                              key={`produto-codigo-${produto.id}`}
+                              value={produto.codigo_operadora || ""}
+                              label={produto.nome}
+                            />
+                          ))}
+                      </datalist>
+                      <small>{aceiteProdutoHint}</small>
+                    </div>
+
+                    <button type="submit" disabled={loadingAction === "aceite" || aceiteProdutosLoading}>
                       {loadingAction === "aceite" ? "Salvando..." : "Adicionar aceite"}
                     </button>
                   </form>
 
                   <div className="helperBox">
-                    A criação por nome usa a regra atual do backend: médico + especialidade ativa + convênio + plano.
+                    A criação usa a seleção por convênio e, quando exigido, por plano/produto.
+                    Convênios sem exigência de plano são salvos como aceite do convênio inteiro.
                     Se já existir inativo, o aceite é reativado automaticamente.
                   </div>
 
