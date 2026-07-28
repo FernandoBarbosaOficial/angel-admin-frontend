@@ -5893,6 +5893,369 @@ html[data-theme="dark"] .coverageTableWrap {
   gap: 7px;
 }
 
+.coverageInsurerList,
+.coverageProductList {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.coverageInsurerCard,
+.coverageProductCard {
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  border-left: 5px solid #94a3b8;
+  border-radius: 14px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.coverageInsurerCard--active,
+.coverageProductCard--active {
+  border-left-color: #16a34a;
+}
+
+.coverageInsurerCard--inactive,
+.coverageProductCard--inactive {
+  background: #f8fafc;
+}
+
+.coverageInsurerHeader,
+.coverageProductCardHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.coverageInsurerTitle {
+  min-width: 0;
+}
+
+.coverageInsurerTitle h4 {
+  line-height: 1.25;
+  margin: 3px 0 5px;
+  max-width: 760px;
+  overflow-wrap: anywhere;
+}
+
+.coverageInsurerTitle > small,
+.coverageProductStatusControl > small,
+.coverageInsurerGlobalControl > small {
+  color: #64748b;
+  display: block;
+  font-size: 11px;
+}
+
+.coverageInsurerGlobalControl,
+.coverageProductStatusControl {
+  align-items: flex-end;
+  display: grid;
+  flex: 0 0 min(280px, 34%);
+  gap: 7px;
+  justify-items: end;
+  text-align: right;
+}
+
+.coverageInsurerGlobalControl button {
+  min-width: 190px;
+}
+
+.coverageSuspiciousName {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  color: #9a3412;
+  padding: 10px 12px;
+}
+
+.coverageSuspiciousName summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.coverageSuspiciousName p {
+  color: #7c2d12;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+  max-height: 130px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.coverageInsurerFacts {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.coverageInsurerFacts > div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 11px;
+}
+
+.coverageInsurerFacts span,
+.coverageProductUsage > span:first-child,
+.coverageProductMappingHeader span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.coverageInsurerFacts strong,
+.coverageInsurerFacts small {
+  overflow-wrap: anywhere;
+}
+
+.coverageInsurerFacts small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.coverageInsurerReadiness {
+  align-items: flex-start;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding-top: 12px;
+}
+
+.coverageInsurerReadiness > div {
+  display: grid;
+  gap: 5px;
+}
+
+.coverageInsurerReadiness small {
+  color: #64748b;
+}
+
+.coverageInsurerCard > .coverageCatalogActions {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.coveragePath {
+  align-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.coveragePath > span {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  display: grid;
+  gap: 2px;
+  min-width: 110px;
+  padding: 7px 9px;
+}
+
+.coveragePath small {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.coveragePath strong {
+  color: #172554;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.coverageProductCardBody {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(210px, .75fr) minmax(360px, 2fr);
+  min-width: 0;
+}
+
+.coverageProductUsage,
+.coverageProductMapping {
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.coverageProductUsage {
+  align-content: start;
+}
+
+.coverageProductUsage > small {
+  color: #64748b;
+}
+
+.coverageProductMappingHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.coverageProductMappingHeader > div {
+  display: grid;
+  gap: 3px;
+}
+
+.feegowMappingConfirmed {
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  min-width: 160px;
+  padding: 8px 10px;
+  text-align: right;
+}
+
+.feegowMappingConfirmed small {
+  color: #166534;
+}
+
+.coverageMappingResolved {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  color: #166534;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.coverageMappingResolved span {
+  font-size: 12px;
+}
+
+.feegowPlanPicker {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.feegowPlanPicker > label {
+  display: grid;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 5px;
+}
+
+.feegowPlanPicker input {
+  min-width: 0;
+  width: 100%;
+}
+
+.feegowPlanSelected {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 9px;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: minmax(130px, 1fr) auto;
+  padding: 8px 10px;
+}
+
+.feegowPlanSelected span {
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 800;
+  grid-column: 1 / -1;
+}
+
+.feegowPlanSelected small {
+  color: #475569;
+}
+
+.feegowPlanResults {
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  display: grid;
+  max-height: 250px;
+  overflow: auto;
+}
+
+.feegowPlanResults > button {
+  align-items: center;
+  background: #ffffff;
+  border: 0;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  color: #0f172a;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 9px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.feegowPlanResults > button:last-child {
+  border-bottom: 0;
+}
+
+.feegowPlanResults > button:hover:not(:disabled),
+.feegowPlanResults > button.selected {
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.feegowPlanResults > button > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.feegowPlanResults > button strong {
+  overflow-wrap: anywhere;
+}
+
+.feegowPlanResults > button small {
+  color: #64748b;
+}
+
+.feegowPlanResults > button em {
+  background: #dcfce7;
+  border-radius: 999px;
+  color: #166534;
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  padding: 4px 7px;
+}
+
+.feegowPlanNoResult {
+  color: #991b1b;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.feegowPlanNoResult span,
+.feegowPlanResultCount {
+  color: #64748b;
+  font-size: 11px;
+}
+
 .catalogCoverageLink {
   background: transparent;
   border: 0;
@@ -6002,7 +6365,7 @@ html[data-theme="dark"] .coverageTableWrap {
 .coverageMappingEditor {
   display: grid;
   gap: 8px;
-  min-width: 300px;
+  min-width: 0;
 }
 
 .coverageMappingEditor select {
@@ -6142,7 +6505,17 @@ html[data-theme="dark"] .coverageTableWrap {
 }
 
 .feegowMappingExceptionActions {
+  align-content: start;
   justify-items: end;
+}
+
+.feegowMappingExceptionIdentity .coveragePath {
+  margin: 4px 0;
+}
+
+.feegowMappingExceptionIdentity .coveragePath > span {
+  min-width: 90px;
+  padding: 5px 7px;
 }
 
 .feegowMappingExceptions .paginationBar {
@@ -6272,7 +6645,12 @@ html[data-theme="dark"] .coverageSectionTabs,
 html[data-theme="dark"] .coverageCatalogStat,
 html[data-theme="dark"] .coverageCatalogFilters,
 html[data-theme="dark"] .coverageProductCreate,
-html[data-theme="dark"] .coverageReadinessPanel {
+html[data-theme="dark"] .coverageReadinessPanel,
+html[data-theme="dark"] .coverageInsurerCard,
+html[data-theme="dark"] .coverageProductCard,
+html[data-theme="dark"] .coverageInsurerFacts > div,
+html[data-theme="dark"] .coverageProductUsage,
+html[data-theme="dark"] .coverageProductMapping {
   background: #172033;
   border-color: #334155;
 }
@@ -6311,9 +6689,46 @@ html[data-theme="dark"] .feegowMappingExceptions > summary {
 }
 
 html[data-theme="dark"] .feegowMappingAutoNotice,
-html[data-theme="dark"] .coverageAutomaticMappingHint {
+html[data-theme="dark"] .coverageAutomaticMappingHint,
+html[data-theme="dark"] .coverageMappingResolved,
+html[data-theme="dark"] .feegowMappingConfirmed,
+html[data-theme="dark"] .coveragePath > span {
   background: #172033;
   border-color: #315b85;
+}
+
+html[data-theme="dark"] .coveragePath strong,
+html[data-theme="dark"] .coverageMappingResolved,
+html[data-theme="dark"] .feegowMappingConfirmed small {
+  color: #dbeafe;
+}
+
+html[data-theme="dark"] .coverageSuspiciousName {
+  background: #431407;
+  border-color: #9a3412;
+  color: #fed7aa;
+}
+
+html[data-theme="dark"] .coverageSuspiciousName p {
+  color: #ffedd5;
+}
+
+html[data-theme="dark"] .feegowPlanResults {
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .feegowPlanResults > button {
+  background: #111827;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .feegowPlanResults > button:hover:not(:disabled),
+html[data-theme="dark"] .feegowPlanResults > button.selected,
+html[data-theme="dark"] .feegowPlanSelected {
+  background: #1e3a5f;
+  border-color: #315b85;
+  color: #dbeafe;
 }
 
 html[data-theme="dark"] .coverageCatalogCreate {
@@ -6370,14 +6785,50 @@ html[data-theme="dark"] .coveragePagination {
   .coverageProductHeader,
   .feegowMappingCenterHeader,
   .coverageCreateHeader,
-  .coverageCredentialPanel > div {
+  .coverageCredentialPanel > div,
+  .coverageInsurerHeader,
+  .coverageProductCardHeader,
+  .coverageProductMappingHeader,
+  .coverageInsurerReadiness {
     flex-direction: column;
   }
 
   .coverageReadinessPanel,
   .feegowMappingSummary,
   .feegowMappingExceptionList article,
-  .coverageCreateGrid {
+  .coverageCreateGrid,
+  .coverageInsurerFacts,
+  .coverageProductCardBody {
+    grid-template-columns: 1fr;
+  }
+
+  .coverageInsurerGlobalControl,
+  .coverageProductStatusControl {
+    align-items: stretch;
+    flex: 1 1 auto;
+    justify-items: stretch;
+    text-align: left;
+    width: 100%;
+  }
+
+  .coverageInsurerGlobalControl button,
+  .coverageProductStatusControl button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .coverageInsurerGlobalControl .catalogStatus,
+  .coverageProductStatusControl .catalogStatus {
+    justify-content: center;
+  }
+
+  .coveragePath {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .feegowPlanSelected {
     grid-template-columns: 1fr;
   }
 }
@@ -6394,6 +6845,10 @@ html[data-theme="dark"] .coveragePagination {
 
   .coverageCatalogStats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .coverageInsurerFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .coverageCreateGrid {
