@@ -8,7 +8,7 @@ type Props = {
   loading: boolean;
   canEdit: boolean;
   updatingCoverageId: number | null;
-  onSelectDoctor: (doctorId: number) => void;
+  onSelectDoctor: (doctorId: number | null) => void;
   onToggleCoverage: (coverage: MedicalCoverage) => void;
 };
 
@@ -35,10 +35,6 @@ export default function CoverageMedicalReadView({
   const [specialty, setSpecialty] = useState("all");
   const [page, setPage] = useState(1);
 
-  const selectedDoctor = doctors.find(
-    (doctor) => Number(doctor.id) === Number(selectedDoctorId),
-  );
-
   useEffect(() => {
     setQuery("");
     setStatus("all");
@@ -49,39 +45,41 @@ export default function CoverageMedicalReadView({
     setPage(1);
   }, [selectedDoctorId]);
 
-  const selectedDoctorCoverages = useMemo(
-    () =>
-      coverages.filter(
+  const visibleDoctorCoverages = useMemo(
+    () => {
+      if (selectedDoctorId === null) return coverages;
+      return coverages.filter(
         (coverage) => Number(coverage.doctorId) === Number(selectedDoctorId),
-      ),
+      );
+    },
     [coverages, selectedDoctorId],
   );
 
   const insurers = useMemo(
     () =>
       Array.from(
-        new Set(selectedDoctorCoverages.map((coverage) => coverage.insurer).filter(Boolean)),
+        new Set(visibleDoctorCoverages.map((coverage) => coverage.insurer).filter(Boolean)),
       ).sort((left, right) => left.localeCompare(right, "pt-BR")),
-    [selectedDoctorCoverages],
+    [visibleDoctorCoverages],
   );
 
   const details = useMemo(
     () =>
       Array.from(
         new Set(
-          selectedDoctorCoverages
+          visibleDoctorCoverages
             .filter((coverage) => insurer === "all" || coverage.insurer === insurer)
             .map((coverage) => coverage.product || "Convênio inteiro"),
         ),
       ).sort((left, right) => left.localeCompare(right, "pt-BR")),
-    [insurer, selectedDoctorCoverages],
+    [insurer, visibleDoctorCoverages],
   );
 
   const specialties = useMemo(
     () =>
       Array.from(
         new Set(
-          selectedDoctorCoverages
+          visibleDoctorCoverages
             .filter((coverage) => insurer === "all" || coverage.insurer === insurer)
             .filter(
               (coverage) =>
@@ -91,12 +89,12 @@ export default function CoverageMedicalReadView({
             .map((coverage) => coverage.specialty || "Sem especialidade"),
         ),
       ).sort((left, right) => left.localeCompare(right, "pt-BR")),
-    [detail, insurer, selectedDoctorCoverages],
+    [detail, insurer, visibleDoctorCoverages],
   );
 
   const rows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-    return selectedDoctorCoverages
+    return visibleDoctorCoverages
       .filter((coverage) => {
         if (insurerStatus === "active" && coverage.insurerGloballyActive === false) {
           return false;
@@ -137,7 +135,7 @@ export default function CoverageMedicalReadView({
     insurer,
     insurerStatus,
     query,
-    selectedDoctorCoverages,
+    visibleDoctorCoverages,
     specialty,
     status,
   ]);
@@ -181,10 +179,13 @@ export default function CoverageMedicalReadView({
         <label>
           Médico
           <select
-            value={selectedDoctorId || ""}
-            onChange={(event) => onSelectDoctor(Number(event.target.value))}
+            value={selectedDoctorId ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              onSelectDoctor(value ? Number(value) : null);
+            }}
           >
-            <option value="">Selecione um médico</option>
+            <option value="">Todos os médicos</option>
             {doctors.map((doctor) => (
               <option key={doctor.id} value={doctor.id}>
                 {doctor.name} · {doctor.specialties || "sem especialidade"}
@@ -262,19 +263,13 @@ export default function CoverageMedicalReadView({
         </label>
       </div>
 
-      {!selectedDoctor && (
-        <div className="coverageEmpty">
-          Selecione um médico para consultar suas coberturas.
-        </div>
-      )}
+      {loading && <div className="coverageEmpty">Carregando coberturas…</div>}
 
-      {selectedDoctor && loading && <div className="coverageEmpty">Carregando coberturas…</div>}
-
-      {selectedDoctor && !loading && rows.length === 0 && (
+      {!loading && rows.length === 0 && (
         <div className="coverageEmpty">Nenhuma cobertura encontrada para os filtros selecionados.</div>
       )}
 
-      {selectedDoctor && !loading && rows.length > 0 && (
+      {!loading && rows.length > 0 && (
         <div className="coverageTableWrap">
           <table className="coverageTable">
             <thead>
@@ -286,71 +281,76 @@ export default function CoverageMedicalReadView({
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((coverage) => (
-                <tr key={coverage.id}>
-                  <td>
-                    <strong>{coverage.doctor}</strong>
-                    <span>{coverage.specialty || "Especialidade não vinculada"}</span>
-                    <small>{selectedDoctor.registry || "CRM/registro não informado"}</small>
-                  </td>
-                  <td>
-                    <strong>{coverage.insurer}</strong>
-                    <span>{coverage.product || "Convênio inteiro"}</span>
-                    <small>
-                      {[coverage.productType, coverage.operatorCode, coverage.networkOrAccommodation]
-                        .filter(Boolean)
-                        .join(" · ") || "Sem detalhamento de produto/plano/rede"}
-                    </small>
-                  </td>
-                  <td>
-                    <span
-                      className={statusClass(
-                        coverage.insurerGloballyActive !== false && coverage.active
-                          ? "ok"
-                          : "blocker",
-                      )}
-                    >
-                      {coverage.insurerGloballyActive === false
-                        ? "Convênio desativado"
-                        : coverage.active
-                          ? "Aceite ativo"
-                          : "Aceite suspenso"}
-                    </span>
-                    <small>
-                      {coverage.insurerGloballyActive === false
-                        ? "Prevalece sobre os aceites médicos vinculados"
-                        : coverage.active
-                          ? "Disponível para o fluxo de atendimento"
-                          : "Não será oferecido ao paciente"}
-                    </small>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className={coverage.active ? "small danger" : "small success"}
-                      disabled={
-                        !canEdit ||
-                        coverage.insurerGloballyActive === false ||
-                        updatingCoverageId === coverage.id
-                      }
-                      onClick={() => onToggleCoverage(coverage)}
-                      title={
-                        !canEdit
-                          ? "Seu perfil não possui permissão para alterar coberturas"
-                          : coverage.insurerGloballyActive === false
-                            ? "Reative o convênio no cadastro global antes de alterar seus aceites"
-                            : undefined
-                      }
-                    >
-                      {updatingCoverageId === coverage.id
-                        ? "Salvando..."
-                        : coverage.active
-                          ? "Suspender"
-                          : "Ativar"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {pageRows.map((coverage) => {
+                const coverageDoctor = doctors.find(
+                  (doctor) => Number(doctor.id) === Number(coverage.doctorId),
+                );
+                return (
+                  <tr key={coverage.id}>
+                    <td>
+                      <strong>{coverage.doctor}</strong>
+                      <span>{coverage.specialty || "Especialidade não vinculada"}</span>
+                      <small>{coverageDoctor?.registry || "CRM/registro não informado"}</small>
+                    </td>
+                    <td>
+                      <strong>{coverage.insurer}</strong>
+                      <span>{coverage.product || "Convênio inteiro"}</span>
+                      <small>
+                        {[coverage.productType, coverage.operatorCode, coverage.networkOrAccommodation]
+                          .filter(Boolean)
+                          .join(" · ") || "Sem detalhamento de produto/plano/rede"}
+                      </small>
+                    </td>
+                    <td>
+                      <span
+                        className={statusClass(
+                          coverage.insurerGloballyActive !== false && coverage.active
+                            ? "ok"
+                            : "blocker",
+                        )}
+                      >
+                        {coverage.insurerGloballyActive === false
+                          ? "Convênio desativado"
+                          : coverage.active
+                            ? "Aceite ativo"
+                            : "Aceite suspenso"}
+                      </span>
+                      <small>
+                        {coverage.insurerGloballyActive === false
+                          ? "Prevalece sobre os aceites médicos vinculados"
+                          : coverage.active
+                            ? "Disponível para o fluxo de atendimento"
+                            : "Não será oferecido ao paciente"}
+                      </small>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={coverage.active ? "small danger" : "small success"}
+                        disabled={
+                          !canEdit ||
+                          coverage.insurerGloballyActive === false ||
+                          updatingCoverageId === coverage.id
+                        }
+                        onClick={() => onToggleCoverage(coverage)}
+                        title={
+                          !canEdit
+                            ? "Seu perfil não possui permissão para alterar coberturas"
+                            : coverage.insurerGloballyActive === false
+                              ? "Reative o convênio no cadastro global antes de alterar seus aceites"
+                              : undefined
+                        }
+                      >
+                        {updatingCoverageId === coverage.id
+                          ? "Salvando..."
+                          : coverage.active
+                            ? "Suspender"
+                            : "Ativar"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <div className="coveragePagination">

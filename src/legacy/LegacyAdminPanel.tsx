@@ -2232,11 +2232,11 @@ export default function LegacyAdminPanel() {
     : [];
 
   const accessScopeLabel = isGlobalAdmin
-    ? "Acesso global a todos os clientes"
+    ? "Administração da operação Polibon"
     : `${linkedClientesCount} cliente(s) vinculado(s)`;
 
   const accessScopeDetail = isGlobalAdmin
-    ? "Pode cadastrar clientes, canais WhatsApp, usuários e operar o dashboard global."
+    ? "Acesso integral à operação, usuários, cobertura assistencial e configurações técnicas da Polibon."
     : linkedClientesCount === 0
       ? "Nenhuma clínica vinculada ao seu usuário."
       : operationalClientesCount === 0
@@ -2836,20 +2836,20 @@ export default function LegacyAdminPanel() {
 
     const data = await api<Medico[]>(`/api/admin/clientes/${clienteId}/medicos`);
     setMedicos(data);
-
-    if (data.length > 0) {
-      setSelectedMedicoId(data[0].id);
-    }
   }
 
-  async function loadAceites(medicoId: number) {
+  async function loadAceites(medicoId: number | null) {
     if (!selectedClienteId) return;
     const clienteId = Number(selectedClienteId);
-    const doctorId = Number(medicoId);
-    const medicoAtual = medicos.find(
-      (medico) => Number(medico.id) === doctorId && Number(medico.cliente_id) === clienteId,
-    );
-    if (!medicoAtual) {
+    const doctorId = medicoId === null ? null : Number(medicoId);
+    const medicoAtual = doctorId === null
+      ? null
+      : medicos.find(
+          (medico) =>
+            Number(medico.id) === doctorId &&
+            Number(medico.cliente_id) === clienteId,
+        );
+    if (doctorId !== null && !medicoAtual) {
       setAceites([]);
       return;
     }
@@ -2858,8 +2858,11 @@ export default function LegacyAdminPanel() {
     setCoverageLoading(true);
     try {
       const status = legacyCoverageEditorEnabled ? aceiteFiltro : "todos";
+      const endpoint = doctorId === null
+        ? `/api/admin/clientes/${clienteId}/aceites?status=${status}`
+        : `/api/admin/clientes/${clienteId}/medicos/${doctorId}/aceites?status=${status}`;
       const data = await api<AceiteMedico[]>(
-        `/api/admin/clientes/${clienteId}/medicos/${doctorId}/aceites?status=${status}`,
+        endpoint,
       );
       if (requestId !== coverageRequestIdRef.current) return;
 
@@ -2867,13 +2870,17 @@ export default function LegacyAdminPanel() {
         data
           .filter((aceite) => {
             const aceiteDoctorId = Number(aceite.medico_id);
-            return !Number.isFinite(aceiteDoctorId) || aceiteDoctorId === doctorId;
+            return doctorId === null
+              ? Number.isFinite(aceiteDoctorId)
+              : !Number.isFinite(aceiteDoctorId) || aceiteDoctorId === doctorId;
           })
           .map((aceite) => {
             const aceiteDoctorId = Number(aceite.medico_id);
             return {
               ...aceite,
-              medico_id: Number.isFinite(aceiteDoctorId) ? aceiteDoctorId : doctorId,
+              medico_id: Number.isFinite(aceiteDoctorId)
+                ? aceiteDoctorId
+                : Number(doctorId),
             };
           }),
       );
@@ -3768,7 +3775,7 @@ export default function LegacyAdminPanel() {
       return;
     }
 
-    if (selectedMedicoId && clienteUsaConvenio) {
+    if (clienteUsaConvenio && medicos.length > 0) {
       setAceites([]);
       loadAceites(selectedMedicoId).catch((error) => showToast(error.message, true));
     } else {
@@ -4590,7 +4597,12 @@ export default function LegacyAdminPanel() {
   }
 
   async function toggleAceite(aceite: AceiteMedico) {
-    if (!selectedClienteId || !selectedMedicoId || !clienteUsaConvenio) return;
+    if (!selectedClienteId || !clienteUsaConvenio) return;
+    const aceiteMedicoId = Number(aceite.medico_id);
+    if (!Number.isFinite(aceiteMedicoId) || aceiteMedicoId <= 0) {
+      showToast("❌ Não foi possível identificar o médico deste aceite", true);
+      return;
+    }
 
     const actionText = aceite.ativo ? "desativar" : "ativar";
     const confirmed = window.confirm(
@@ -4939,13 +4951,13 @@ export default function LegacyAdminPanel() {
 
         <section className={isGlobalAdmin ? "accessScopeBanner global" : "accessScopeBanner scoped"}>
           <div>
-            <strong>{isGlobalAdmin ? "Admin Global" : "Acesso por cliente"}</strong>
+            <strong>{isGlobalAdmin ? "Administrador da Polibon" : "Acesso por cliente"}</strong>
             <span>{accessScopeDetail}</span>
           </div>
           <div className="accessScopeStats">
             <span>
               {isGlobalAdmin
-                ? `${clientes.length} clientes carregados`
+                ? "Operação Polibon"
                 : `${linkedClientesCount} vinculada(s) · ${operationalClientesCount} operacional(is)`}
             </span>
             {!isGlobalAdmin && linkedClientesCount === 0 && <strong className="criticalText">Nenhuma clínica vinculada</strong>}
