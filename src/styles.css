@@ -5948,6 +5948,21 @@ html[data-theme="dark"] .coverageTableWrap {
   color: #991b1b;
 }
 
+.catalogStatus--automatico,
+.catalogStatus--resolvido_automaticamente,
+.catalogStatus--confirmado_clinica {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.catalogStatus--ambiguo,
+.catalogStatus--nao_encontrado,
+.catalogStatus--sem_vinculo_convenio,
+.catalogStatus--mapeamento_inativo {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .catalogAttention {
   color: #92400e !important;
   font-weight: 800;
@@ -5997,6 +6012,142 @@ html[data-theme="dark"] .coverageTableWrap {
 
 .coverageMappingEditor button {
   justify-self: start;
+}
+
+.feegowMappingCenter {
+  background: linear-gradient(135deg, #f8fbff 0%, #f0fdf4 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.feegowMappingCenterHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.feegowMappingCenterHeader h4 {
+  margin: 3px 0 5px;
+}
+
+.feegowMappingCenterHeader p {
+  color: #475569;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 820px;
+}
+
+.feegowMappingSummary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.feegowMappingSummary > div {
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.feegowMappingSummary span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.feegowMappingSummary strong {
+  color: #0f172a;
+  font-size: 22px;
+}
+
+.feegowMappingSummary .success {
+  border-color: #bbf7d0;
+}
+
+.feegowMappingSummary .warning {
+  border-color: #fecaca;
+}
+
+.feegowMappingAutoNotice {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.feegowMappingAutoNotice span {
+  color: #475569;
+  font-size: 12px;
+}
+
+.feegowMappingExceptions {
+  border-top: 1px solid #dbeafe;
+  padding-top: 12px;
+}
+
+.feegowMappingExceptions > summary {
+  color: #1e3a5f;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.feegowMappingExceptions > p {
+  color: #166534;
+  margin: 12px 0 0;
+}
+
+.feegowMappingExceptionList {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.feegowMappingExceptionList article {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(220px, 1fr) auto;
+  padding: 12px;
+}
+
+.feegowMappingExceptionList article > div {
+  display: grid;
+  gap: 3px;
+}
+
+.feegowMappingExceptionList span,
+.feegowMappingExceptionList small {
+  color: #64748b;
+}
+
+.coverageAutomaticMappingHint {
+  align-self: stretch;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.coverageAutomaticMappingHint span {
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 button.warning {
@@ -6112,7 +6263,8 @@ html[data-theme="dark"] .coverageReadinessPanel {
 }
 
 html[data-theme="dark"] .coverageActivationGuide,
-html[data-theme="dark"] .coverageCredentialPanel {
+html[data-theme="dark"] .coverageCredentialPanel,
+html[data-theme="dark"] .feegowMappingCenter {
   background: #132236;
   border-color: #315b85;
 }
@@ -6124,10 +6276,28 @@ html[data-theme="dark"] .coverageCredentialPanel > summary {
 
 html[data-theme="dark"] .coverageActivationGuide p,
 html[data-theme="dark"] .coverageCredentialPanel p,
+html[data-theme="dark"] .feegowMappingCenterHeader p,
 html[data-theme="dark"] .coverageReadinessPanel span,
 html[data-theme="dark"] .coverageReadinessPanel li,
 html[data-theme="dark"] .coverageCreateHeader p {
   color: #cbd5e1;
+}
+
+html[data-theme="dark"] .feegowMappingSummary > div,
+html[data-theme="dark"] .feegowMappingExceptionList article {
+  background: #172033;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .feegowMappingSummary strong,
+html[data-theme="dark"] .feegowMappingExceptions > summary {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .feegowMappingAutoNotice,
+html[data-theme="dark"] .coverageAutomaticMappingHint {
+  background: #172033;
+  border-color: #315b85;
 }
 
 html[data-theme="dark"] .coverageCatalogCreate {
@@ -6182,12 +6352,15 @@ html[data-theme="dark"] .coveragePagination {
 
   .coverageCatalogCreateHeader,
   .coverageProductHeader,
+  .feegowMappingCenterHeader,
   .coverageCreateHeader,
   .coverageCredentialPanel > div {
     flex-direction: column;
   }
 
   .coverageReadinessPanel,
+  .feegowMappingSummary,
+  .feegowMappingExceptionList article,
   .coverageCreateGrid {
     grid-template-columns: 1fr;
   }

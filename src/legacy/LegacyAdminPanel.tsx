@@ -201,6 +201,15 @@ type FeegowPlanoCatalogo = {
   last_synced_at?: string | null;
 };
 
+type FeegowMappingResolutionStatus =
+  | "resolvido_automaticamente"
+  | "confirmado_clinica"
+  | "resolvivel_automaticamente"
+  | "ambiguo"
+  | "nao_encontrado"
+  | "sem_vinculo_convenio"
+  | "mapeamento_inativo";
+
 type Produto = {
   id: number;
   convenio_id: number;
@@ -216,6 +225,9 @@ type Produto = {
   feegow_plano_id?: number | null;
   feegow_plano_nome?: string | null;
   mapeamento_status?: string | null;
+  mapeamento_origem?: string | null;
+  validado_por?: string | null;
+  validado_em?: string | null;
   booking_ready?: boolean;
   aceites_ativos?: number;
   aceites_detalhes?: Array<{
@@ -227,6 +239,12 @@ type Produto = {
     ativo: boolean;
   }>;
   necessita_revisao?: boolean;
+  resolucao_status?: FeegowMappingResolutionStatus;
+  resolucao_criterio?: string | null;
+  resolucao_candidatos?: Array<{
+    feegow_plano_id: number;
+    nome: string;
+  }>;
   mapeamento_sugerido?: {
     feegow_plano_id: number;
     nome: string;
@@ -240,6 +258,46 @@ type ProdutosResponse = {
   forma: FormaAtendimento;
   produtos: Produto[];
   planos_feegow?: FeegowPlanoCatalogo[];
+};
+
+type FeegowMappingCenterItem = {
+  forma_id: number;
+  convenio_id: number;
+  convenio_nome: string;
+  produto_id: number;
+  produto_nome: string;
+  codigo_produto?: string | null;
+  plano_nome?: string | null;
+  rede_nome?: string | null;
+  aceites_ativos: number;
+  feegow_convenio_id?: number | null;
+  feegow_plano_id?: number | null;
+  feegow_plano_nome?: string | null;
+  validado_por?: string | null;
+  validado_em?: string | null;
+  booking_ready: boolean;
+  resolucao_status: FeegowMappingResolutionStatus;
+  resolucao_criterio: string;
+  resolucao_candidatos: Array<{
+    feegow_plano_id: number;
+    nome: string;
+  }>;
+};
+
+type FeegowMappingCenter = {
+  summary: {
+    total_opcoes_usadas: number;
+    resolvidas_automaticamente: number;
+    confirmadas_clinica: number;
+    resolutiveis_automaticamente: number;
+    ambiguas: number;
+    nao_encontradas: number;
+    sem_vinculo_convenio: number;
+    mapeamentos_inativos: number;
+    excecoes_reais: number;
+  };
+  items: FeegowMappingCenterItem[];
+  resolvidos_agora?: number;
 };
 
 type MedicoRegraIdade = {
@@ -912,6 +970,19 @@ function convenioSituacaoLabel(value: ConvenioCatalogoItem["situacao"]) {
     pronto: "Ativo no WhatsApp",
     nao_mapeado_feegow: "Cadastro para revisar",
     arquivado: "Arquivado",
+  };
+  return labels[value];
+}
+
+function feegowResolutionLabel(value: FeegowMappingResolutionStatus) {
+  const labels: Record<FeegowMappingResolutionStatus, string> = {
+    resolvido_automaticamente: "Resolvida automaticamente",
+    confirmado_clinica: "Confirmada pela clínica",
+    resolvivel_automaticamente: "Pronta para resolução automática",
+    ambiguo: "Ambígua",
+    nao_encontrado: "Não encontrada na Feegow",
+    sem_vinculo_convenio: "Convênio sem vínculo Feegow",
+    mapeamento_inativo: "ID validado ausente/inativo",
   };
   return labels[value];
 }
@@ -1894,6 +1965,10 @@ export default function LegacyAdminPanel() {
   const [coverageSection, setCoverageSection] = useState<"catalogo" | "aceites">("aceites");
   const [convenioCatalogo, setConvenioCatalogo] = useState<ConvenioCatalogoItem[]>([]);
   const [convenioCatalogoLoading, setConvenioCatalogoLoading] = useState(false);
+  const [feegowMappingCenter, setFeegowMappingCenter] =
+    useState<FeegowMappingCenter | null>(null);
+  const [feegowMappingCenterLoading, setFeegowMappingCenterLoading] =
+    useState(false);
   const [convenioCatalogoSearch, setConvenioCatalogoSearch] = useState("");
   const [convenioCatalogoStatus, setConvenioCatalogoStatus] = useState<
     | "todos"
@@ -2913,13 +2988,21 @@ export default function LegacyAdminPanel() {
 
   async function loadConvenioCatalogo(clienteId: number) {
     setConvenioCatalogoLoading(true);
+    setFeegowMappingCenterLoading(true);
     try {
-      const data = await api<ConvenioCatalogoResponse>(
-        `/api/admin/clientes/${clienteId}/convenios/catalogo`,
-      );
-      setConvenioCatalogo(data.items || []);
+      const [catalogo, correspondencias] = await Promise.all([
+        api<ConvenioCatalogoResponse>(
+          `/api/admin/clientes/${clienteId}/convenios/catalogo`,
+        ),
+        api<FeegowMappingCenter>(
+          `/api/admin/clientes/${clienteId}/convenios/correspondencias-feegow`,
+        ),
+      ]);
+      setConvenioCatalogo(catalogo.items || []);
+      setFeegowMappingCenter(correspondencias);
     } finally {
       setConvenioCatalogoLoading(false);
+      setFeegowMappingCenterLoading(false);
     }
   }
 
@@ -4305,7 +4388,7 @@ export default function LegacyAdminPanel() {
     setToast("");
     setLoadingAction("convenio.catalogo.sync");
     try {
-      await api(
+      const result = await api<{ correspondencias?: FeegowMappingCenter }>(
         `/api/admin/clientes/${selectedClienteId}/convenios/catalogo/sincronizar-feegow`,
         { method: "POST" },
       );
@@ -4313,12 +4396,50 @@ export default function LegacyAdminPanel() {
         loadFormas(selectedClienteId),
         loadConvenioCatalogo(selectedClienteId),
       ]);
-      showToast("✅ Catálogo da Feegow sincronizado. O novo convênio já pode ser adicionado.");
+      const resolvedNow = Number(
+        result.correspondencias?.resolvidos_agora || 0,
+      );
+      showToast(
+        resolvedNow > 0
+          ? `✅ Feegow sincronizada e ${resolvedNow} correspondência(s) segura(s) resolvida(s) automaticamente`
+          : "✅ Catálogo da Feegow sincronizado. Nenhuma confirmação segura ficou pendente.",
+      );
     } catch (error) {
       showToast(
         error instanceof Error
           ? `❌ ${error.message}`
           : "❌ Erro ao sincronizar o catálogo Feegow",
+        true,
+      );
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function resolverCorrespondenciasSeguras() {
+    if (!selectedClienteId) return;
+
+    setToast("");
+    setLoadingAction("convenio.correspondencias.auto");
+    try {
+      const result = await api<FeegowMappingCenter>(
+        `/api/admin/clientes/${selectedClienteId}/convenios/correspondencias-feegow/resolver-seguras`,
+        { method: "POST" },
+      );
+      await Promise.all([
+        loadConvenioCatalogo(selectedClienteId),
+        selectedForma ? loadProdutos(selectedForma, produtoSituacaoFiltro) : Promise.resolve(),
+      ]);
+      showToast(
+        result.resolvidos_agora
+          ? `✅ ${result.resolvidos_agora} correspondência(s) exata(s) e única(s) resolvida(s) automaticamente`
+          : "✅ Não há correspondências exatas e únicas aguardando resolução",
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? `❌ ${error.message}`
+          : "❌ Erro ao resolver correspondências seguras",
         true,
       );
     } finally {
@@ -4666,6 +4787,24 @@ export default function LegacyAdminPanel() {
     );
     if (!confirmed) return;
 
+    let justificativa: string | null = null;
+    if (produto.resolucao_status !== "resolvivel_automaticamente") {
+      const evidence = window.prompt(
+        [
+          "Informe a evidência confirmada pela clínica.",
+          "",
+          "Exemplos: paciente real conferido na Feegow, agendamento anterior ou orientação da recepção.",
+          "Não confirme apenas porque os nomes parecem semelhantes.",
+        ].join("\n"),
+      );
+      if (evidence === null) return;
+      justificativa = evidence.trim();
+      if (justificativa.length < 5) {
+        showToast("❌ Descreva a evidência usada para confirmar este ID", true);
+        return;
+      }
+    }
+
     setToast("");
     setLoadingAction(`produto-mapeamento-${produto.id}`);
 
@@ -4674,7 +4813,10 @@ export default function LegacyAdminPanel() {
         `/api/admin/formas-atendimento/${selectedForma.id}/produtos/${produto.id}/mapeamento-feegow`,
         {
           method: "PUT",
-          body: JSON.stringify({ feegow_plano_id: feegowPlanoId }),
+          body: JSON.stringify({
+            feegow_plano_id: feegowPlanoId,
+            justificativa,
+          }),
         },
       );
 
@@ -6753,16 +6895,19 @@ export default function LegacyAdminPanel() {
                     className="coverageCatalogStat"
                     onClick={() => setConvenioCatalogoStatus("revisar")}
                   >
-                    <span>Opções para revisar</span>
+                    <span>Exceções reais</span>
                     <strong>
-                      {convenioCatalogo.reduce(
-                        (total, item) =>
-                          total +
-                          (item.arquivado ? 0 : Number(item.opcoes_revisao || 0)),
-                        0,
-                      )}
+                      {feegowMappingCenter?.summary.excecoes_reais ??
+                        convenioCatalogo.reduce(
+                          (total, item) =>
+                            total +
+                            (item.arquivado
+                              ? 0
+                              : Number(item.opcoes_revisao || 0)),
+                          0,
+                        )}
                     </strong>
-                    <small>Revisar booking</small>
+                    <small>Somente ambiguidades e não encontrados</small>
                   </button>
                   <button
                     type="button"
@@ -6786,7 +6931,8 @@ export default function LegacyAdminPanel() {
                     <li><strong>Feegow:</strong> cadastre o convênio e seus planos.</li>
                     <li><strong>Angel:</strong> sincronize e adicione o convênio ao catálogo.</li>
                     <li><strong>Coberturas:</strong> escolha médico, especialidade e plano aceito.</li>
-                    <li><strong>Booking:</strong> confirme a correspondência segura com o plano Feegow.</li>
+                    <li><strong>Booking:</strong> vínculos exatos e únicos são resolvidos automaticamente.</li>
+                    <li><strong>Exceções:</strong> confirme manualmente somente com evidência da clínica.</li>
                     <li><strong>Publicação:</strong> clique em <em>Publicar no WhatsApp</em>.</li>
                   </ol>
                   <p>
@@ -6794,6 +6940,178 @@ export default function LegacyAdminPanel() {
                     <strong> Em configuração</strong> e não aparece para o paciente.
                   </p>
                 </details>
+
+                <section className="feegowMappingCenter">
+                  <div className="feegowMappingCenterHeader">
+                    <div>
+                      <span className="coverageEyebrow">BOOKING FEEGOW</span>
+                      <h4>Central de correspondências</h4>
+                      <p>
+                        Cada opção comercial é resolvida uma única vez e reutilizada
+                        por todos os médicos. Você revisa somente ambiguidades e itens
+                        sem correspondência exata.
+                      </p>
+                    </div>
+                    {canValidateCoverage && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={
+                          loadingAction === "convenio.correspondencias.auto" ||
+                          feegowMappingCenterLoading
+                        }
+                        onClick={() => void resolverCorrespondenciasSeguras()}
+                      >
+                        {loadingAction === "convenio.correspondencias.auto"
+                          ? "Resolvendo..."
+                          : "Resolver correspondências seguras"}
+                      </button>
+                    )}
+                  </div>
+
+                  {feegowMappingCenterLoading || !feegowMappingCenter ? (
+                    <div className="coverageEmpty">Carregando correspondências…</div>
+                  ) : (
+                    <>
+                      <div className="feegowMappingSummary">
+                        <div>
+                          <span>Opções usadas</span>
+                          <strong>
+                            {feegowMappingCenter.summary.total_opcoes_usadas}
+                          </strong>
+                        </div>
+                        <div className="success">
+                          <span>Automáticas</span>
+                          <strong>
+                            {
+                              feegowMappingCenter.summary
+                                .resolvidas_automaticamente
+                            }
+                          </strong>
+                        </div>
+                        <div className="success">
+                          <span>Confirmadas pela clínica</span>
+                          <strong>
+                            {feegowMappingCenter.summary.confirmadas_clinica}
+                          </strong>
+                        </div>
+                        <div className="warning">
+                          <span>Exceções reais</span>
+                          <strong>
+                            {feegowMappingCenter.summary.excecoes_reais}
+                          </strong>
+                        </div>
+                      </div>
+
+                      {feegowMappingCenter.summary.resolutiveis_automaticamente >
+                        0 && (
+                        <div className="feegowMappingAutoNotice">
+                          <strong>
+                            {
+                              feegowMappingCenter.summary
+                                .resolutiveis_automaticamente
+                            }{" "}
+                            vínculo(s) exato(s) e único(s)
+                          </strong>
+                          <span>
+                            Podem ser resolvidos em lote pelo botão acima, sem
+                            confirmação individual.
+                          </span>
+                        </div>
+                      )}
+
+                      <details
+                        className="feegowMappingExceptions"
+                        open={feegowMappingCenter.summary.excecoes_reais > 0}
+                      >
+                        <summary>
+                          Exceções que precisam de evidência ·{" "}
+                          {feegowMappingCenter.summary.excecoes_reais}
+                        </summary>
+                        {feegowMappingCenter.summary.excecoes_reais === 0 ? (
+                          <p>
+                            Nenhuma ambiguidade ou opção sem correspondência entre
+                            as coberturas usadas.
+                          </p>
+                        ) : (
+                          <div className="feegowMappingExceptionList">
+                            {feegowMappingCenter.items
+                              .filter((item) =>
+                                [
+                                  "ambiguo",
+                                  "nao_encontrado",
+                                  "sem_vinculo_convenio",
+                                  "mapeamento_inativo",
+                                ].includes(item.resolucao_status),
+                              )
+                              .map((item) => {
+                                const catalogItem = convenioCatalogo.find(
+                                  (candidate) =>
+                                    Number(candidate.forma_id) ===
+                                    Number(item.forma_id),
+                                );
+                                return (
+                                  <article key={item.produto_id}>
+                                    <div>
+                                      <strong>{item.convenio_nome}</strong>
+                                      <span>{item.produto_nome}</span>
+                                      <small>
+                                        {item.aceites_ativos} cobertura(s) usam
+                                        esta opção
+                                      </small>
+                                    </div>
+                                    <div>
+                                      <span
+                                        className={`catalogStatus catalogStatus--${item.resolucao_status}`}
+                                      >
+                                        {feegowResolutionLabel(
+                                          item.resolucao_status,
+                                        )}
+                                      </span>
+                                      {item.resolucao_status === "ambiguo" && (
+                                        <small>
+                                          {item.resolucao_candidatos.length} IDs
+                                          com o mesmo nome exato
+                                        </small>
+                                      )}
+                                      {item.resolucao_status ===
+                                        "nao_encontrado" && (
+                                        <small>
+                                          Nenhum nome exato; não escolher por
+                                          semelhança
+                                        </small>
+                                      )}
+                                      {item.resolucao_status ===
+                                        "mapeamento_inativo" && (
+                                        <small>
+                                          O ID antes validado não está ativo no
+                                          catálogo atual
+                                        </small>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="small"
+                                      disabled={!catalogItem}
+                                      onClick={() =>
+                                        catalogItem &&
+                                        void abrirEstruturaConvenio(
+                                          catalogItem,
+                                          "revisar",
+                                        )
+                                      }
+                                    >
+                                      Revisar com evidência
+                                    </button>
+                                  </article>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </details>
+                    </>
+                  )}
+                </section>
 
                 {canManageCoverage && (
                   <details className="coverageCredentialPanel">
@@ -7263,25 +7581,14 @@ export default function LegacyAdminPanel() {
                             required
                           />
                         </label>
-                        <label>
-                          Plano correspondente no Feegow
-                          <select
-                            value={novoProduto.feegow_plano_id}
-                            onChange={(event) =>
-                              setNovoProduto((current) => ({
-                                ...current,
-                                feegow_plano_id: event.target.value,
-                              }))
-                            }
-                          >
-                            <option value="">Confirmar depois</option>
-                            {planosFeegow.map((plano) => (
-                              <option key={plano.feegow_plano_id} value={plano.feegow_plano_id}>
-                                {plano.nome} · ID {plano.feegow_plano_id}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <div className="coverageAutomaticMappingHint">
+                          <strong>Correspondência Feegow automática</strong>
+                          <span>
+                            Ao salvar, o Angel vincula somente se encontrar um nome
+                            normalizado exato e um único ID. Qualquer exceção irá
+                            para a central de revisão.
+                          </span>
+                        </div>
                         <button type="submit" disabled={loadingAction === "produto"}>
                           {loadingAction === "produto" ? "Salvando..." : "Adicionar item"}
                         </button>
@@ -7427,17 +7734,19 @@ export default function LegacyAdminPanel() {
                                     >
                                       {loadingAction === `produto-mapeamento-${produto.id}`
                                         ? "Confirmando..."
-                                        : produto.mapeamento_sugerido
-                                          ? "Confirmar sugestão"
-                                          : "Confirmar correspondência"}
+                                        : "Confirmar com evidência"}
                                     </button>
-                                    {produto.mapeamento_sugerido && (
-                                      <small className="mappingSuggestion">
-                                        Sugestão por nome exato:{" "}
-                                        <strong>{produto.mapeamento_sugerido.nome}</strong>.
-                                        Confira antes de confirmar.
-                                      </small>
-                                    )}
+                                    <small className="mappingSuggestion">
+                                      {produto.resolucao_status === "ambiguo"
+                                        ? `${produto.resolucao_candidatos?.length || 0} IDs possuem o mesmo nome exato. Confirme qual é usado pela clínica.`
+                                        : produto.resolucao_status ===
+                                            "nao_encontrado"
+                                          ? "Não há nome exato na Feegow. Use paciente, histórico ou orientação da recepção como evidência."
+                                          : produto.resolucao_status ===
+                                              "mapeamento_inativo"
+                                            ? "O ID antes validado está ausente ou inativo. Confirme o substituto com a clínica."
+                                          : "O vínculo do convênio com a Feegow precisa ser conferido."}
+                                    </small>
                                     {!canValidateCoverage && (
                                       <small>Seu perfil não permite validar correspondências.</small>
                                     )}
@@ -7445,13 +7754,26 @@ export default function LegacyAdminPanel() {
                                 ) : (
                                   <>
                                     <strong>
-                                      {produto.feegow_plano_id
+                                      {produto.booking_ready &&
+                                      produto.feegow_plano_id
                                         ? `${produto.feegow_plano_nome || "Plano Feegow"}`
+                                        : produto.resolucao_status ===
+                                            "resolvivel_automaticamente"
+                                          ? "Nome exato e único encontrado"
                                         : "Ainda não exigida"}
                                     </strong>
                                     <small>
-                                      {produto.feegow_plano_id
-                                        ? `ID ${produto.feegow_plano_id}`
+                                      {produto.booking_ready &&
+                                      produto.feegow_plano_id
+                                        ? `ID ${produto.feegow_plano_id} · ${
+                                            produto.resolucao_status ===
+                                            "resolvido_automaticamente"
+                                              ? "resolução automática"
+                                              : "confirmado pela clínica"
+                                          }`
+                                        : produto.resolucao_status ===
+                                            "resolvivel_automaticamente"
+                                          ? "Use a resolução em lote; não exige confirmação individual"
                                         : "A confirmação será exigida quando houver cobertura ativa"}
                                     </small>
                                   </>
@@ -7464,23 +7786,39 @@ export default function LegacyAdminPanel() {
                                       ? "catalogStatus--pronto"
                                       : produto.necessita_revisao
                                         ? "catalogStatus--revisar"
+                                        : produto.resolucao_status ===
+                                            "resolvivel_automaticamente"
+                                          ? "catalogStatus--automatico"
                                         : "catalogStatus--suspenso"
                                   }`}
                                 >
                                   {produto.booking_ready
-                                    ? "Booking validado"
+                                    ? produto.resolucao_status ===
+                                      "resolvido_automaticamente"
+                                      ? "Resolvida automaticamente"
+                                      : "Confirmada pela clínica"
                                     : produto.necessita_revisao
-                                      ? produto.mapeamento_sugerido
-                                        ? "Sugestão para confirmar"
-                                        : "Escolha necessária"
+                                      ? feegowResolutionLabel(
+                                          produto.resolucao_status ||
+                                            "nao_encontrado",
+                                        )
+                                      : produto.resolucao_status ===
+                                          "resolvivel_automaticamente"
+                                        ? "Resolução automática disponível"
                                       : produto.ativo
                                         ? "Sem uso atual"
                                         : "Inativa"}
                                 </span>
                                 <small>
                                   {produto.booking_ready
-                                    ? "Correspondência validada"
-                                    : produto.mapeamento_status || "Sem correspondência validada"}
+                                    ? produto.resolucao_status ===
+                                      "resolvido_automaticamente"
+                                      ? "Nome normalizado exato e ID único"
+                                      : "Evidência registrada com usuário e data"
+                                    : produto.necessita_revisao
+                                      ? "Sem escolha automática por semelhança"
+                                      : produto.mapeamento_status ||
+                                        "Sem correspondência validada"}
                                 </small>
                               </td>
                               <td>
