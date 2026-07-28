@@ -5410,3 +5410,424 @@ html[data-theme="dark"] .channelTestIcon { background: rgba(96, 165, 250, 0.18);
   color: #64748b;
   cursor: not-allowed;
 }
+
+
+/* Etapa 2 — navegação Polibon e separação operacional */
+.navSectionLabel {
+  margin: 20px 14px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: #8fa0ba;
+}
+
+.coverageModule {
+  display: grid;
+  gap: 18px;
+}
+
+.coverageModuleHeader,
+.coverageFilters,
+.coverageFutureFlow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.coverageOperationalNote {
+  align-items: center;
+  background: #eff8ff;
+  border: 1px solid #c7e5fb;
+  border-radius: 12px;
+  color: #274963;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+}
+
+.coverageOperationalNote strong {
+  color: #17364d;
+}
+
+html[data-theme="dark"] .coverageOperationalNote {
+  background: #172b3a;
+  border-color: #31536a;
+  color: #d7e9f5;
+}
+
+html[data-theme="dark"] .coverageOperationalNote strong {
+  color: #ffffff;
+}
+
+.coverageModuleHeader {
+  justify-content: space-between;
+}
+
+.coverageModuleHeader h3 {
+  margin: 4px 0;
+  font-size: 26px;
+}
+
+.coverageModuleHeader p,
+.coverageModuleHeader small {
+  margin: 0;
+  color: #64748b;
+}
+
+.coverageEyebrow {
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.coverageReadOnlyBadge,
+.coverageStatus {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.coverageReadOnlyBadge {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.coverageFutureFlow {
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.coverageFutureFlow span:not(:last-child)::after {
+  content: "→";
+  margin-left: 16px;
+  color: #94a3b8;
+}
+
+.coverageFilters {
+  align-items: end;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.coverageFilters label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.coverageEmpty {
+  padding: 36px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  color: #64748b;
+  text-align: center;
+}
+
+.coverageTableWrap {
+  overflow: auto;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+}
+
+.coverageTable {
+  min-width: 1180px;
+  margin: 0;
+}
+
+.coverageTable td {
+  vertical-align: top;
+}
+
+.coverageTable td > strong,
+.coverageTable td > span:not(.coverageStatus),
+.coverageTable td > small {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.coverageTable td > small {
+  color: #64748b;
+}
+
+.coveragePagination {
+  align-items: center;
+  border-top: 1px solid #dbe4f0;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.coveragePagination > div {
+  display: flex;
+  gap: 8px;
+}
+
+.coveragePagination > span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.coverageDiagnostics {
+  display: grid;
+  gap: 6px;
+}
+
+.coverageStatus--ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.coverageStatus--warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.coverageStatus--blocker {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+html[data-theme="dark"] .coverageFutureFlow,
+html[data-theme="dark"] .coverageTableWrap {
+  border-color: #334155;
+  background: #111827;
+}
+
+.coverageHub,
+.coverageCatalog,
+.coverageProductPanel {
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.coverageSectionTabs {
+  background: #f1f5f9;
+  border-radius: 12px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  width: fit-content;
+}
+
+.coverageSectionTabs button {
+  background: transparent;
+  border: 0;
+  color: #475569;
+  padding: 10px 16px;
+}
+
+.coverageSectionTabs button.active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .12);
+  color: #1d4ed8;
+}
+
+.coverageCatalogStats {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.coverageCatalogStats article {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+}
+
+.coverageCatalogStats span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.coverageCatalogStats strong {
+  color: #0f172a;
+  font-size: 24px;
+}
+
+.coverageCatalogCreate {
+  background: #f8fbff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.coverageCatalogCreateHeader,
+.coverageProductHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.coverageCatalogCreateHeader h4,
+.coverageProductHeader h4 {
+  margin: 0 0 5px;
+}
+
+.coverageCatalogCreateHeader p,
+.coverageProductHeader p {
+  color: #64748b;
+  margin: 0;
+}
+
+.coverageCatalogCreateHeader > span {
+  background: #dbeafe;
+  border-radius: 999px;
+  color: #1e40af;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.coverageCatalogCreateGrid,
+.coverageProductCreate,
+.coverageCatalogFilters {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.coverageCatalogCreateGrid label,
+.coverageProductCreate label,
+.coverageCatalogFilters label {
+  display: grid;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.coverageCatalogFilters {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.coverageCatalogFilters > span {
+  align-self: center;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  justify-self: end;
+}
+
+.coverageCatalogTable {
+  min-width: 1320px;
+}
+
+.coverageCatalogActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.catalogStatus {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 9px;
+}
+
+.catalogStatus--pronto {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.catalogStatus--suspenso,
+.catalogStatus--nao_cadastrado {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.catalogStatus--sem_aceites,
+.catalogStatus--mapeamento_pendente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.catalogStatus--nao_mapeado_feegow {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.coverageProductPanel {
+  box-shadow: inset 0 3px 0 #2563eb;
+  margin-top: 2px;
+}
+
+.coverageProductCreate {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+html[data-theme="dark"] .coverageHub,
+html[data-theme="dark"] .coverageCatalog,
+html[data-theme="dark"] .coverageProductPanel,
+html[data-theme="dark"] .coverageSectionTabs button.active {
+  background: #111827;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .coverageSectionTabs,
+html[data-theme="dark"] .coverageCatalogStats article,
+html[data-theme="dark"] .coverageCatalogFilters,
+html[data-theme="dark"] .coverageProductCreate {
+  background: #172033;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .coverageCatalogCreate {
+  background: #132236;
+  border-color: #315b85;
+}
+
+html[data-theme="dark"] .coverageCatalogStats strong {
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .coveragePagination {
+  border-color: #334155;
+}
+
+@media (max-width: 900px) {
+  .coverageFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .coverageModuleHeader {
+    align-items: flex-start;
+  }
+
+  .coverageCatalogStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coverageCatalogCreateHeader,
+  .coverageProductHeader {
+    flex-direction: column;
+  }
+}
