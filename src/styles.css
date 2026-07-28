@@ -5523,6 +5523,48 @@ html[data-theme="dark"] .coverageOperationalNote strong {
   gap: 6px;
   font-size: 12px;
   font-weight: 700;
+  min-width: 0;
+}
+
+.coverageFilters label > input,
+.coverageFilters label > select {
+  min-width: 0;
+  width: 100%;
+}
+
+.coverageFilters--medical {
+  grid-template-areas:
+    "doctor doctor doctor insurer insurer insurer insurerStatus insurerStatus insurerStatus status status status"
+    "detail detail detail detail specialty specialty specialty search search search search search";
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.coverageFilter--doctor {
+  grid-area: doctor;
+}
+
+.coverageFilter--insurer {
+  grid-area: insurer;
+}
+
+.coverageFilter--insurerStatus {
+  grid-area: insurerStatus;
+}
+
+.coverageFilter--detail {
+  grid-area: detail;
+}
+
+.coverageFilter--specialty {
+  grid-area: specialty;
+}
+
+.coverageFilter--status {
+  grid-area: status;
+}
+
+.coverageFilter--search {
+  grid-area: search;
 }
 
 .coverageEmpty {
@@ -5530,6 +5572,12 @@ html[data-theme="dark"] .coverageOperationalNote strong {
   border: 1px dashed #cbd5e1;
   border-radius: 14px;
   color: #64748b;
+  text-align: center;
+}
+
+.coverageEmptyCell {
+  color: #64748b;
+  padding: 30px !important;
   text-align: center;
 }
 
@@ -5672,6 +5720,51 @@ html[data-theme="dark"] .coverageTableWrap {
   padding: 18px;
 }
 
+.coverageAvailablePanel {
+  background: #f8fbff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.coverageAvailablePanel > summary {
+  align-items: center;
+  color: #1e3a5f;
+  cursor: pointer;
+  display: flex;
+  font-weight: 800;
+  justify-content: space-between;
+  list-style: none;
+  padding: 15px 18px;
+}
+
+.coverageAvailablePanel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.coverageAvailablePanel > summary::after {
+  color: #2563eb;
+  content: "＋";
+  font-size: 20px;
+  margin-left: 12px;
+}
+
+.coverageAvailablePanel[open] > summary::after {
+  content: "−";
+}
+
+.coverageAvailablePanel > summary strong {
+  color: #64748b;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.coverageAvailablePanel .coverageCatalogCreate {
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid #bfdbfe;
+}
+
 .coverageCatalogCreateHeader,
 .coverageProductHeader {
   align-items: flex-start;
@@ -5755,6 +5848,11 @@ html[data-theme="dark"] .coverageTableWrap {
   color: #166534;
 }
 
+.catalogStatus--ativo_parcial {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .catalogStatus--suspenso,
 .catalogStatus--nao_cadastrado {
   background: #e2e8f0;
@@ -5762,7 +5860,7 @@ html[data-theme="dark"] .coverageTableWrap {
 }
 
 .catalogStatus--sem_aceites,
-.catalogStatus--mapeamento_pendente {
+.catalogStatus--revisar {
   background: #fef3c7;
   color: #92400e;
 }
@@ -5770,6 +5868,37 @@ html[data-theme="dark"] .coverageTableWrap {
 .catalogStatus--nao_mapeado_feegow {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.catalogAttention {
+  color: #92400e !important;
+  font-weight: 800;
+  margin-top: 7px;
+}
+
+.coverageMappingEditor {
+  display: grid;
+  gap: 8px;
+  min-width: 300px;
+}
+
+.coverageMappingEditor select {
+  min-width: 0;
+  width: 100%;
+}
+
+.coverageMappingEditor button {
+  justify-self: start;
+}
+
+button.warning {
+  background: #d97706;
+  border-color: #d97706;
+  color: #ffffff;
+}
+
+button.warning:hover:not(:disabled) {
+  background: #b45309;
 }
 
 .coverageProductPanel {
@@ -5805,6 +5934,19 @@ html[data-theme="dark"] .coverageCatalogCreate {
   border-color: #315b85;
 }
 
+html[data-theme="dark"] .coverageAvailablePanel {
+  background: #132236;
+  border-color: #315b85;
+}
+
+html[data-theme="dark"] .coverageAvailablePanel > summary {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .coverageAvailablePanel .coverageCatalogCreate {
+  border-color: #315b85;
+}
+
 html[data-theme="dark"] .coverageCatalogStats strong {
   color: #f8fafc;
 }
@@ -5818,6 +5960,17 @@ html[data-theme="dark"] .coveragePagination {
     grid-template-columns: 1fr;
   }
 
+  .coverageFilters--medical {
+    grid-template-areas:
+      "doctor"
+      "insurer"
+      "insurerStatus"
+      "status"
+      "detail"
+      "specialty"
+      "search";
+  }
+
   .coverageModuleHeader {
     align-items: flex-start;
   }
@@ -5829,5 +5982,16 @@ html[data-theme="dark"] .coveragePagination {
   .coverageCatalogCreateHeader,
   .coverageProductHeader {
     flex-direction: column;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1280px) {
+  .coverageFilters--medical {
+    grid-template-areas:
+      "doctor insurer"
+      "insurerStatus status"
+      "detail specialty"
+      "search search";
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

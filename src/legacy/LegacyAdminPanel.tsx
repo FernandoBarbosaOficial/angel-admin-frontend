@@ -168,13 +168,15 @@ type ConvenioCatalogoItem = {
   permite_agendamento_online: boolean;
   produtos_ativos: number;
   aceites_ativos: number;
+  opcoes_aceitas: number;
   crosswalk_validado: number;
   crosswalk_pendente: number;
+  opcoes_revisao: number;
   situacao:
     | "nao_cadastrado"
     | "suspenso"
     | "sem_aceites"
-    | "mapeamento_pendente"
+    | "ativo_parcial"
     | "pronto"
     | "nao_mapeado_feegow";
   registrado: boolean;
@@ -207,6 +209,8 @@ type Produto = {
   feegow_plano_nome?: string | null;
   mapeamento_status?: string | null;
   booking_ready?: boolean;
+  aceites_ativos?: number;
+  necessita_revisao?: boolean;
   observacao?: string | null;
   ativo: boolean;
 };
@@ -875,12 +879,12 @@ function convenioEstruturaLabel(value: ConvenioEstrutura) {
 
 function convenioSituacaoLabel(value: ConvenioCatalogoItem["situacao"]) {
   const labels: Record<ConvenioCatalogoItem["situacao"], string> = {
-    nao_cadastrado: "Disponível no Feegow",
+    nao_cadastrado: "Disponível para adicionar",
     suspenso: "Suspenso",
-    sem_aceites: "Sem aceites",
-    mapeamento_pendente: "Mapeamento pendente",
-    pronto: "Pronto para agendamento",
-    nao_mapeado_feegow: "Sem vínculo Feegow",
+    sem_aceites: "Ainda não configurado",
+    ativo_parcial: "Ativo no WhatsApp",
+    pronto: "Ativo no WhatsApp",
+    nao_mapeado_feegow: "Cadastro para revisar",
   };
   return labels[value];
 }
@@ -1855,13 +1859,17 @@ export default function LegacyAdminPanel() {
   const [planosFeegow, setPlanosFeegow] = useState<FeegowPlanoCatalogo[]>([]);
   const [produtoSearch, setProdutoSearch] = useState("");
   const [produtoTipoFiltro, setProdutoTipoFiltro] = useState("todos");
+  const [produtoSituacaoFiltro, setProdutoSituacaoFiltro] = useState<
+    "todos" | "revisar" | "prontos" | "inativos"
+  >("todos");
+  const [produtoMapeamentos, setProdutoMapeamentos] = useState<Record<number, string>>({});
   const [produtoPage, setProdutoPage] = useState(1);
   const [coverageSection, setCoverageSection] = useState<"catalogo" | "aceites">("aceites");
   const [convenioCatalogo, setConvenioCatalogo] = useState<ConvenioCatalogoItem[]>([]);
   const [convenioCatalogoLoading, setConvenioCatalogoLoading] = useState(false);
   const [convenioCatalogoSearch, setConvenioCatalogoSearch] = useState("");
   const [convenioCatalogoStatus, setConvenioCatalogoStatus] = useState<
-    "todos" | "cadastrados" | "nao_cadastrados" | "ativos" | "suspensos" | "pendentes"
+    "todos" | "ativos" | "revisar" | "sem_aceites" | "suspensos" | "cadastro_revisar"
   >("todos");
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -2077,6 +2085,7 @@ export default function LegacyAdminPanel() {
   const legacyCoverageEditorEnabled: boolean = false;
   const capabilities = new Set(accessScope?.capabilities || []);
   const canManageCoverage = isGlobalAdmin || capabilities.has("coverage.edit");
+  const canValidateCoverage = isGlobalAdmin || capabilities.has("coverage.validate");
   const canManageTechnical = isGlobalAdmin || capabilities.has("technical.whatsapp");
   const canManageUsers = isGlobalAdmin || capabilities.has("users.manage");
   const canViewAudit = isGlobalAdmin || capabilities.has("technical.audit");
@@ -2409,25 +2418,31 @@ export default function LegacyAdminPanel() {
     const query = normalizeSearch(convenioCatalogoSearch);
 
     return convenioCatalogo.filter((item) => {
-      if (convenioCatalogoStatus === "cadastrados" && !item.registrado) return false;
-      if (convenioCatalogoStatus === "nao_cadastrados" && item.registrado) return false;
+      if (!item.registrado) return false;
       if (
         convenioCatalogoStatus === "ativos" &&
-        (!item.registrado || !item.ativo || !item.permite_agendamento_online)
+        !["pronto", "ativo_parcial"].includes(item.situacao)
+      ) {
+        return false;
+      }
+      if (convenioCatalogoStatus === "revisar" && item.opcoes_revisao === 0) {
+        return false;
+      }
+      if (
+        convenioCatalogoStatus === "sem_aceites" &&
+        item.situacao !== "sem_aceites"
       ) {
         return false;
       }
       if (
         convenioCatalogoStatus === "suspensos" &&
-        (!item.registrado || (item.ativo && item.permite_agendamento_online))
+        item.situacao !== "suspenso"
       ) {
         return false;
       }
       if (
-        convenioCatalogoStatus === "pendentes" &&
-        !["sem_aceites", "mapeamento_pendente", "nao_mapeado_feegow"].includes(
-          item.situacao,
-        )
+        convenioCatalogoStatus === "cadastro_revisar" &&
+        item.situacao !== "nao_mapeado_feegow"
       ) {
         return false;
       }
@@ -2511,6 +2526,15 @@ export default function LegacyAdminPanel() {
       if (produtoTipoFiltro !== "todos" && produto.tipo !== produtoTipoFiltro) {
         return false;
       }
+      if (produtoSituacaoFiltro === "revisar" && !produto.necessita_revisao) {
+        return false;
+      }
+      if (produtoSituacaoFiltro === "prontos" && !produto.booking_ready) {
+        return false;
+      }
+      if (produtoSituacaoFiltro === "inativos" && produto.ativo) {
+        return false;
+      }
       if (!q) return true;
 
       return [
@@ -2527,7 +2551,7 @@ export default function LegacyAdminPanel() {
         .filter(Boolean)
         .some((value) => normalizeSearch(value).includes(q));
     });
-  }, [produtoSearch, produtoTipoFiltro, produtos]);
+  }, [produtoSearch, produtoSituacaoFiltro, produtoTipoFiltro, produtos]);
 
   const totalProdutoPages = Math.max(
     1,
@@ -2905,15 +2929,27 @@ export default function LegacyAdminPanel() {
     setDisponibilidades(mergeDisponibilidadesFromApi(data));
   }
 
-  async function loadProdutos(forma: FormaAtendimento) {
+  async function loadProdutos(
+    forma: FormaAtendimento,
+    situacaoInicial: "todos" | "revisar" | "prontos" | "inativos" = "todos",
+  ) {
     setSelectedForma(forma);
     setProdutoSearch("");
     setProdutoTipoFiltro("todos");
+    setProdutoSituacaoFiltro(situacaoInicial);
     setProdutoPage(1);
     const data = await api<ProdutosResponse>(`/api/admin/formas-atendimento/${forma.id}/produtos`);
     setSelectedForma(data.forma);
     setProdutos(data.produtos);
     setPlanosFeegow(data.planos_feegow || []);
+    setProdutoMapeamentos(
+      Object.fromEntries(
+        (data.produtos || []).map((produto) => [
+          produto.id,
+          produto.feegow_plano_id ? String(produto.feegow_plano_id) : "",
+        ]),
+      ),
+    );
   }
 
   async function loadAceiteProdutos(forma: FormaAtendimento) {
@@ -4069,11 +4105,19 @@ export default function LegacyAdminPanel() {
     };
   }
 
-  async function abrirEstruturaConvenio(item: ConvenioCatalogoItem) {
+  async function abrirEstruturaConvenio(
+    item: ConvenioCatalogoItem,
+    situacaoInicial: "todos" | "revisar" | "prontos" | "inativos" = "todos",
+  ) {
     const forma = convenioCatalogoToForma(item);
     if (!forma) return;
 
-    await loadProdutos(forma);
+    await loadProdutos(forma, situacaoInicial);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("coverage-product-panel")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   async function salvarFormaAtendimento(event: React.FormEvent) {
@@ -4240,6 +4284,56 @@ export default function LegacyAdminPanel() {
       if (selectedClienteId) await loadConvenioCatalogo(selectedClienteId);
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar produto", true);
+    }
+  }
+
+  async function salvarMapeamentoProduto(produto: Produto) {
+    if (!selectedForma) return;
+
+    const feegowPlanoId = Number(produtoMapeamentos[produto.id]);
+    const planoFeegow = planosFeegow.find(
+      (plano) => Number(plano.feegow_plano_id) === feegowPlanoId,
+    );
+
+    if (!Number.isInteger(feegowPlanoId) || feegowPlanoId <= 0 || !planoFeegow) {
+      showToast("❌ Selecione o plano correspondente na Feegow", true);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      [
+        "Confirmar este vínculo para agendamento?",
+        "",
+        `Item no Angel: ${produto.nome}`,
+        `Plano na Feegow: ${planoFeegow.nome} (ID ${planoFeegow.feegow_plano_id})`,
+        "",
+        "Após a confirmação, esse item poderá ser usado no booking real.",
+      ].join("\n"),
+    );
+    if (!confirmed) return;
+
+    setToast("");
+    setLoadingAction(`produto-mapeamento-${produto.id}`);
+
+    try {
+      await api(
+        `/api/admin/formas-atendimento/${selectedForma.id}/produtos/${produto.id}/mapeamento-feegow`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ feegow_plano_id: feegowPlanoId }),
+        },
+      );
+
+      showToast("✅ Opção configurada e validada para agendamento");
+      await loadProdutos(selectedForma, "revisar");
+      if (selectedClienteId) await loadConvenioCatalogo(selectedClienteId);
+    } catch (error) {
+      showToast(
+        error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao configurar opção",
+        true,
+      );
+    } finally {
+      setLoadingAction(null);
     }
   }
 
@@ -6251,8 +6345,10 @@ export default function LegacyAdminPanel() {
               <section className="coverageCatalog">
                 <div className="coverageCatalogStats">
                   <article>
-                    <span>Cadastrados</span>
-                    <strong>{convenioCatalogo.filter((item) => item.registrado).length}</strong>
+                    <span>Convênios cadastrados</span>
+                    <strong>
+                      {convenioCatalogo.filter((item) => item.registrado).length}
+                    </strong>
                   </article>
                   <article>
                     <span>Ativos no WhatsApp</span>
@@ -6261,38 +6357,39 @@ export default function LegacyAdminPanel() {
                         convenioCatalogo.filter(
                           (item) =>
                             item.registrado &&
-                            item.ativo &&
-                            item.permite_agendamento_online,
+                            ["pronto", "ativo_parcial"].includes(item.situacao),
                         ).length
                       }
                     </strong>
                   </article>
                   <article>
-                    <span>Pendentes</span>
+                    <span>Opções para revisar</span>
                     <strong>
-                      {
-                        convenioCatalogo.filter((item) =>
-                          ["sem_aceites", "mapeamento_pendente", "nao_mapeado_feegow"].includes(
-                            item.situacao,
-                          ),
-                        ).length
-                      }
+                      {convenioCatalogo.reduce(
+                        (total, item) => total + Number(item.opcoes_revisao || 0),
+                        0,
+                      )}
                     </strong>
                   </article>
                   <article>
-                    <span>Disponíveis no Feegow</span>
+                    <span>Convênios para adicionar</span>
                     <strong>{conveniosFeegowDisponiveis.length}</strong>
                   </article>
                 </div>
 
                 {canManageCoverage && (
-                  <form className="coverageCatalogCreate" onSubmit={cadastrarConvenioCatalogo}>
+                  <details className="coverageAvailablePanel">
+                    <summary>
+                      <span>Adicionar convênio da Feegow</span>
+                      <strong>{conveniosFeegowDisponiveis.length} disponível(is)</strong>
+                    </summary>
+                    <form className="coverageCatalogCreate" onSubmit={cadastrarConvenioCatalogo}>
                     <div className="coverageCatalogCreateHeader">
                       <div>
                         <h4>Novo convênio</h4>
                         <p>
-                          O cadastro começa suspenso. Ele só poderá ser publicado após
-                          aceites e crosswalk válidos.
+                          Escolha um convênio ainda não cadastrado. Ele começa suspenso
+                          até que suas regras de atendimento estejam prontas.
                         </p>
                       </div>
                       <span>Origem obrigatória: Feegow</span>
@@ -6374,7 +6471,8 @@ export default function LegacyAdminPanel() {
                           : "Cadastrar convênio"}
                       </button>
                     </div>
-                  </form>
+                    </form>
+                  </details>
                 )}
 
                 <div className="coverageCatalogFilters">
@@ -6397,11 +6495,11 @@ export default function LegacyAdminPanel() {
                       }
                     >
                       <option value="todos">Todos</option>
-                      <option value="cadastrados">Cadastrados</option>
-                      <option value="nao_cadastrados">Disponíveis no Feegow</option>
                       <option value="ativos">Ativos no WhatsApp</option>
+                      <option value="revisar">Com opções para revisar</option>
+                      <option value="sem_aceites">Ainda não configurados</option>
                       <option value="suspensos">Suspensos</option>
-                      <option value="pendentes">Com pendências</option>
+                      <option value="cadastro_revisar">Cadastros para revisar</option>
                     </select>
                   </label>
                   <span>{convenioCatalogoFiltrado.length} convênio(s)</span>
@@ -6427,9 +6525,9 @@ export default function LegacyAdminPanel() {
                           const forma = convenioCatalogoToForma(item);
                           const bloqueadoParaAtivar =
                             !item.ativo &&
-                            ["sem_aceites", "mapeamento_pendente", "nao_mapeado_feegow"].includes(
-                              item.situacao,
-                            );
+                            (item.aceites_ativos === 0 ||
+                              item.opcoes_revisao > 0 ||
+                              item.situacao === "nao_mapeado_feegow");
 
                           return (
                             <tr
@@ -6452,10 +6550,18 @@ export default function LegacyAdminPanel() {
                                 </small>
                               </td>
                               <td>
-                                <strong>{item.produtos_ativos} item(ns)</strong>
-                                <span>{item.aceites_ativos} aceite(s) ativo(s)</span>
+                                <strong>
+                                  {item.opcoes_aceitas > 0
+                                    ? `${item.crosswalk_validado} de ${item.opcoes_aceitas} opções prontas`
+                                    : `${item.produtos_ativos} opção(ões) cadastrada(s)`}
+                                </strong>
+                                <span>{item.aceites_ativos} regra(s) médica(s) ativa(s)</span>
                                 <small>
-                                  {item.crosswalk_validado} mapeado(s) · {item.crosswalk_pendente} pendente(s)
+                                  {item.opcoes_revisao > 0
+                                    ? `${item.opcoes_revisao} opção(ões) para revisar`
+                                    : item.opcoes_aceitas > 0
+                                      ? "Todas as opções usadas estão configuradas"
+                                      : "Nenhuma opção usada nos aceites"}
                                 </small>
                               </td>
                               <td>
@@ -6473,8 +6579,16 @@ export default function LegacyAdminPanel() {
                                 <span className={`catalogStatus catalogStatus--${item.situacao}`}>
                                   {convenioSituacaoLabel(item.situacao)}
                                 </span>
-                                {bloqueadoParaAtivar && (
-                                  <small>Faltam aceites ou crosswalk para publicação</small>
+                                {item.opcoes_revisao > 0 && (
+                                  <small className="catalogAttention">
+                                    {item.opcoes_revisao} opção(ões) não configurada(s)
+                                  </small>
+                                )}
+                                {item.situacao === "sem_aceites" && (
+                                  <small>Cadastre aceites médicos para utilizar o convênio</small>
+                                )}
+                                {item.situacao === "nao_mapeado_feegow" && (
+                                  <small>Vínculo com a Feegow precisa ser conferido</small>
                                 )}
                               </td>
                               <td>
@@ -6502,7 +6616,16 @@ export default function LegacyAdminPanel() {
                                       className="small"
                                       onClick={() => void abrirEstruturaConvenio(item)}
                                     >
-                                      Planos / produtos / redes
+                                      Ver todas as opções
+                                    </button>
+                                  )}
+                                  {item.registrado && item.opcoes_revisao > 0 && (
+                                    <button
+                                      type="button"
+                                      className="small warning"
+                                      onClick={() => void abrirEstruturaConvenio(item, "revisar")}
+                                    >
+                                      Revisar {item.opcoes_revisao} opção(ões)
                                     </button>
                                   )}
                                   {item.registrado && forma && (
@@ -6533,7 +6656,7 @@ export default function LegacyAdminPanel() {
                 )}
 
                 {selectedForma && (
-                  <section className="coverageProductPanel">
+                  <section className="coverageProductPanel" id="coverage-product-panel">
                     <div className="coverageProductHeader">
                       <div>
                         <span className="coverageEyebrow">ESTRUTURA DO CONVÊNIO</span>
@@ -6659,7 +6782,24 @@ export default function LegacyAdminPanel() {
                             .sort()
                             .map((tipo) => (
                               <option key={tipo} value={tipo}>{tipo}</option>
-                            ))}
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Situação
+                        <select
+                          value={produtoSituacaoFiltro}
+                          onChange={(event) => {
+                            setProdutoSituacaoFiltro(
+                              event.target.value as typeof produtoSituacaoFiltro,
+                            );
+                            setProdutoPage(1);
+                          }}
+                        >
+                          <option value="todos">Todas</option>
+                          <option value="revisar">Para revisar</option>
+                          <option value="prontos">Prontas para agendamento</option>
+                          <option value="inativos">Itens inativos</option>
                         </select>
                       </label>
                       <span>{produtosFiltrados.length} item(ns)</span>
@@ -6671,14 +6811,22 @@ export default function LegacyAdminPanel() {
                           <tr>
                             <th>Produto / rede</th>
                             <th>Plano</th>
-                            <th>Feegow</th>
-                            <th>Booking</th>
-                            <th>Status</th>
+                            <th>Uso nos aceites</th>
+                            <th>Correspondência na Feegow</th>
+                            <th>Situação</th>
                             <th>Ação</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {produtosPaginados.map((produto) => (
+                          {produtosPaginados.length === 0 ? (
+                            <tr>
+                              <td className="coverageEmptyCell" colSpan={6}>
+                                {produtoSituacaoFiltro === "revisar"
+                                  ? "Todas as opções usadas deste convênio estão configuradas."
+                                  : "Nenhum item encontrado para os filtros selecionados."}
+                              </td>
+                            </tr>
+                          ) : produtosPaginados.map((produto) => (
                             <tr key={produto.id} className={produto.ativo ? "" : "mutedRow"}>
                               <td>
                                 <strong>
@@ -6691,26 +6839,94 @@ export default function LegacyAdminPanel() {
                                 <small>{produto.nome}</small>
                               </td>
                               <td>
-                                <strong>
-                                  {produto.feegow_plano_id
-                                    ? `ID ${produto.feegow_plano_id}`
-                                    : "Não mapeado"}
-                                </strong>
-                                <small>{produto.feegow_plano_nome || "Seleção pendente"}</small>
+                                <strong>{produto.aceites_ativos || 0} aceite(s) ativo(s)</strong>
+                                <small>
+                                  {produto.aceites_ativos
+                                    ? "Esta opção é usada no atendimento"
+                                    : "Sem uso nos aceites atuais"}
+                                </small>
+                              </td>
+                              <td>
+                                {produto.necessita_revisao ? (
+                                  <div className="coverageMappingEditor">
+                                    <select
+                                      value={produtoMapeamentos[produto.id] || ""}
+                                      disabled={!canValidateCoverage}
+                                      onChange={(event) =>
+                                        setProdutoMapeamentos((current) => ({
+                                          ...current,
+                                          [produto.id]: event.target.value,
+                                        }))
+                                      }
+                                      aria-label={`Plano Feegow correspondente a ${produto.nome}`}
+                                    >
+                                      <option value="">Selecione o plano correto</option>
+                                      {planosFeegow.map((plano) => (
+                                        <option
+                                          key={plano.feegow_plano_id}
+                                          value={plano.feegow_plano_id}
+                                        >
+                                          {plano.nome} · ID {plano.feegow_plano_id}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      className="small success"
+                                      disabled={
+                                        !canValidateCoverage ||
+                                        !produtoMapeamentos[produto.id] ||
+                                        loadingAction === `produto-mapeamento-${produto.id}`
+                                      }
+                                      onClick={() => void salvarMapeamentoProduto(produto)}
+                                    >
+                                      {loadingAction === `produto-mapeamento-${produto.id}`
+                                        ? "Confirmando..."
+                                        : "Confirmar correspondência"}
+                                    </button>
+                                    {!canValidateCoverage && (
+                                      <small>Seu perfil não permite validar correspondências.</small>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <strong>
+                                      {produto.feegow_plano_id
+                                        ? `${produto.feegow_plano_nome || "Plano Feegow"}`
+                                        : "Não se aplica"}
+                                    </strong>
+                                    <small>
+                                      {produto.feegow_plano_id
+                                        ? `ID ${produto.feegow_plano_id}`
+                                        : "Opção sem vínculo necessário"}
+                                    </small>
+                                  </>
+                                )}
                               </td>
                               <td>
                                 <span
                                   className={`catalogStatus ${
                                     produto.booking_ready
                                       ? "catalogStatus--pronto"
-                                      : "catalogStatus--mapeamento_pendente"
+                                      : produto.necessita_revisao
+                                        ? "catalogStatus--revisar"
+                                        : "catalogStatus--suspenso"
                                   }`}
                                 >
-                                  {produto.booking_ready ? "Pronto" : "Pendente"}
+                                  {produto.booking_ready
+                                    ? "Pronta para agendamento"
+                                    : produto.necessita_revisao
+                                      ? "Configuração necessária"
+                                      : produto.ativo
+                                        ? "Sem uso atual"
+                                        : "Inativa"}
                                 </span>
-                                <small>{produto.mapeamento_status || "SEM MAPEAMENTO"}</small>
+                                <small>
+                                  {produto.booking_ready
+                                    ? "Correspondência validada"
+                                    : produto.mapeamento_status || "Sem correspondência validada"}
+                                </small>
                               </td>
-                              <td>{produto.ativo ? "Ativo" : "Inativo"}</td>
                               <td>
                                 <button
                                   type="button"

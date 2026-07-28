@@ -175,8 +175,8 @@ export default function CoverageMedicalReadView({
         </span>
       </div>
 
-      <div className="coverageFilters">
-        <label>
+      <div className="coverageFilters coverageFilters--medical">
+        <label className="coverageFilter--doctor">
           Médico
           <select
             value={selectedDoctorId ?? ""}
@@ -193,7 +193,7 @@ export default function CoverageMedicalReadView({
             ))}
           </select>
         </label>
-        <label>
+        <label className="coverageFilter--insurer">
           Convênio
           <select
             value={insurer}
@@ -209,7 +209,7 @@ export default function CoverageMedicalReadView({
             ))}
           </select>
         </label>
-        <label>
+        <label className="coverageFilter--insurerStatus">
           Status do convênio
           <select
             value={insurerStatus}
@@ -221,7 +221,7 @@ export default function CoverageMedicalReadView({
             <option value="inactive">Convênios desativados</option>
           </select>
         </label>
-        <label>
+        <label className="coverageFilter--detail">
           Plano / produto / rede
           <select
             value={detail}
@@ -236,7 +236,7 @@ export default function CoverageMedicalReadView({
             ))}
           </select>
         </label>
-        <label>
+        <label className="coverageFilter--specialty">
           Especialidade
           <select value={specialty} onChange={(event) => setSpecialty(event.target.value)}>
             <option value="all">Todas</option>
@@ -245,7 +245,7 @@ export default function CoverageMedicalReadView({
             ))}
           </select>
         </label>
-        <label>
+        <label className="coverageFilter--status">
           Situação
           <select value={status} onChange={(event) => setStatus(event.target.value as typeof status)}>
             <option value="all">Todas</option>
@@ -253,7 +253,7 @@ export default function CoverageMedicalReadView({
             <option value="suspended">Aceites suspensos</option>
           </select>
         </label>
-        <label>
+        <label className="coverageFilter--search">
           Busca livre
           <input
             value={query}
