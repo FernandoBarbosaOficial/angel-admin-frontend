@@ -172,13 +172,21 @@ type ConvenioCatalogoItem = {
   crosswalk_validado: number;
   crosswalk_pendente: number;
   opcoes_revisao: number;
+  pode_ativar: boolean;
+  etapas_concluidas: number;
+  etapas_total: number;
+  pendencias_configuracao: string[];
+  removivel?: boolean;
+  arquivado?: boolean;
   situacao:
     | "nao_cadastrado"
+    | "em_configuracao"
     | "suspenso"
     | "sem_aceites"
     | "ativo_parcial"
     | "pronto"
-    | "nao_mapeado_feegow";
+    | "nao_mapeado_feegow"
+    | "arquivado";
   registrado: boolean;
 };
 
@@ -210,7 +218,20 @@ type Produto = {
   mapeamento_status?: string | null;
   booking_ready?: boolean;
   aceites_ativos?: number;
+  aceites_detalhes?: Array<{
+    aceite_id: number;
+    medico_id: number;
+    medico: string;
+    especialidade_id: number | null;
+    especialidade: string | null;
+    ativo: boolean;
+  }>;
   necessita_revisao?: boolean;
+  mapeamento_sugerido?: {
+    feegow_plano_id: number;
+    nome: string;
+    criterio: string;
+  } | null;
   observacao?: string | null;
   ativo: boolean;
 };
@@ -238,6 +259,10 @@ type Medico = {
   andar?: string | null;
   ativo: boolean;
   especialidades: string;
+  especialidades_detalhes?: Array<{
+    id: number;
+    nome: string;
+  }>;
   regras_idade?: MedicoRegraIdade[];
 };
 
@@ -880,11 +905,13 @@ function convenioEstruturaLabel(value: ConvenioEstrutura) {
 function convenioSituacaoLabel(value: ConvenioCatalogoItem["situacao"]) {
   const labels: Record<ConvenioCatalogoItem["situacao"], string> = {
     nao_cadastrado: "Disponível para adicionar",
+    em_configuracao: "Em configuração",
     suspenso: "Suspenso",
     sem_aceites: "Ainda não configurado",
     ativo_parcial: "Ativo no WhatsApp",
     pronto: "Ativo no WhatsApp",
     nao_mapeado_feegow: "Cadastro para revisar",
+    arquivado: "Arquivado",
   };
   return labels[value];
 }
@@ -1869,7 +1896,14 @@ export default function LegacyAdminPanel() {
   const [convenioCatalogoLoading, setConvenioCatalogoLoading] = useState(false);
   const [convenioCatalogoSearch, setConvenioCatalogoSearch] = useState("");
   const [convenioCatalogoStatus, setConvenioCatalogoStatus] = useState<
-    "todos" | "ativos" | "revisar" | "sem_aceites" | "suspensos" | "cadastro_revisar"
+    | "todos"
+    | "ativos"
+    | "fora_whatsapp"
+    | "revisar"
+    | "em_configuracao"
+    | "suspensos"
+    | "cadastro_revisar"
+    | "arquivados"
   >("todos");
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -2000,6 +2034,13 @@ export default function LegacyAdminPanel() {
     convenio: "",
     plano: "",
   });
+  const [novaCobertura, setNovaCobertura] = useState({
+    forma_id: "",
+    produto_id: "",
+    medico_id: "",
+    especialidade_id: "",
+  });
+  const [coverageFocusInsurer, setCoverageFocusInsurer] = useState<string | null>(null);
   const [aceiteProdutos, setAceiteProdutos] = useState<Produto[]>([]);
   const [aceiteProdutosLoading, setAceiteProdutosLoading] = useState(false);
 
@@ -2068,7 +2109,7 @@ export default function LegacyAdminPanel() {
   const [novoConvenioCatalogo, setNovoConvenioCatalogo] = useState({
     feegow_convenio_id: "",
     nome_exibicao: "",
-    estrutura: "somente_convenio" as ConvenioEstrutura,
+    estrutura: "convenio_plano" as ConvenioEstrutura,
   });
 
   const selectedCliente = useMemo(
@@ -2278,10 +2319,54 @@ export default function LegacyAdminPanel() {
 
   const formasConvenioAceite = useMemo(() => {
     return formas
-      .filter((forma) => forma.ativo && forma.tipo === "convenio")
+      .filter(
+        (forma) =>
+          forma.tipo === "convenio" &&
+          forma.metadata?.catalogo_arquivado !== true,
+      )
       .slice()
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [formas]);
+
+  const selectedCoverageForma = useMemo(
+    () =>
+      formasConvenioAceite.find(
+        (forma) => Number(forma.id) === Number(novaCobertura.forma_id),
+      ) || null,
+    [formasConvenioAceite, novaCobertura.forma_id],
+  );
+
+  const selectedCoverageDoctor = useMemo(
+    () =>
+      medicos.find(
+        (medico) =>
+          medico.ativo &&
+          Number(medico.id) === Number(novaCobertura.medico_id),
+      ) || null,
+    [medicos, novaCobertura.medico_id],
+  );
+
+  const selectedCoverageSpecialties = useMemo(() => {
+    if (!selectedCoverageDoctor) return [];
+    if (
+      Array.isArray(selectedCoverageDoctor.especialidades_detalhes) &&
+      selectedCoverageDoctor.especialidades_detalhes.length > 0
+    ) {
+      return selectedCoverageDoctor.especialidades_detalhes
+        .filter((especialidade) => especialidade.id && especialidade.nome)
+        .sort((left, right) => left.nome.localeCompare(right.nome, "pt-BR"));
+    }
+
+    const names = splitEspecialidadesFromMedico(selectedCoverageDoctor.especialidades);
+    return especialidadesCatalogo
+      .filter((especialidade) =>
+        names.some(
+          (name) => normalizeSearch(name) === normalizeSearch(especialidade.nome),
+        ),
+      )
+      .map((especialidade) => ({ id: especialidade.id, nome: especialidade.nome }))
+      .sort((left, right) => left.nome.localeCompare(right.nome, "pt-BR"));
+  }, [especialidadesCatalogo, selectedCoverageDoctor]);
 
   const selectedAceiteForma = useMemo(() => {
     const query = normalizeSearch(novoAceite.convenio);
@@ -2414,14 +2499,34 @@ export default function LegacyAdminPanel() {
     [conveniosFeegowDisponiveis, novoConvenioCatalogo.feegow_convenio_id],
   );
 
+  const selectedCatalogItem = useMemo(
+    () =>
+      convenioCatalogo.find(
+        (item) => Number(item.forma_id) === Number(selectedForma?.id),
+      ) || null,
+    [convenioCatalogo, selectedForma?.id],
+  );
+
   const convenioCatalogoFiltrado = useMemo(() => {
     const query = normalizeSearch(convenioCatalogoSearch);
 
     return convenioCatalogo.filter((item) => {
       if (!item.registrado) return false;
+      if (convenioCatalogoStatus === "arquivados") {
+        if (!item.arquivado) return false;
+      } else if (item.arquivado) {
+        return false;
+      }
       if (
         convenioCatalogoStatus === "ativos" &&
         !["pronto", "ativo_parcial"].includes(item.situacao)
+      ) {
+        return false;
+      }
+      if (
+        convenioCatalogoStatus === "fora_whatsapp" &&
+        item.ativo &&
+        item.permite_agendamento_online
       ) {
         return false;
       }
@@ -2429,8 +2534,8 @@ export default function LegacyAdminPanel() {
         return false;
       }
       if (
-        convenioCatalogoStatus === "sem_aceites" &&
-        item.situacao !== "sem_aceites"
+        convenioCatalogoStatus === "em_configuracao" &&
+        !["em_configuracao", "sem_aceites"].includes(item.situacao)
       ) {
         return false;
       }
@@ -2946,7 +3051,11 @@ export default function LegacyAdminPanel() {
       Object.fromEntries(
         (data.produtos || []).map((produto) => [
           produto.id,
-          produto.feegow_plano_id ? String(produto.feegow_plano_id) : "",
+          produto.feegow_plano_id
+            ? String(produto.feegow_plano_id)
+            : produto.mapeamento_sugerido?.feegow_plano_id
+              ? String(produto.mapeamento_sugerido.feegow_plano_id)
+              : "",
         ]),
       ),
     );
@@ -3795,6 +3904,36 @@ export default function LegacyAdminPanel() {
   }, [selectedAceiteForma?.id, selectedAceiteForma?.exige_plano]);
 
   useEffect(() => {
+    if (!selectedCoverageForma) {
+      setAceiteProdutos([]);
+      return;
+    }
+
+    setNovaCobertura((current) => ({ ...current, produto_id: "" }));
+    if (!selectedCoverageForma.exige_plano) {
+      setAceiteProdutos([]);
+      return;
+    }
+
+    loadAceiteProdutos(selectedCoverageForma).catch((error) => {
+      setAceiteProdutos([]);
+      showToast(
+        error instanceof Error
+          ? `❌ ${error.message}`
+          : "❌ Erro ao carregar planos do convênio",
+        true,
+      );
+    });
+  }, [selectedCoverageForma?.id, selectedCoverageForma?.exige_plano]);
+
+  useEffect(() => {
+    setNovaCobertura((current) => ({
+      ...current,
+      especialidade_id: "",
+    }));
+  }, [novaCobertura.medico_id]);
+
+  useEffect(() => {
     setAceitePage(1);
     const medicoValido = selectedMedicoId
       ? medicos.find(
@@ -4054,7 +4193,9 @@ export default function LegacyAdminPanel() {
     setLoadingAction("convenio.catalogo");
 
     try {
-      await api(`/api/admin/clientes/${selectedClienteId}/convenios/catalogo`, {
+      const created = await api<FormaAtendimento & { estrutura: ConvenioEstrutura }>(
+        `/api/admin/clientes/${selectedClienteId}/convenios/catalogo`,
+        {
         method: "POST",
         body: JSON.stringify({
           feegow_convenio_id: selectedNovoConvenioFeegow.feegow_convenio_id,
@@ -4064,18 +4205,33 @@ export default function LegacyAdminPanel() {
             selectedNovoConvenioFeegow.nome_exibicao,
           estrutura: novoConvenioCatalogo.estrutura,
         }),
-      });
+        },
+      );
 
-      showToast("✅ Convênio cadastrado. Ele começa suspenso até ter aceites e crosswalk válidos.");
+      showToast(
+        "✅ Convênio adicionado em modo de configuração. Complete as etapas antes de publicar no WhatsApp.",
+      );
       setNovoConvenioCatalogo({
         feegow_convenio_id: "",
         nome_exibicao: "",
-        estrutura: "somente_convenio",
+        estrutura: "convenio_plano",
       });
       await Promise.all([
         loadFormas(selectedClienteId),
         loadConvenioCatalogo(selectedClienteId),
       ]);
+      if (created.estrutura === "somente_convenio") {
+        setCoverageSection("aceites");
+        setNovaCobertura({
+          forma_id: String(created.id),
+          produto_id: "",
+          medico_id: "",
+          especialidade_id: "",
+        });
+        setCoverageFocusInsurer(created.convenio_global || created.nome);
+      } else {
+        await loadProdutos(created);
+      }
     } catch (error) {
       showToast(
         error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao cadastrar convênio",
@@ -4118,6 +4274,191 @@ export default function LegacyAdminPanel() {
         .getElementById("coverage-product-panel")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  }
+
+  function abrirCoberturasConvenio(item: ConvenioCatalogoItem) {
+    const forma = convenioCatalogoToForma(item);
+    if (!forma) return;
+
+    setCoverageSection("aceites");
+    setCoverageFocusInsurer(null);
+    setSelectedMedicoId(null);
+    setNovaCobertura({
+      forma_id: String(forma.id),
+      produto_id: "",
+      medico_id: "",
+      especialidade_id: "",
+    });
+    window.requestAnimationFrame(() => {
+      setCoverageFocusInsurer(item.nome_oficial);
+      window.requestAnimationFrame(() => {
+        document
+          .getElementById("coverage-create-panel")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }
+
+  async function sincronizarCatalogoFeegow() {
+    if (!selectedClienteId) return;
+
+    setToast("");
+    setLoadingAction("convenio.catalogo.sync");
+    try {
+      await api(
+        `/api/admin/clientes/${selectedClienteId}/convenios/catalogo/sincronizar-feegow`,
+        { method: "POST" },
+      );
+      await Promise.all([
+        loadFormas(selectedClienteId),
+        loadConvenioCatalogo(selectedClienteId),
+      ]);
+      showToast("✅ Catálogo da Feegow sincronizado. O novo convênio já pode ser adicionado.");
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? `❌ ${error.message}`
+          : "❌ Erro ao sincronizar o catálogo Feegow",
+        true,
+      );
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function atualizarArquivamentoConvenio(item: ConvenioCatalogoItem) {
+    if (!item.forma_id || !selectedClienteId) return;
+    const arquivar = !item.arquivado;
+    const confirmed = window.confirm(
+      arquivar
+        ? `Arquivar "${item.nome_exibicao}"?\n\nO cadastro sairá da visão operacional, mas seus dados antigos serão preservados para auditoria.`
+        : `Restaurar "${item.nome_exibicao}" para a visão operacional?`,
+    );
+    if (!confirmed) return;
+
+    setLoadingAction(`convenio-arquivar-${item.forma_id}`);
+    try {
+      await api(
+        `/api/admin/formas-atendimento/${item.forma_id}/catalogo/arquivamento`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ arquivado: arquivar }),
+        },
+      );
+      await Promise.all([
+        loadFormas(selectedClienteId),
+        loadConvenioCatalogo(selectedClienteId),
+      ]);
+      showToast(
+        arquivar
+          ? "✅ Cadastro arquivado e retirado da visão operacional"
+          : "✅ Cadastro restaurado",
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? `❌ ${error.message}`
+          : "❌ Erro ao atualizar o arquivamento",
+        true,
+      );
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function acaoPrincipalConvenio(item: ConvenioCatalogoItem) {
+    const forma = convenioCatalogoToForma(item);
+    if (!forma) return;
+
+    if (item.ativo || item.pode_ativar) {
+      await toggleForma(forma);
+      return;
+    }
+
+    const pendencias = item.pendencias_configuracao || [];
+    showToast(
+      `Configuração incompleta: ${pendencias.join(" · ") || "revise os dados do convênio"}`,
+      true,
+    );
+
+    if (
+      (item.exige_plano && item.produtos_ativos === 0) ||
+      item.opcoes_revisao > 0
+    ) {
+      await abrirEstruturaConvenio(
+        item,
+        item.opcoes_revisao > 0 ? "revisar" : "todos",
+      );
+      return;
+    }
+
+    abrirCoberturasConvenio(item);
+  }
+
+  async function criarCoberturaOperacional(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedClienteId || !selectedCoverageForma) return;
+
+    const medicoId = Number(novaCobertura.medico_id);
+    const especialidadeId = Number(novaCobertura.especialidade_id);
+    const produtoId = Number(novaCobertura.produto_id);
+
+    if (!Number.isInteger(medicoId) || medicoId <= 0) {
+      showToast("❌ Selecione o médico desta cobertura", true);
+      return;
+    }
+    if (!Number.isInteger(especialidadeId) || especialidadeId <= 0) {
+      showToast("❌ Selecione explicitamente a especialidade desta cobertura", true);
+      return;
+    }
+    if (selectedCoverageForma.exige_plano && (!Number.isInteger(produtoId) || produtoId <= 0)) {
+      showToast("❌ Selecione o plano/produto/rede desta cobertura", true);
+      return;
+    }
+
+    setLoadingAction("cobertura.criar");
+    try {
+      await api<AceiteMedico>(
+        `/api/admin/clientes/${selectedClienteId}/medicos/${medicoId}/aceites`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            forma_atendimento_id: selectedCoverageForma.id,
+            convenio_id: selectedCoverageForma.convenio_id,
+            convenio_produto_id: selectedCoverageForma.exige_plano ? produtoId : null,
+            especialidade_id: especialidadeId,
+          }),
+        },
+      );
+      setNovaCobertura((current) => ({
+        ...current,
+        produto_id: "",
+        medico_id: "",
+        especialidade_id: "",
+      }));
+      setCoverageFocusInsurer(
+        selectedCoverageForma.convenio_global || selectedCoverageForma.nome,
+      );
+      setSelectedMedicoId(medicoId);
+      await Promise.all([
+        loadAceites(medicoId),
+        loadConvenioCatalogo(selectedClienteId),
+      ]);
+      showToast(
+        selectedCoverageForma.ativo
+          ? "✅ Cobertura adicionada e disponível no convênio ativo"
+          : "✅ Cobertura adicionada. O convênio continua fora do WhatsApp até a publicação.",
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? `❌ ${error.message}`
+          : "❌ Erro ao adicionar cobertura",
+        true,
+      );
+    } finally {
+      setLoadingAction(null);
+    }
   }
 
   async function salvarFormaAtendimento(event: React.FormEvent) {
@@ -4245,6 +4586,14 @@ export default function LegacyAdminPanel() {
   }
 
   async function toggleForma(forma: FormaAtendimento) {
+    const publicar = !forma.ativo;
+    const confirmed = window.confirm(
+      publicar
+        ? `Publicar "${forma.nome}" no WhatsApp?\n\nApós a publicação, o convênio poderá aparecer para os pacientes conforme suas coberturas.`
+        : `Suspender "${forma.nome}" do WhatsApp?\n\nEle deixará de ser oferecido em novos atendimentos, sem apagar as coberturas.`,
+    );
+    if (!confirmed) return;
+
     setToast("");
     setLoadingAction(`forma-${forma.id}`);
 
@@ -4263,6 +4612,11 @@ export default function LegacyAdminPanel() {
           loadConvenioCatalogo(selectedClienteId),
         ]);
       }
+      showToast(
+        publicar
+          ? "✅ Convênio publicado no WhatsApp"
+          : "✅ Convênio suspenso do WhatsApp",
+      );
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar forma", true);
     } finally {
@@ -6344,13 +6698,26 @@ export default function LegacyAdminPanel() {
             {coverageSection === "catalogo" && (
               <section className="coverageCatalog">
                 <div className="coverageCatalogStats">
-                  <article>
+                  <button
+                    type="button"
+                    className="coverageCatalogStat"
+                    onClick={() => setConvenioCatalogoStatus("todos")}
+                  >
                     <span>Convênios cadastrados</span>
                     <strong>
-                      {convenioCatalogo.filter((item) => item.registrado).length}
+                      {
+                        convenioCatalogo.filter(
+                          (item) => item.registrado && !item.arquivado,
+                        ).length
+                      }
                     </strong>
-                  </article>
-                  <article>
+                    <small>Ver todos</small>
+                  </button>
+                  <button
+                    type="button"
+                    className="coverageCatalogStat"
+                    onClick={() => setConvenioCatalogoStatus("ativos")}
+                  >
                     <span>Ativos no WhatsApp</span>
                     <strong>
                       {
@@ -6361,21 +6728,95 @@ export default function LegacyAdminPanel() {
                         ).length
                       }
                     </strong>
-                  </article>
-                  <article>
+                    <small>Ver publicados</small>
+                  </button>
+                  <button
+                    type="button"
+                    className="coverageCatalogStat"
+                    onClick={() => setConvenioCatalogoStatus("fora_whatsapp")}
+                  >
+                    <span>Fora do WhatsApp</span>
+                    <strong>
+                      {
+                        convenioCatalogo.filter(
+                          (item) =>
+                            item.registrado &&
+                            !item.arquivado &&
+                            (!item.ativo || !item.permite_agendamento_online),
+                        ).length
+                      }
+                    </strong>
+                    <small>Decidir o que publicar</small>
+                  </button>
+                  <button
+                    type="button"
+                    className="coverageCatalogStat"
+                    onClick={() => setConvenioCatalogoStatus("revisar")}
+                  >
                     <span>Opções para revisar</span>
                     <strong>
                       {convenioCatalogo.reduce(
-                        (total, item) => total + Number(item.opcoes_revisao || 0),
+                        (total, item) =>
+                          total +
+                          (item.arquivado ? 0 : Number(item.opcoes_revisao || 0)),
                         0,
                       )}
                     </strong>
-                  </article>
-                  <article>
+                    <small>Revisar booking</small>
+                  </button>
+                  <button
+                    type="button"
+                    className="coverageCatalogStat"
+                    onClick={() => {
+                      setConvenioCatalogoStatus("todos");
+                      document
+                        .querySelector<HTMLDetailsElement>(".coverageAvailablePanel")
+                        ?.setAttribute("open", "");
+                    }}
+                  >
                     <span>Convênios para adicionar</span>
                     <strong>{conveniosFeegowDisponiveis.length}</strong>
-                  </article>
+                    <small>Disponíveis na Feegow</small>
+                  </button>
                 </div>
+
+                <details className="coverageActivationGuide" open>
+                  <summary>Como ativar um convênio no WhatsApp?</summary>
+                  <ol>
+                    <li><strong>Feegow:</strong> cadastre o convênio e seus planos.</li>
+                    <li><strong>Angel:</strong> sincronize e adicione o convênio ao catálogo.</li>
+                    <li><strong>Coberturas:</strong> escolha médico, especialidade e plano aceito.</li>
+                    <li><strong>Booking:</strong> confirme a correspondência segura com o plano Feegow.</li>
+                    <li><strong>Publicação:</strong> clique em <em>Publicar no WhatsApp</em>.</li>
+                  </ol>
+                  <p>
+                    Enquanto alguma etapa estiver pendente, o convênio permanece
+                    <strong> Em configuração</strong> e não aparece para o paciente.
+                  </p>
+                </details>
+
+                {canManageCoverage && (
+                  <details className="coverageCredentialPanel">
+                    <summary>Cadastrar novo convênio credenciado</summary>
+                    <div>
+                      <p>
+                        O cadastro-base é feito primeiro na Feegow. Depois de salvar o
+                        convênio e ao menos um plano lá, sincronize o catálogo para
+                        trazê-lo ao Angel.
+                      </p>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={loadingAction === "convenio.catalogo.sync"}
+                        onClick={() => void sincronizarCatalogoFeegow()}
+                      >
+                        {loadingAction === "convenio.catalogo.sync"
+                          ? "Sincronizando..."
+                          : "Sincronizar Feegow agora"}
+                      </button>
+                    </div>
+                  </details>
+                )}
 
                 {canManageCoverage && (
                   <details className="coverageAvailablePanel">
@@ -6388,8 +6829,8 @@ export default function LegacyAdminPanel() {
                       <div>
                         <h4>Novo convênio</h4>
                         <p>
-                          Escolha um convênio ainda não cadastrado. Ele começa suspenso
-                          até que suas regras de atendimento estejam prontas.
+                          Escolha um convênio ainda não cadastrado. Ele começa em
+                          configuração e permanece fora do WhatsApp até a publicação.
                         </p>
                       </div>
                       <span>Origem obrigatória: Feegow</span>
@@ -6410,6 +6851,10 @@ export default function LegacyAdminPanel() {
                               ...current,
                               feegow_convenio_id: event.target.value,
                               nome_exibicao: item?.feegow_nome || item?.nome_exibicao || "",
+                              estrutura:
+                                item && item.planos_feegow > 0
+                                  ? "convenio_plano"
+                                  : current.estrutura,
                             }));
                           }}
                           required
@@ -6496,10 +6941,12 @@ export default function LegacyAdminPanel() {
                     >
                       <option value="todos">Todos</option>
                       <option value="ativos">Ativos no WhatsApp</option>
+                      <option value="fora_whatsapp">Fora do WhatsApp</option>
                       <option value="revisar">Com opções para revisar</option>
-                      <option value="sem_aceites">Ainda não configurados</option>
+                      <option value="em_configuracao">Em configuração</option>
                       <option value="suspensos">Suspensos</option>
                       <option value="cadastro_revisar">Cadastros para revisar</option>
+                      <option value="arquivados">Arquivados</option>
                     </select>
                   </label>
                   <span>{convenioCatalogoFiltrado.length} convênio(s)</span>
@@ -6514,7 +6961,7 @@ export default function LegacyAdminPanel() {
                         <tr>
                           <th>Convênio</th>
                           <th>Estrutura</th>
-                          <th>Itens / aceites</th>
+                          <th>Itens / coberturas</th>
                           <th>Feegow</th>
                           <th>Situação</th>
                           <th>Ações</th>
@@ -6523,11 +6970,6 @@ export default function LegacyAdminPanel() {
                       <tbody>
                         {convenioCatalogoFiltrado.map((item) => {
                           const forma = convenioCatalogoToForma(item);
-                          const bloqueadoParaAtivar =
-                            !item.ativo &&
-                            (item.aceites_ativos === 0 ||
-                              item.opcoes_revisao > 0 ||
-                              item.situacao === "nao_mapeado_feegow");
 
                           return (
                             <tr
@@ -6555,13 +6997,20 @@ export default function LegacyAdminPanel() {
                                     ? `${item.crosswalk_validado} de ${item.opcoes_aceitas} opções prontas`
                                     : `${item.produtos_ativos} opção(ões) cadastrada(s)`}
                                 </strong>
-                                <span>{item.aceites_ativos} regra(s) médica(s) ativa(s)</span>
+                                <button
+                                  type="button"
+                                  className="catalogCoverageLink"
+                                  disabled={item.aceites_ativos === 0}
+                                  onClick={() => abrirCoberturasConvenio(item)}
+                                >
+                                  {item.aceites_ativos} cobertura(s) ativa(s)
+                                </button>
                                 <small>
                                   {item.opcoes_revisao > 0
                                     ? `${item.opcoes_revisao} opção(ões) para revisar`
                                     : item.opcoes_aceitas > 0
                                       ? "Todas as opções usadas estão configuradas"
-                                      : "Nenhuma opção usada nos aceites"}
+                                      : "Nenhuma opção usada nas coberturas"}
                                 </small>
                               </td>
                               <td>
@@ -6585,7 +7034,24 @@ export default function LegacyAdminPanel() {
                                   </small>
                                 )}
                                 {item.situacao === "sem_aceites" && (
-                                  <small>Cadastre aceites médicos para utilizar o convênio</small>
+                                  <small>Defina as coberturas médicas para utilizar o convênio</small>
+                                )}
+                                {item.situacao === "em_configuracao" && (
+                                  <>
+                                    <small>
+                                      {item.etapas_concluidas} de {item.etapas_total} etapas concluídas
+                                    </small>
+                                    {item.pendencias_configuracao?.length > 0 && (
+                                      <details className="catalogPendingList">
+                                        <summary>Ver o que falta</summary>
+                                        <ul>
+                                          {item.pendencias_configuracao.map((pendencia) => (
+                                            <li key={pendencia}>{pendencia}</li>
+                                          ))}
+                                        </ul>
+                                      </details>
+                                    )}
+                                  </>
                                 )}
                                 {item.situacao === "nao_mapeado_feegow" && (
                                   <small>Vínculo com a Feegow precisa ser conferido</small>
@@ -6603,7 +7069,10 @@ export default function LegacyAdminPanel() {
                                             item.feegow_convenio_id || "",
                                           ),
                                           nome_exibicao: item.feegow_nome || item.nome_exibicao,
-                                          estrutura: "somente_convenio",
+                                          estrutura:
+                                            item.planos_feegow > 0
+                                              ? "convenio_plano"
+                                              : "somente_convenio",
                                         })
                                       }
                                     >
@@ -6628,23 +7097,57 @@ export default function LegacyAdminPanel() {
                                       Revisar {item.opcoes_revisao} opção(ões)
                                     </button>
                                   )}
-                                  {item.registrado && forma && (
+                                  {item.registrado && item.aceites_ativos > 0 && (
+                                    <button
+                                      type="button"
+                                      className="small"
+                                      onClick={() => abrirCoberturasConvenio(item)}
+                                    >
+                                      Ver {item.aceites_ativos} cobertura(s)
+                                    </button>
+                                  )}
+                                  {item.registrado && forma && !item.arquivado && (
                                     <button
                                       type="button"
                                       className={item.ativo ? "small danger" : "small success"}
                                       disabled={
-                                        loadingAction === `forma-${item.forma_id}` ||
-                                        bloqueadoParaAtivar
+                                        loadingAction === `forma-${item.forma_id}`
                                       }
-                                      onClick={() => void toggleForma(forma)}
+                                      onClick={() => void acaoPrincipalConvenio(item)}
                                     >
                                       {loadingAction === `forma-${item.forma_id}`
                                         ? "Salvando..."
                                         : item.ativo
-                                          ? "Suspender"
-                                          : "Ativar"}
+                                          ? "Suspender do WhatsApp"
+                                          : item.pode_ativar
+                                            ? "Publicar no WhatsApp"
+                                            : "Continuar configuração"}
                                     </button>
                                   )}
+                                  {item.registrado &&
+                                    (item.arquivado ||
+                                      (item.situacao === "nao_mapeado_feegow" &&
+                                        !item.ativo &&
+                                        !item.permite_agendamento_online)) && (
+                                      <button
+                                        type="button"
+                                        className={item.arquivado ? "small" : "small danger"}
+                                        disabled={
+                                          loadingAction ===
+                                          `convenio-arquivar-${item.forma_id}`
+                                        }
+                                        onClick={() =>
+                                          void atualizarArquivamentoConvenio(item)
+                                        }
+                                      >
+                                        {loadingAction ===
+                                        `convenio-arquivar-${item.forma_id}`
+                                          ? "Salvando..."
+                                          : item.arquivado
+                                            ? "Restaurar cadastro"
+                                            : "Arquivar cadastro"}
+                                      </button>
+                                    )}
                                 </div>
                               </td>
                             </tr>
@@ -6682,6 +7185,35 @@ export default function LegacyAdminPanel() {
                         Fechar
                       </button>
                     </div>
+
+                    {selectedCatalogItem && (
+                      <div className="coverageReadinessPanel">
+                        <div>
+                          <strong>
+                            {selectedCatalogItem.ativo
+                              ? "Publicado no WhatsApp"
+                              : `${selectedCatalogItem.etapas_concluidas} de ${selectedCatalogItem.etapas_total} etapas prontas`}
+                          </strong>
+                          <span>
+                            {selectedCatalogItem.ativo
+                              ? "As coberturas válidas podem ser oferecidas aos pacientes."
+                              : "Complete a estrutura, as coberturas e a validação de booking."}
+                          </span>
+                        </div>
+                        <ul>
+                          {(selectedCatalogItem.pendencias_configuracao || []).map(
+                            (pendencia) => <li key={pendencia}>{pendencia}</li>,
+                          )}
+                        </ul>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => abrirCoberturasConvenio(selectedCatalogItem)}
+                        >
+                          Configurar coberturas
+                        </button>
+                      </div>
+                    )}
 
                     {selectedForma.estrutura !== "somente_convenio" && (
                       <form className="coverageProductCreate" onSubmit={criarProduto}>
@@ -6742,7 +7274,7 @@ export default function LegacyAdminPanel() {
                               }))
                             }
                           >
-                            <option value="">Mapear depois</option>
+                            <option value="">Confirmar depois</option>
                             {planosFeegow.map((plano) => (
                               <option key={plano.feegow_plano_id} value={plano.feegow_plano_id}>
                                 {plano.nome} · ID {plano.feegow_plano_id}
@@ -6811,7 +7343,7 @@ export default function LegacyAdminPanel() {
                           <tr>
                             <th>Produto / rede</th>
                             <th>Plano</th>
-                            <th>Uso nos aceites</th>
+                            <th>Uso nas coberturas</th>
                             <th>Correspondência na Feegow</th>
                             <th>Situação</th>
                             <th>Ação</th>
@@ -6839,12 +7371,25 @@ export default function LegacyAdminPanel() {
                                 <small>{produto.nome}</small>
                               </td>
                               <td>
-                                <strong>{produto.aceites_ativos || 0} aceite(s) ativo(s)</strong>
-                                <small>
-                                  {produto.aceites_ativos
-                                    ? "Esta opção é usada no atendimento"
-                                    : "Sem uso nos aceites atuais"}
-                                </small>
+                                <strong>{produto.aceites_ativos || 0} cobertura(s) ativa(s)</strong>
+                                {produto.aceites_ativos ? (
+                                  <details className="productCoverageDetails">
+                                    <summary>Ver onde esta opção é aceita</summary>
+                                    <ul>
+                                      {(produto.aceites_detalhes || []).map((aceite) => (
+                                        <li key={aceite.aceite_id}>
+                                          <strong>{aceite.medico}</strong>
+                                          <span>
+                                            {aceite.especialidade ||
+                                              "Especialidade não vinculada"}
+                                          </span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </details>
+                                ) : (
+                                  <small>Sem uso nas coberturas atuais</small>
+                                )}
                               </td>
                               <td>
                                 {produto.necessita_revisao ? (
@@ -6882,8 +7427,17 @@ export default function LegacyAdminPanel() {
                                     >
                                       {loadingAction === `produto-mapeamento-${produto.id}`
                                         ? "Confirmando..."
-                                        : "Confirmar correspondência"}
+                                        : produto.mapeamento_sugerido
+                                          ? "Confirmar sugestão"
+                                          : "Confirmar correspondência"}
                                     </button>
+                                    {produto.mapeamento_sugerido && (
+                                      <small className="mappingSuggestion">
+                                        Sugestão por nome exato:{" "}
+                                        <strong>{produto.mapeamento_sugerido.nome}</strong>.
+                                        Confira antes de confirmar.
+                                      </small>
+                                    )}
                                     {!canValidateCoverage && (
                                       <small>Seu perfil não permite validar correspondências.</small>
                                     )}
@@ -6893,12 +7447,12 @@ export default function LegacyAdminPanel() {
                                     <strong>
                                       {produto.feegow_plano_id
                                         ? `${produto.feegow_plano_nome || "Plano Feegow"}`
-                                        : "Não se aplica"}
+                                        : "Ainda não exigida"}
                                     </strong>
                                     <small>
                                       {produto.feegow_plano_id
                                         ? `ID ${produto.feegow_plano_id}`
-                                        : "Opção sem vínculo necessário"}
+                                        : "A confirmação será exigida quando houver cobertura ativa"}
                                     </small>
                                   </>
                                 )}
@@ -6914,9 +7468,11 @@ export default function LegacyAdminPanel() {
                                   }`}
                                 >
                                   {produto.booking_ready
-                                    ? "Pronta para agendamento"
+                                    ? "Booking validado"
                                     : produto.necessita_revisao
-                                      ? "Configuração necessária"
+                                      ? produto.mapeamento_sugerido
+                                        ? "Sugestão para confirmar"
+                                        : "Escolha necessária"
                                       : produto.ativo
                                         ? "Sem uso atual"
                                         : "Inativa"}
@@ -6957,7 +7513,167 @@ export default function LegacyAdminPanel() {
             )}
 
             {coverageSection === "aceites" && (
-              <CoverageMedicalReadView
+              <>
+                {canManageCoverage && (
+                  <section
+                    className="coverageCreatePanel"
+                    id="coverage-create-panel"
+                  >
+                    <div className="coverageCreateHeader">
+                      <div>
+                        <span className="coverageEyebrow">NOVA COBERTURA</span>
+                        <h3>Adicionar médico e especialidade ao convênio</h3>
+                        <p>
+                          Cada cobertura liga um convênio — e, quando necessário,
+                          um plano — a um médico e uma especialidade específicos.
+                        </p>
+                      </div>
+                      {selectedCoverageForma && (
+                        <span
+                          className={`catalogStatus ${
+                            selectedCoverageForma.ativo
+                              ? "catalogStatus--pronto"
+                              : "catalogStatus--em_configuracao"
+                          }`}
+                        >
+                          {selectedCoverageForma.ativo
+                            ? "Ativo no WhatsApp"
+                            : "Em configuração · fora do WhatsApp"}
+                        </span>
+                      )}
+                    </div>
+
+                    <form
+                      className="coverageCreateGrid"
+                      onSubmit={criarCoberturaOperacional}
+                    >
+                      <label>
+                        Convênio
+                        <select
+                          value={novaCobertura.forma_id}
+                          onChange={(event) =>
+                            setNovaCobertura({
+                              forma_id: event.target.value,
+                              produto_id: "",
+                              medico_id: "",
+                              especialidade_id: "",
+                            })
+                          }
+                          required
+                        >
+                          <option value="">Selecione</option>
+                          {formasConvenioAceite.map((forma) => (
+                            <option key={forma.id} value={forma.id}>
+                              {forma.nome}
+                              {forma.ativo ? " · no WhatsApp" : " · em configuração"}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label>
+                        Plano / produto / rede
+                        <select
+                          value={novaCobertura.produto_id}
+                          onChange={(event) =>
+                            setNovaCobertura((current) => ({
+                              ...current,
+                              produto_id: event.target.value,
+                            }))
+                          }
+                          disabled={
+                            !selectedCoverageForma ||
+                            !selectedCoverageForma.exige_plano ||
+                            aceiteProdutosLoading
+                          }
+                          required={Boolean(selectedCoverageForma?.exige_plano)}
+                        >
+                          <option value="">
+                            {selectedCoverageForma?.exige_plano
+                              ? "Selecione"
+                              : "Convênio inteiro"}
+                          </option>
+                          {aceiteProdutos.map((produto) => (
+                            <option key={produto.id} value={produto.id}>
+                              {produto.nome}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label>
+                        Médico
+                        <select
+                          value={novaCobertura.medico_id}
+                          onChange={(event) =>
+                            setNovaCobertura((current) => ({
+                              ...current,
+                              medico_id: event.target.value,
+                              especialidade_id: "",
+                            }))
+                          }
+                          required
+                        >
+                          <option value="">Selecione</option>
+                          {medicos
+                            .filter((medico) => medico.ativo)
+                            .map((medico) => (
+                              <option key={medico.id} value={medico.id}>
+                                {medico.nome}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+
+                      <label>
+                        Especialidade
+                        <select
+                          value={novaCobertura.especialidade_id}
+                          onChange={(event) =>
+                            setNovaCobertura((current) => ({
+                              ...current,
+                              especialidade_id: event.target.value,
+                            }))
+                          }
+                          disabled={!selectedCoverageDoctor}
+                          required
+                        >
+                          <option value="">Selecione explicitamente</option>
+                          {selectedCoverageSpecialties.map((especialidade) => (
+                            <option key={especialidade.id} value={especialidade.id}>
+                              {especialidade.nome}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <button
+                        type="submit"
+                        disabled={
+                          loadingAction === "cobertura.criar" ||
+                          aceiteProdutosLoading
+                        }
+                      >
+                        {loadingAction === "cobertura.criar"
+                          ? "Adicionando..."
+                          : "Adicionar cobertura"}
+                      </button>
+                    </form>
+
+                    {selectedCoverageForma && !selectedCoverageForma.ativo && (
+                      <div className="coverageOperationalNote">
+                        <strong>Configuração segura:</strong>
+                        <span>
+                          você pode preparar todas as coberturas agora. O convênio
+                          somente aparecerá ao paciente depois de clicar em
+                          <strong> Publicar no WhatsApp</strong> no catálogo.
+                        </span>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                <CoverageMedicalReadView
                 doctors={medicos.map((medico) => ({
                   id: medico.id,
                   name: medico.nome,
@@ -6984,6 +7700,7 @@ export default function LegacyAdminPanel() {
                   updatedAt: aceite.updated_at,
                 }))}
                 selectedDoctorId={selectedMedicoId}
+                focusInsurer={coverageFocusInsurer}
                 loading={coverageLoading}
                 canEdit={canManageCoverage}
                 updatingCoverageId={
@@ -7003,7 +7720,8 @@ export default function LegacyAdminPanel() {
                   );
                   if (matchingAceite) void toggleAceite(matchingAceite);
                 }}
-              />
+                />
+              </>
             )}
           </>
         )}

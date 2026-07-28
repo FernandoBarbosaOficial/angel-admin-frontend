@@ -5,6 +5,7 @@ type Props = {
   doctors: CoverageDoctor[];
   coverages: Array<MedicalCoverage & { insurerGloballyActive?: boolean }>;
   selectedDoctorId: number | null;
+  focusInsurer?: string | null;
   loading: boolean;
   canEdit: boolean;
   updatingCoverageId: number | null;
@@ -20,6 +21,7 @@ export default function CoverageMedicalReadView({
   doctors,
   coverages,
   selectedDoctorId,
+  focusInsurer,
   loading,
   canEdit,
   updatingCoverageId,
@@ -29,7 +31,7 @@ export default function CoverageMedicalReadView({
   const PAGE_SIZE = 20;
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "suspended">("all");
-  const [insurerStatus, setInsurerStatus] = useState<"active" | "inactive">("active");
+  const [insurerStatus, setInsurerStatus] = useState<"all" | "active" | "inactive">("all");
   const [insurer, setInsurer] = useState("all");
   const [detail, setDetail] = useState("all");
   const [specialty, setSpecialty] = useState("all");
@@ -38,12 +40,21 @@ export default function CoverageMedicalReadView({
   useEffect(() => {
     setQuery("");
     setStatus("all");
-    setInsurerStatus("active");
+    setInsurerStatus("all");
     setInsurer("all");
     setDetail("all");
     setSpecialty("all");
     setPage(1);
   }, [selectedDoctorId]);
+
+  useEffect(() => {
+    if (!focusInsurer) return;
+    setInsurer(focusInsurer);
+    setInsurerStatus("all");
+    setDetail("all");
+    setSpecialty("all");
+    setPage(1);
+  }, [focusInsurer]);
 
   const visibleDoctorCoverages = useMemo(
     () => {
@@ -170,8 +181,8 @@ export default function CoverageMedicalReadView({
       <div className="coverageOperationalNote">
         <strong>Regra atual:</strong>
         <span>
-          aceite ativo é oferecido no fluxo; aceite suspenso deixa de ser oferecido,
-          sem alterar cadastros ou agendas da Feegow.
+          uma cobertura ativa só é oferecida quando o convênio também está publicado
+          no WhatsApp. Suspender o convênio prevalece sobre todas as coberturas.
         </span>
       </div>
 
@@ -217,6 +228,7 @@ export default function CoverageMedicalReadView({
               setInsurerStatus(event.target.value as typeof insurerStatus)
             }
           >
+            <option value="all">Todos os convênios</option>
             <option value="active">Convênios ativos</option>
             <option value="inactive">Convênios desativados</option>
           </select>
@@ -329,16 +341,13 @@ export default function CoverageMedicalReadView({
                         className={coverage.active ? "small danger" : "small success"}
                         disabled={
                           !canEdit ||
-                          coverage.insurerGloballyActive === false ||
                           updatingCoverageId === coverage.id
                         }
                         onClick={() => onToggleCoverage(coverage)}
                         title={
                           !canEdit
                             ? "Seu perfil não possui permissão para alterar coberturas"
-                            : coverage.insurerGloballyActive === false
-                              ? "Reative o convênio no cadastro global antes de alterar seus aceites"
-                              : undefined
+                            : undefined
                         }
                       >
                         {updatingCoverageId === coverage.id

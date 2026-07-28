@@ -5688,16 +5688,25 @@ html[data-theme="dark"] .coverageTableWrap {
 .coverageCatalogStats {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.coverageCatalogStats article {
+.coverageCatalogStat {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
   display: grid;
   gap: 5px;
   padding: 14px;
+  text-align: left;
+}
+
+.coverageCatalogStat:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
 }
 
 .coverageCatalogStats span {
@@ -5709,6 +5718,55 @@ html[data-theme="dark"] .coverageTableWrap {
 .coverageCatalogStats strong {
   color: #0f172a;
   font-size: 24px;
+}
+
+.coverageCatalogStats small {
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.coverageActivationGuide,
+.coverageCredentialPanel {
+  background: #f8fbff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 0 18px;
+}
+
+.coverageActivationGuide > summary,
+.coverageCredentialPanel > summary {
+  color: #1e3a5f;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 15px 0;
+}
+
+.coverageActivationGuide ol {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.coverageActivationGuide p,
+.coverageCredentialPanel p {
+  color: #475569;
+  line-height: 1.55;
+  margin: 0 0 16px;
+}
+
+.coverageCredentialPanel > div {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding-bottom: 16px;
+}
+
+.coverageCredentialPanel p {
+  margin: 0;
+  max-width: 850px;
 }
 
 .coverageCatalogCreate {
@@ -5835,6 +5893,24 @@ html[data-theme="dark"] .coverageTableWrap {
   gap: 7px;
 }
 
+.catalogCoverageLink {
+  background: transparent;
+  border: 0;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: flex-start;
+  padding: 0;
+  text-align: left;
+}
+
+.catalogCoverageLink:disabled {
+  background: transparent;
+  color: #64748b;
+  cursor: default;
+  opacity: 1;
+}
+
 .catalogStatus {
   border-radius: 999px;
   display: inline-flex;
@@ -5854,13 +5930,15 @@ html[data-theme="dark"] .coverageTableWrap {
 }
 
 .catalogStatus--suspenso,
-.catalogStatus--nao_cadastrado {
+.catalogStatus--nao_cadastrado,
+.catalogStatus--arquivado {
   background: #e2e8f0;
   color: #475569;
 }
 
 .catalogStatus--sem_aceites,
-.catalogStatus--revisar {
+.catalogStatus--revisar,
+.catalogStatus--em_configuracao {
   background: #fef3c7;
   color: #92400e;
 }
@@ -5874,6 +5952,36 @@ html[data-theme="dark"] .coverageTableWrap {
   color: #92400e !important;
   font-weight: 800;
   margin-top: 7px;
+}
+
+.catalogPendingList {
+  color: #475569;
+  font-size: 11px;
+  margin-top: 7px;
+}
+
+.catalogPendingList summary,
+.productCoverageDetails summary {
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.catalogPendingList ul,
+.productCoverageDetails ul {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0 0;
+  padding-left: 17px;
+}
+
+.productCoverageDetails li {
+  display: grid;
+  gap: 2px;
+}
+
+.mappingSuggestion {
+  color: #1d4ed8 !important;
 }
 
 .coverageMappingEditor {
@@ -5906,6 +6014,78 @@ button.warning:hover:not(:disabled) {
   margin-top: 2px;
 }
 
+.coverageReadinessPanel {
+  align-items: start;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 2fr) auto;
+  padding: 14px;
+}
+
+.coverageReadinessPanel > div {
+  display: grid;
+  gap: 4px;
+}
+
+.coverageReadinessPanel span,
+.coverageReadinessPanel li {
+  color: #475569;
+  font-size: 12px;
+}
+
+.coverageReadinessPanel ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.coverageCreatePanel {
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.coverageCreateHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.coverageCreateHeader h3 {
+  margin: 3px 0 6px;
+}
+
+.coverageCreateHeader p {
+  color: #64748b;
+  margin: 0;
+}
+
+.coverageCreateGrid {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
+}
+
+.coverageCreateGrid label {
+  display: grid;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  min-width: 0;
+}
+
+.coverageCreateGrid select {
+  min-width: 0;
+  width: 100%;
+}
+
 .coverageProductCreate {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -5916,17 +6096,38 @@ button.warning:hover:not(:disabled) {
 html[data-theme="dark"] .coverageHub,
 html[data-theme="dark"] .coverageCatalog,
 html[data-theme="dark"] .coverageProductPanel,
+html[data-theme="dark"] .coverageCreatePanel,
 html[data-theme="dark"] .coverageSectionTabs button.active {
   background: #111827;
   border-color: #334155;
 }
 
 html[data-theme="dark"] .coverageSectionTabs,
-html[data-theme="dark"] .coverageCatalogStats article,
+html[data-theme="dark"] .coverageCatalogStat,
 html[data-theme="dark"] .coverageCatalogFilters,
-html[data-theme="dark"] .coverageProductCreate {
+html[data-theme="dark"] .coverageProductCreate,
+html[data-theme="dark"] .coverageReadinessPanel {
   background: #172033;
   border-color: #334155;
+}
+
+html[data-theme="dark"] .coverageActivationGuide,
+html[data-theme="dark"] .coverageCredentialPanel {
+  background: #132236;
+  border-color: #315b85;
+}
+
+html[data-theme="dark"] .coverageActivationGuide > summary,
+html[data-theme="dark"] .coverageCredentialPanel > summary {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .coverageActivationGuide p,
+html[data-theme="dark"] .coverageCredentialPanel p,
+html[data-theme="dark"] .coverageReadinessPanel span,
+html[data-theme="dark"] .coverageReadinessPanel li,
+html[data-theme="dark"] .coverageCreateHeader p {
+  color: #cbd5e1;
 }
 
 html[data-theme="dark"] .coverageCatalogCreate {
@@ -5980,8 +6181,15 @@ html[data-theme="dark"] .coveragePagination {
   }
 
   .coverageCatalogCreateHeader,
-  .coverageProductHeader {
+  .coverageProductHeader,
+  .coverageCreateHeader,
+  .coverageCredentialPanel > div {
     flex-direction: column;
+  }
+
+  .coverageReadinessPanel,
+  .coverageCreateGrid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -5992,6 +6200,14 @@ html[data-theme="dark"] .coveragePagination {
       "insurerStatus status"
       "detail specialty"
       "search search";
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coverageCatalogStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .coverageCreateGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
