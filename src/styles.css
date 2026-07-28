@@ -6041,6 +6041,13 @@ html[data-theme="dark"] .coverageTableWrap {
   max-width: 820px;
 }
 
+.feegowMappingCenterHeader small {
+  color: #166534;
+  display: block;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
 .feegowMappingSummary {
   display: grid;
   gap: 10px;
@@ -6132,6 +6139,14 @@ html[data-theme="dark"] .coverageTableWrap {
 .feegowMappingExceptionList span,
 .feegowMappingExceptionList small {
   color: #64748b;
+}
+
+.feegowMappingExceptionActions {
+  justify-items: end;
+}
+
+.feegowMappingExceptions .paginationBar {
+  margin-top: 12px;
 }
 
 .coverageAutomaticMappingHint {
@@ -6277,6 +6292,7 @@ html[data-theme="dark"] .coverageCredentialPanel > summary {
 html[data-theme="dark"] .coverageActivationGuide p,
 html[data-theme="dark"] .coverageCredentialPanel p,
 html[data-theme="dark"] .feegowMappingCenterHeader p,
+html[data-theme="dark"] .feegowMappingCenterHeader small,
 html[data-theme="dark"] .coverageReadinessPanel span,
 html[data-theme="dark"] .coverageReadinessPanel li,
 html[data-theme="dark"] .coverageCreateHeader p {

@@ -11,6 +11,7 @@ const FORMAS_PAGE_SIZE = 15;
 const MEDICOS_PAGE_SIZE = 15;
 const PRODUTOS_PAGE_SIZE = 25;
 const ACEITES_PAGE_SIZE = 25;
+const FEEGOW_MAPPING_EXCEPTIONS_PAGE_SIZE = 20;
 const WHATSAPP_LOGS_PAGE_SIZE = 50;
 const WHATSAPP_LOG_GROUPS_PAGE_SIZE = 12;
 const ADMIN_AUDIT_PAGE_SIZE = 80;
@@ -1969,6 +1970,8 @@ export default function LegacyAdminPanel() {
     useState<FeegowMappingCenter | null>(null);
   const [feegowMappingCenterLoading, setFeegowMappingCenterLoading] =
     useState(false);
+  const [feegowMappingExceptionPage, setFeegowMappingExceptionPage] =
+    useState(1);
   const [convenioCatalogoSearch, setConvenioCatalogoSearch] = useState("");
   const [convenioCatalogoStatus, setConvenioCatalogoStatus] = useState<
     | "todos"
@@ -2642,6 +2645,39 @@ export default function LegacyAdminPanel() {
     });
   }, [convenioCatalogo, convenioCatalogoSearch, convenioCatalogoStatus]);
 
+  const feegowMappingExceptionItems = useMemo(
+    () =>
+      (feegowMappingCenter?.items || []).filter((item) =>
+        [
+          "ambiguo",
+          "nao_encontrado",
+          "sem_vinculo_convenio",
+          "mapeamento_inativo",
+        ].includes(item.resolucao_status),
+      ),
+    [feegowMappingCenter],
+  );
+  const totalFeegowMappingExceptionPages = Math.max(
+    1,
+    Math.ceil(
+      feegowMappingExceptionItems.length /
+        FEEGOW_MAPPING_EXCEPTIONS_PAGE_SIZE,
+    ),
+  );
+  const feegowMappingExceptionPageSafe = Math.min(
+    feegowMappingExceptionPage,
+    totalFeegowMappingExceptionPages,
+  );
+  const feegowMappingExceptionItemsPaginados = useMemo(() => {
+    const start =
+      (feegowMappingExceptionPageSafe - 1) *
+      FEEGOW_MAPPING_EXCEPTIONS_PAGE_SIZE;
+    return feegowMappingExceptionItems.slice(
+      start,
+      start + FEEGOW_MAPPING_EXCEPTIONS_PAGE_SIZE,
+    );
+  }, [feegowMappingExceptionItems, feegowMappingExceptionPageSafe]);
+
   const totalFormasPages = Math.max(1, Math.ceil(formasFiltradas.length / FORMAS_PAGE_SIZE));
   const formasPageSafe = Math.min(formasPage, totalFormasPages);
   const formasPaginadas = useMemo(() => {
@@ -3000,6 +3036,7 @@ export default function LegacyAdminPanel() {
       ]);
       setConvenioCatalogo(catalogo.items || []);
       setFeegowMappingCenter(correspondencias);
+      setFeegowMappingExceptionPage(1);
     } finally {
       setConvenioCatalogoLoading(false);
       setFeegowMappingCenterLoading(false);
@@ -4710,8 +4747,8 @@ export default function LegacyAdminPanel() {
     const publicar = !forma.ativo;
     const confirmed = window.confirm(
       publicar
-        ? `Publicar "${forma.nome}" no WhatsApp?\n\nApós a publicação, o convênio poderá aparecer para os pacientes conforme suas coberturas.`
-        : `Suspender "${forma.nome}" do WhatsApp?\n\nEle deixará de ser oferecido em novos atendimentos, sem apagar as coberturas.`,
+        ? `Ativar o convênio inteiro "${forma.nome}" no WhatsApp?\n\nApós a ativação, seus planos poderão aparecer para os pacientes conforme as coberturas configuradas.`
+        : `Desativar o convênio inteiro "${forma.nome}" no WhatsApp?\n\nTodos os planos dele deixarão de ser oferecidos em novos atendimentos. Coberturas e vínculos serão preservados.`,
     );
     if (!confirmed) return;
 
@@ -4735,8 +4772,8 @@ export default function LegacyAdminPanel() {
       }
       showToast(
         publicar
-          ? "✅ Convênio publicado no WhatsApp"
-          : "✅ Convênio suspenso do WhatsApp",
+          ? "✅ Convênio inteiro ativado no WhatsApp"
+          : "✅ Convênio inteiro desativado do WhatsApp e retirado das exceções ativas",
       );
     } catch (error) {
       showToast(error instanceof Error ? `❌ ${error.message}` : "❌ Erro ao atualizar forma", true);
@@ -6951,6 +6988,10 @@ export default function LegacyAdminPanel() {
                         por todos os médicos. Você revisa somente ambiguidades e itens
                         sem correspondência exata.
                       </p>
+                      <small>
+                        Convênios desativados não entram nesta lista nem nos totais
+                        de exceções.
+                      </small>
                     </div>
                     {canValidateCoverage && (
                       <button
@@ -6975,7 +7016,7 @@ export default function LegacyAdminPanel() {
                     <>
                       <div className="feegowMappingSummary">
                         <div>
-                          <span>Opções usadas</span>
+                          <span>Opções ativas usadas</span>
                           <strong>
                             {feegowMappingCenter.summary.total_opcoes_usadas}
                           </strong>
@@ -7025,7 +7066,7 @@ export default function LegacyAdminPanel() {
                         open={feegowMappingCenter.summary.excecoes_reais > 0}
                       >
                         <summary>
-                          Exceções que precisam de evidência ·{" "}
+                          Exceções ativas que precisam de evidência ·{" "}
                           {feegowMappingCenter.summary.excecoes_reais}
                         </summary>
                         {feegowMappingCenter.summary.excecoes_reais === 0 ? (
@@ -7034,22 +7075,17 @@ export default function LegacyAdminPanel() {
                             as coberturas usadas.
                           </p>
                         ) : (
-                          <div className="feegowMappingExceptionList">
-                            {feegowMappingCenter.items
-                              .filter((item) =>
-                                [
-                                  "ambiguo",
-                                  "nao_encontrado",
-                                  "sem_vinculo_convenio",
-                                  "mapeamento_inativo",
-                                ].includes(item.resolucao_status),
-                              )
-                              .map((item) => {
+                          <>
+                            <div className="feegowMappingExceptionList">
+                              {feegowMappingExceptionItemsPaginados.map((item) => {
                                 const catalogItem = convenioCatalogo.find(
                                   (candidate) =>
                                     Number(candidate.forma_id) ===
                                     Number(item.forma_id),
                                 );
+                                const forma = catalogItem
+                                  ? convenioCatalogoToForma(catalogItem)
+                                  : null;
                                 return (
                                   <article key={item.produto_id}>
                                     <div>
@@ -7089,24 +7125,66 @@ export default function LegacyAdminPanel() {
                                         </small>
                                       )}
                                     </div>
-                                    <button
-                                      type="button"
-                                      className="small"
-                                      disabled={!catalogItem}
-                                      onClick={() =>
-                                        catalogItem &&
-                                        void abrirEstruturaConvenio(
-                                          catalogItem,
-                                          "revisar",
-                                        )
-                                      }
-                                    >
-                                      Revisar com evidência
-                                    </button>
+                                    <div className="feegowMappingExceptionActions">
+                                      <button
+                                        type="button"
+                                        className="small"
+                                        disabled={!catalogItem}
+                                        onClick={() =>
+                                          catalogItem &&
+                                          void abrirEstruturaConvenio(
+                                            catalogItem,
+                                            "revisar",
+                                          )
+                                        }
+                                      >
+                                        Revisar com evidência
+                                      </button>
+                                      {canManageCoverage &&
+                                        catalogItem?.ativo &&
+                                        forma && (
+                                          <button
+                                            type="button"
+                                            className="small danger"
+                                            disabled={
+                                              loadingAction ===
+                                              `forma-${catalogItem.forma_id}`
+                                            }
+                                            onClick={() =>
+                                              void toggleForma(forma)
+                                            }
+                                          >
+                                            {loadingAction ===
+                                            `forma-${catalogItem.forma_id}`
+                                              ? "Desativando..."
+                                              : "Desativar convênio inteiro"}
+                                          </button>
+                                        )}
+                                    </div>
                                   </article>
                                 );
                               })}
-                          </div>
+                            </div>
+                            <PaginationBar
+                              page={feegowMappingExceptionPageSafe}
+                              pageCount={totalFeegowMappingExceptionPages}
+                              total={feegowMappingExceptionItems.length}
+                              label="Exceções ativas"
+                              onPrev={() =>
+                                setFeegowMappingExceptionPage((current) =>
+                                  Math.max(1, current - 1),
+                                )
+                              }
+                              onNext={() =>
+                                setFeegowMappingExceptionPage((current) =>
+                                  Math.min(
+                                    totalFeegowMappingExceptionPages,
+                                    current + 1,
+                                  ),
+                                )
+                              }
+                            />
+                          </>
                         )}
                       </details>
                     </>
@@ -7436,9 +7514,9 @@ export default function LegacyAdminPanel() {
                                       {loadingAction === `forma-${item.forma_id}`
                                         ? "Salvando..."
                                         : item.ativo
-                                          ? "Suspender do WhatsApp"
+                                          ? "Desativar convênio inteiro"
                                           : item.pode_ativar
-                                            ? "Publicar no WhatsApp"
+                                            ? "Ativar convênio inteiro"
                                             : "Continuar configuração"}
                                     </button>
                                   )}
