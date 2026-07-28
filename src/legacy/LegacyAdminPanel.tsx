@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import CoverageMedicalReadView from "../modules/coverage-admin/CoverageMedicalReadView";
+import OperationRealtimePanel from "../modules/clinic-operations/OperationRealtimePanel";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 const ADMIN_TOKEN_STORAGE_KEY = "agendai_admin_token";
@@ -2170,7 +2171,7 @@ export default function LegacyAdminPanel() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [importacaoMedicosStatus, setImportacaoMedicosStatus] = useState("");
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "dashboard_gerencial" | "followups" | "usuarios" | "auditoria">("followups");
+  const [activeTab, setActiveTab] = useState<"operacao_tempo_real" | "clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "dashboard_gerencial" | "followups" | "usuarios" | "auditoria">("operacao_tempo_real");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
   const [accessScope, setAccessScope] = useState<AdminAccessScope | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
@@ -5831,6 +5832,7 @@ export default function LegacyAdminPanel() {
 
         <nav>
           <div className="navSectionLabel">OPERAÇÃO CLÍNICA</div>
+          <button className={activeTab === "operacao_tempo_real" ? "navActive" : ""} onClick={() => setActiveTab("operacao_tempo_real")}>Operação em tempo real</button>
           <button className={activeTab === "dashboard_gerencial" ? "navActive" : ""} onClick={() => setActiveTab("dashboard_gerencial")}>Visão do dia</button>
           <button className={activeTab === "followups" ? "navActive" : ""} onClick={() => setActiveTab("followups")}>Confirmações</button>
 
@@ -9448,6 +9450,13 @@ export default function LegacyAdminPanel() {
 
 
           </>
+        )}
+
+        {activeTab === "operacao_tempo_real" && (
+          <OperationRealtimePanel
+            apiRequest={api}
+            onOpenIndicators={() => setActiveTab("dashboard_gerencial")}
+          />
         )}
 
         {activeTab === "dashboard_gerencial" && (

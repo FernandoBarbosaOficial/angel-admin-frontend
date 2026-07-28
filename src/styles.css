@@ -6855,3 +6855,685 @@ html[data-theme="dark"] .coveragePagination {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ============================================================
+   OPERAÇÃO EM TEMPO REAL — POLIBON
+   Painel operacional e modo TV para agendamentos confirmados.
+   ============================================================ */
+
+.operationRealtimePanel {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.operationRealtimeHeader {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto minmax(260px, auto);
+  gap: 20px;
+  align-items: center;
+  padding: 24px;
+  border: 1px solid #dbeafe;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+}
+
+.operationRealtimeTitleBlock {
+  min-width: 0;
+}
+
+.operationRealtimeTitleBlock h3 {
+  margin: 4px 0 8px;
+  color: #0f172a;
+  font-size: clamp(25px, 2.3vw, 36px);
+  line-height: 1.05;
+}
+
+.operationRealtimeTitleBlock p {
+  max-width: 760px;
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.operationRealtimeEyebrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.operationRealtimeLiveDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.12);
+  animation: operationLivePulse 1.8s infinite;
+}
+
+.operationRealtimeLiveDot.warning {
+  background: #f59e0b;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.14);
+}
+
+@keyframes operationLivePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.78); opacity: 0.62; }
+}
+
+.operationRealtimeClock {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+  text-align: center;
+}
+
+.operationRealtimeClock strong {
+  color: #0f172a;
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+
+.operationRealtimeClock span {
+  color: #64748b;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.operationRealtimeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.operationRealtimeActions button {
+  width: auto;
+  white-space: nowrap;
+}
+
+.operationTvButton {
+  background: #0f172a;
+}
+
+.operationTvExitButton {
+  background: #dc2626;
+}
+
+.operationRealtimeAlert {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1px solid #fbbf24;
+  border-radius: 14px;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.operationRealtimeAlert strong {
+  white-space: nowrap;
+}
+
+.operationRealtimeAlert span {
+  font-size: 14px;
+}
+
+.operationRealtimeSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.operationRealtimeSummaryGrid article {
+  display: grid;
+  gap: 4px;
+  min-height: 128px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.055);
+}
+
+.operationRealtimeSummaryGrid article.highlight {
+  border-color: #93c5fd;
+  background: linear-gradient(145deg, #eff6ff, #ffffff);
+}
+
+.operationRealtimeSummaryGrid article.healthy {
+  border-color: #86efac;
+  background: linear-gradient(145deg, #f0fdf4, #ffffff);
+}
+
+.operationRealtimeSummaryGrid article.warning {
+  border-color: #fcd34d;
+  background: linear-gradient(145deg, #fffbeb, #ffffff);
+}
+
+.operationRealtimeSummaryGrid span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.operationRealtimeSummaryGrid strong {
+  color: #0f172a;
+  font-size: clamp(30px, 3vw, 44px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.operationRealtimeSummaryGrid small {
+  align-self: end;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.operationNextAppointment {
+  display: grid;
+  grid-template-columns: 145px minmax(180px, 1fr) minmax(220px, 1.25fr) auto;
+  gap: 20px;
+  align-items: center;
+  padding: 20px 24px;
+  border: 1px solid #60a5fa;
+  border-radius: 20px;
+  background: linear-gradient(100deg, #172554, #1d4ed8 70%, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 16px 38px rgba(37, 99, 235, 0.24);
+}
+
+.operationNextTime,
+.operationNextPatient,
+.operationNextProfessional {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.operationNextTime span,
+.operationNextPatient strong,
+.operationNextProfessional small {
+  color: #dbeafe;
+  font-size: 12px;
+}
+
+.operationNextTime strong {
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.operationNextPatient span,
+.operationNextProfessional span {
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operationNextProfessional small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operationRealtimeListHeader {
+  display: flex;
+  gap: 18px;
+  align-items: end;
+  justify-content: space-between;
+  padding: 4px 2px 0;
+}
+
+.operationRealtimeListHeader h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+}
+
+.operationRealtimeListHeader p,
+.operationRealtimeListHeader > span {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.operationRealtimeList {
+  display: grid;
+  gap: 10px;
+}
+
+.operationRealtimeRow {
+  display: grid;
+  grid-template-columns: 125px minmax(170px, 1fr) minmax(210px, 1.25fr) minmax(190px, 1fr) minmax(185px, auto);
+  gap: 16px;
+  align-items: center;
+  min-width: 0;
+  padding: 17px 18px;
+  border: 1px solid #e2e8f0;
+  border-left: 5px solid #94a3b8;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 7px 22px rgba(15, 23, 42, 0.045);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.operationRealtimeRow:hover {
+  transform: translateY(-1px);
+  border-color: #bfdbfe;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.075);
+}
+
+.operationRealtimeRow.upcoming {
+  border-left-color: #2563eb;
+}
+
+.operationRealtimeRow.now,
+.operationRealtimeRow.next {
+  border-color: #60a5fa;
+  border-left-color: #16a34a;
+  background: linear-gradient(90deg, #f0fdf4, #ffffff 30%);
+}
+
+.operationRealtimeRow.past {
+  opacity: 0.76;
+  border-left-color: #94a3b8;
+}
+
+.operationRealtimeRowTime,
+.operationRealtimeRowPatient,
+.operationRealtimeRowClinical,
+.operationRealtimeRowCoverage,
+.operationRealtimeRowMeta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.operationRealtimeRowTime strong {
+  color: #0f172a;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.operationRealtimeRowTime span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.operationRealtimeRowPatient strong,
+.operationRealtimeRowClinical strong,
+.operationRealtimeRowCoverage strong {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operationRealtimeRowPatient span,
+.operationRealtimeRowClinical span,
+.operationRealtimeRowCoverage span,
+.operationRealtimeRowMeta small {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operationRealtimeRowMeta {
+  justify-items: end;
+  text-align: right;
+}
+
+.operationRealtimeStatus {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.operationRealtimeStatus.confirmed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.operationRealtimeStatus.completed {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.operationRealtimeStatus.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.operationNextAppointment .operationRealtimeStatus.confirmed {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.operationRealtimeEmpty {
+  display: grid;
+  gap: 6px;
+  place-items: center;
+  min-height: 220px;
+  padding: 38px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 20px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.operationRealtimeEmpty strong {
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.operationRealtimeEmpty span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.operationRealtimeEmpty.loading {
+  background: linear-gradient(110deg, #f8fafc 25%, #eff6ff 45%, #f8fafc 65%);
+  background-size: 240% 100%;
+  animation: operationLoading 1.8s infinite linear;
+}
+
+@keyframes operationLoading {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.operationRealtimeFooter {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 2px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+html[data-theme="dark"] .operationRealtimeHeader {
+  border-color: #1e3a8a;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.24), transparent 34%),
+    linear-gradient(135deg, #0f172a 0%, #111827 100%);
+}
+
+html[data-theme="dark"] .operationRealtimeTitleBlock h3,
+html[data-theme="dark"] .operationRealtimeClock strong,
+html[data-theme="dark"] .operationRealtimeSummaryGrid strong,
+html[data-theme="dark"] .operationRealtimeListHeader h4,
+html[data-theme="dark"] .operationRealtimeRowTime strong,
+html[data-theme="dark"] .operationRealtimeRowPatient strong,
+html[data-theme="dark"] .operationRealtimeRowClinical strong,
+html[data-theme="dark"] .operationRealtimeRowCoverage strong,
+html[data-theme="dark"] .operationRealtimeEmpty strong {
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .operationRealtimeTitleBlock p,
+html[data-theme="dark"] .operationRealtimeClock span,
+html[data-theme="dark"] .operationRealtimeSummaryGrid span,
+html[data-theme="dark"] .operationRealtimeSummaryGrid small,
+html[data-theme="dark"] .operationRealtimeListHeader p,
+html[data-theme="dark"] .operationRealtimeListHeader > span,
+html[data-theme="dark"] .operationRealtimeRowTime span,
+html[data-theme="dark"] .operationRealtimeRowPatient span,
+html[data-theme="dark"] .operationRealtimeRowClinical span,
+html[data-theme="dark"] .operationRealtimeRowCoverage span,
+html[data-theme="dark"] .operationRealtimeRowMeta small,
+html[data-theme="dark"] .operationRealtimeFooter,
+html[data-theme="dark"] .operationRealtimeEmpty span {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .operationRealtimeSummaryGrid article,
+html[data-theme="dark"] .operationRealtimeRow,
+html[data-theme="dark"] .operationRealtimeEmpty {
+  border-color: #243247;
+  background: #0f172a;
+}
+
+html[data-theme="dark"] .operationRealtimeSummaryGrid article.highlight,
+html[data-theme="dark"] .operationRealtimeSummaryGrid article.healthy,
+html[data-theme="dark"] .operationRealtimeSummaryGrid article.warning,
+html[data-theme="dark"] .operationRealtimeRow.now,
+html[data-theme="dark"] .operationRealtimeRow.next {
+  background: #111c31;
+}
+
+html[data-theme="dark"] .operationRealtimeAlert {
+  border-color: #92400e;
+  background: #422006;
+  color: #fde68a;
+}
+
+/* Modo TV: remove a navegação administrativa e privilegia leitura a distância. */
+html.operation-tv-mode body {
+  overflow: hidden;
+  background: #020617;
+}
+
+html.operation-tv-mode .app > .sidebar,
+html.operation-tv-mode .content > .header,
+html.operation-tv-mode .content > .accessScopeBanner,
+html.operation-tv-mode .content > .message {
+  display: none !important;
+}
+
+html.operation-tv-mode .content {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  padding: 14px;
+  background: #020617;
+}
+
+html.operation-tv-mode .operationRealtimePanel {
+  min-height: calc(100vh - 28px);
+  gap: 12px;
+  color: #f8fafc;
+}
+
+html.operation-tv-mode .operationRealtimeHeader {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  grid-template-columns: minmax(350px, 1fr) auto minmax(360px, auto);
+  padding: 16px 20px;
+  border-color: #1e3a8a;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(16px);
+}
+
+html.operation-tv-mode .operationRealtimeTitleBlock h3,
+html.operation-tv-mode .operationRealtimeClock strong,
+html.operation-tv-mode .operationRealtimeSummaryGrid strong,
+html.operation-tv-mode .operationRealtimeListHeader h4,
+html.operation-tv-mode .operationRealtimeRowTime strong,
+html.operation-tv-mode .operationRealtimeRowPatient strong,
+html.operation-tv-mode .operationRealtimeRowClinical strong,
+html.operation-tv-mode .operationRealtimeRowCoverage strong,
+html.operation-tv-mode .operationRealtimeEmpty strong {
+  color: #f8fafc;
+}
+
+html.operation-tv-mode .operationRealtimeTitleBlock p,
+html.operation-tv-mode .operationRealtimeClock span,
+html.operation-tv-mode .operationRealtimeSummaryGrid span,
+html.operation-tv-mode .operationRealtimeSummaryGrid small,
+html.operation-tv-mode .operationRealtimeListHeader p,
+html.operation-tv-mode .operationRealtimeListHeader > span,
+html.operation-tv-mode .operationRealtimeRowTime span,
+html.operation-tv-mode .operationRealtimeRowPatient span,
+html.operation-tv-mode .operationRealtimeRowClinical span,
+html.operation-tv-mode .operationRealtimeRowCoverage span,
+html.operation-tv-mode .operationRealtimeRowMeta small,
+html.operation-tv-mode .operationRealtimeFooter,
+html.operation-tv-mode .operationRealtimeEmpty span {
+  color: #94a3b8;
+}
+
+html.operation-tv-mode .operationRealtimeSummaryGrid article,
+html.operation-tv-mode .operationRealtimeRow,
+html.operation-tv-mode .operationRealtimeEmpty {
+  border-color: #243247;
+  background: #0f172a;
+  box-shadow: none;
+}
+
+html.operation-tv-mode .operationRealtimeSummaryGrid article.highlight,
+html.operation-tv-mode .operationRealtimeSummaryGrid article.healthy,
+html.operation-tv-mode .operationRealtimeSummaryGrid article.warning,
+html.operation-tv-mode .operationRealtimeRow.now,
+html.operation-tv-mode .operationRealtimeRow.next {
+  background: #111c31;
+}
+
+html.operation-tv-mode .operationRealtimeSummaryGrid article {
+  min-height: 104px;
+  padding: 14px 18px;
+}
+
+html.operation-tv-mode .operationRealtimeSummaryGrid strong {
+  font-size: clamp(34px, 3.4vw, 54px);
+}
+
+html.operation-tv-mode .operationNextAppointment {
+  padding: 16px 22px;
+}
+
+html.operation-tv-mode .operationRealtimeRow {
+  min-height: 78px;
+  padding: 13px 18px;
+}
+
+html.operation-tv-mode .operationRealtimeRowTime strong {
+  font-size: 30px;
+}
+
+html.operation-tv-mode .operationRealtimeRowPatient strong,
+html.operation-tv-mode .operationRealtimeRowClinical strong,
+html.operation-tv-mode .operationRealtimeRowCoverage strong {
+  font-size: 17px;
+}
+
+@media (max-width: 1450px) {
+  .operationRealtimeHeader {
+    grid-template-columns: minmax(260px, 1fr) auto;
+  }
+
+  .operationRealtimeActions {
+    grid-column: 1 / -1;
+  }
+
+  .operationRealtimeRow {
+    grid-template-columns: 110px minmax(150px, 0.9fr) minmax(190px, 1.15fr) minmax(170px, 1fr) minmax(175px, auto);
+  }
+}
+
+@media (max-width: 1180px) {
+  .operationRealtimeSummaryGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .operationNextAppointment {
+    grid-template-columns: 125px 1fr 1.2fr;
+  }
+
+  .operationNextAppointment .operationRealtimeStatus {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .operationRealtimeRow {
+    grid-template-columns: 100px minmax(150px, 1fr) minmax(190px, 1.2fr) minmax(175px, 1fr);
+  }
+
+  .operationRealtimeRowMeta {
+    grid-column: 2 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+@media (max-width: 800px) {
+  .operationRealtimeHeader {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .operationRealtimeClock {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .operationRealtimeActions {
+    justify-content: flex-start;
+  }
+
+  .operationRealtimeSummaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operationNextAppointment,
+  .operationRealtimeRow {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .operationNextProfessional,
+  .operationNextAppointment .operationRealtimeStatus,
+  .operationRealtimeRowClinical,
+  .operationRealtimeRowCoverage,
+  .operationRealtimeRowMeta {
+    grid-column: 2;
+  }
+
+  .operationRealtimeListHeader,
+  .operationRealtimeFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .operationRealtimeSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .operationRealtimeHeader,
+  .operationNextAppointment,
+  .operationRealtimeRow {
+    padding: 16px;
+  }
+
+  .operationRealtimeActions button {
+    flex: 1 1 100%;
+  }
+}
