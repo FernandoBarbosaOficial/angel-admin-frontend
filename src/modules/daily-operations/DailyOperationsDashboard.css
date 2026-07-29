@@ -1011,3 +1011,147 @@ html[data-theme="dark"] .dailyQualityPanel {
     grid-column: 1 / -1;
   }
 }
+
+/* ANGEL_DAILY_VISUAL_REFINEMENT_V51
+   Corrige a colisão com a classe legada global ".success" e aproxima
+   KPIs/desfechos do mock aprovado: superfícies neutras e cor nos ícones. */
+
+.dailyKpiCard,
+.dailyKpiCard.primary,
+.dailyKpiCard.success,
+.dailyKpiCard.trend,
+.dailyKpiCard.warning,
+.dailyKpiCard.purple,
+.dailyKpiCard.critical {
+  background: var(--angel-surface, #ffffff);
+  color: var(--angel-text, #101c35);
+}
+
+.dailyKpiCard.primary,
+.dailyKpiCard.trend,
+.dailyKpiCard.warning,
+.dailyKpiCard.purple,
+.dailyKpiCard.critical {
+  border-color: var(--angel-border, #e1e8f2);
+}
+
+.dailyKpiCard.success {
+  border-color: rgba(24, 182, 106, 0.22);
+  box-shadow:
+    var(--angel-shadow-sm, 0 6px 18px rgba(28, 45, 78, 0.055)),
+    inset 0 0 0 1px rgba(24, 182, 106, 0.025);
+}
+
+.dailyKpiHeading {
+  min-height: 44px;
+  gap: 11px;
+}
+
+.dailyKpiIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+}
+
+.dailyKpiLabel,
+.dailyKpiCard.success .dailyKpiLabel,
+.dailyKpiCard.warning .dailyKpiLabel,
+.dailyKpiCard.critical .dailyKpiLabel {
+  color: var(--angel-text, #101c35);
+}
+
+.dailyKpiCard > strong,
+.dailyKpiCard.success > strong,
+.dailyKpiCard.success > small {
+  color: var(--angel-text, #101c35);
+}
+
+.dailyKpiCard > small {
+  color: var(--angel-muted, #687791);
+}
+
+.dailyKpiCard.success .dailyKpiIcon {
+  background: var(--angel-success-soft, #e8f9f1);
+  color: var(--angel-success, #18b66a);
+  box-shadow: 0 0 0 5px rgba(24, 182, 106, 0.055);
+}
+
+.dailyKpiCard.trend .dailyKpiIcon {
+  box-shadow: 0 0 0 5px rgba(139, 92, 246, 0.045);
+}
+
+.dailyKpiCard.warning .dailyKpiIcon {
+  box-shadow: 0 0 0 5px rgba(242, 165, 26, 0.05);
+}
+
+.dailyKpiCard.purple .dailyKpiIcon {
+  box-shadow: 0 0 0 5px rgba(139, 92, 246, 0.045);
+}
+
+.dailyKpiCard.critical .dailyKpiIcon {
+  box-shadow: 0 0 0 5px rgba(240, 68, 85, 0.045);
+}
+
+.dailyOutcomeRow,
+.dailyOutcomeRow.success,
+.dailyOutcomeRow.warning,
+.dailyOutcomeRow.reception,
+.dailyOutcomeRow.critical,
+.dailyOutcomeRow.neutral,
+.dailyOutcomeRow.muted {
+  border-color: transparent;
+  background: var(--angel-surface-muted, #f6f9fd);
+  color: var(--angel-text-soft, #3e4e69);
+  box-shadow: none;
+}
+
+.dailyOutcomeRow:hover {
+  border-color: var(--angel-border, #e1e8f2);
+  background: var(--angel-surface, #ffffff);
+}
+
+.dailyOutcomeIdentity > i,
+.dailyOpenIdentity > i {
+  width: 29px;
+  height: 29px;
+  border-radius: 999px;
+}
+
+.dailyOutcomeRow.success .dailyOutcomeIdentity > i {
+  background: var(--angel-success, #18b66a);
+  color: #ffffff;
+}
+
+.dailyOutcomeRow.warning .dailyOutcomeIdentity > i {
+  background: var(--angel-warning, #f2a51a);
+  color: #ffffff;
+}
+
+.dailyOutcomeRow.reception .dailyOutcomeIdentity > i {
+  background: var(--angel-purple, #8b5cf6);
+  color: #ffffff;
+}
+
+.dailyOutcomeRow.critical .dailyOutcomeIdentity > i {
+  background: var(--angel-danger, #f04455);
+  color: #ffffff;
+}
+
+.dailyOutcomeIdentity > span,
+.dailyOutcomeRow strong {
+  color: var(--angel-text, #101c35);
+}
+
+html[data-theme="dark"] .dailyKpiCard,
+html[data-theme="dark"] .dailyKpiCard.success,
+html[data-theme="dark"] .dailyOutcomeRow,
+html[data-theme="dark"] .dailyOutcomeRow.success,
+html[data-theme="dark"] .dailyOutcomeRow.warning,
+html[data-theme="dark"] .dailyOutcomeRow.reception,
+html[data-theme="dark"] .dailyOutcomeRow.critical {
+  background: var(--angel-surface, #0f1b2d);
+}
+
+html[data-theme="dark"] .dailyOutcomeRow {
+  border-color: var(--angel-border, #253650);
+}
