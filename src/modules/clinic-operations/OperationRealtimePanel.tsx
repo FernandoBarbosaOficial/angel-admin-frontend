@@ -202,6 +202,8 @@ function findAppointmentArray(payload: unknown): unknown[] {
   if (Array.isArray(payload)) return payload;
 
   const preferredPaths = [
+    "data.lanes.booked",
+    "lanes.booked",
     "items",
     "appointments",
     "appointmentsToday",
@@ -243,6 +245,7 @@ function findAppointmentArray(payload: unknown): unknown[] {
             "appointment_at",
             "appointmentDateTime",
             "appointment_datetime",
+            "appointmentStartAt",
             "appointmentDate",
             "appointment_date",
             "dataHora",
@@ -256,6 +259,7 @@ function findAppointmentArray(payload: unknown): unknown[] {
             "patientName",
             "patient_name",
             "patientDisplayName",
+            "patientLabel",
             "patient_display_name",
           ]) !== undefined
         ) {
@@ -277,6 +281,7 @@ function normalizeAppointment(raw: unknown, index: number): NormalizedAppointmen
     "appointment_at",
     "appointmentDateTime",
     "appointment_datetime",
+    "appointmentStartAt",
     "startsAt",
     "starts_at",
     "startAt",
@@ -327,6 +332,7 @@ function normalizeAppointment(raw: unknown, index: number): NormalizedAppointmen
     "agendado_em",
     "confirmedAt",
     "confirmed_at",
+    "updatedAt",
   ]);
 
   const rawPatientName = firstString(raw, [
@@ -421,6 +427,7 @@ function normalizeAppointment(raw: unknown, index: number): NormalizedAppointmen
         "insuranceName",
         "insurance_name",
         "insurance",
+        "coverage",
         "convenioNome",
         "convenio_nome",
         "insurance.name",
@@ -633,8 +640,11 @@ export default function OperationRealtimePanel({
   const todayAppointments = useMemo(
     () =>
       appointments.filter((appointment) => {
-        const date = parseDate(appointment.scheduledAt);
-        return !date || dateKeyInTimezone(date, snapshot?.timezone || POLIBON_TIME_ZONE) === todayKey;
+        const bookedDate = parseDate(appointment.bookedAt);
+        return (
+          !bookedDate ||
+          dateKeyInTimezone(bookedDate, snapshot?.timezone || POLIBON_TIME_ZONE) === todayKey
+        );
       }),
     [appointments, snapshot?.timezone, todayKey],
   );
