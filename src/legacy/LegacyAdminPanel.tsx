@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import CoverageMedicalReadView from "../modules/coverage-admin/CoverageMedicalReadView";
 import OperationRealtimePanel from "../modules/clinic-operations/OperationRealtimePanel";
 import DailyOperationsDashboard from "../modules/daily-operations/DailyOperationsDashboard";
+import AngelIcon from "../ui/AngelIcon";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 const ADMIN_TOKEN_STORAGE_KEY = "agendai_admin_token";
@@ -5827,32 +5828,33 @@ export default function LegacyAdminPanel() {
           </span>
           <small className="sidebarScopeHint">Policlínica Bonfiglioli</small>
           <button className="sidebarPasswordButton" type="button" onClick={() => setShowChangePassword(true)}>
-            Trocar minha senha
+            <AngelIcon name="lock" size={16} />
+            <span>Trocar minha senha</span>
           </button>
         </div>
 
         <nav>
           <div className="navSectionLabel">OPERAÇÃO CLÍNICA</div>
-          <button className={activeTab === "operacao_tempo_real" ? "navActive" : ""} onClick={() => setActiveTab("operacao_tempo_real")}>Operação em tempo real</button>
-          <button className={activeTab === "visao_dia" ? "navActive" : ""} onClick={() => setActiveTab("visao_dia")}>Visão do dia</button>
-          <button className={activeTab === "followups" ? "navActive" : ""} onClick={() => setActiveTab("followups")}>Confirmações</button>
+          <button className={activeTab === "operacao_tempo_real" ? "navActive" : ""} onClick={() => setActiveTab("operacao_tempo_real")}><AngelIcon name="activity" size={17} /><span>Operação em tempo real</span></button>
+          <button className={activeTab === "visao_dia" ? "navActive" : ""} onClick={() => setActiveTab("visao_dia")}><AngelIcon name="dashboard" size={17} /><span>Visão do dia</span></button>
+          <button className={activeTab === "followups" ? "navActive" : ""} onClick={() => setActiveTab("followups")}><AngelIcon name="calendar" size={17} /><span>Confirmações</span></button>
 
           {canManageCoverage && (
             <>
               <div className="navSectionLabel">GESTÃO ASSISTENCIAL</div>
-              <button className={activeTab === "medicos" ? "navActive" : ""} onClick={() => { if (!selectedClienteId && scopedClientes.length > 0) void selecionarClienteParaMedicos(scopedClientes[0].id); setActiveTab("medicos"); }}>Convênios e aceites</button>
+              <button className={activeTab === "medicos" ? "navActive" : ""} onClick={() => { if (!selectedClienteId && scopedClientes.length > 0) void selecionarClienteParaMedicos(scopedClientes[0].id); setActiveTab("medicos"); }}><AngelIcon name="coverage" size={17} /><span>Convênios e aceites</span></button>
             </>
           )}
 
           {canManageTechnical && (
             <>
               <div className="navSectionLabel">ADMINISTRAÇÃO</div>
-              <button className={activeTab === "whatsapp" ? "navActive" : ""} onClick={() => setActiveTab("whatsapp")}>WhatsApp da Polibon</button>
-              <button className={activeTab === "whatsapp_operacao" ? "navActive" : ""} onClick={() => setActiveTab("whatsapp_operacao")}>Diagnóstico de go-live</button>
+              <button className={activeTab === "whatsapp" ? "navActive" : ""} onClick={() => setActiveTab("whatsapp")}><AngelIcon name="whatsapp" size={17} /><span>WhatsApp da Polibon</span></button>
+              <button className={activeTab === "whatsapp_operacao" ? "navActive" : ""} onClick={() => setActiveTab("whatsapp_operacao")}><AngelIcon name="diagnostic" size={17} /><span>Diagnóstico de go-live</span></button>
             </>
           )}
-          {canManageUsers && <button className={activeTab === "usuarios" ? "navActive" : ""} onClick={() => setActiveTab("usuarios")}>Usuários, perfis e permissões</button>}
-          {canViewAudit && <button className={activeTab === "auditoria" ? "navActive" : ""} onClick={() => setActiveTab("auditoria")}>Auditoria</button>}
+          {canManageUsers && <button className={activeTab === "usuarios" ? "navActive" : ""} onClick={() => setActiveTab("usuarios")}><AngelIcon name="users" size={17} /><span>Usuários, perfis e permissões</span></button>}
+          {canViewAudit && <button className={activeTab === "auditoria" ? "navActive" : ""} onClick={() => setActiveTab("auditoria")}><AngelIcon name="audit" size={17} /><span>Auditoria</span></button>}
         </nav>
       </aside>
 
@@ -5865,25 +5867,30 @@ export default function LegacyAdminPanel() {
 
           <div className="headerActions">
             <button onClick={() => loadClientes()} disabled={loading}>
-              {loading ? "Atualizando..." : "Atualizar"}
+              <AngelIcon name="refresh" size={16} />
+              <span>{loading ? "Atualizando..." : "Atualizar"}</span>
             </button>
-            <button className="passwordTopButton" type="button" onClick={() => setShowChangePassword(true)}>Trocar senha</button>
+            <button className="passwordTopButton" type="button" onClick={() => setShowChangePassword(true)}><AngelIcon name="lock" size={16} /><span>Trocar senha</span></button>
             <button
               className="themeToggleButton"
               type="button"
               onClick={toggleThemeMode}
               title={themeMode === "dark" ? "Alternar para tema claro" : "Alternar para tema escuro"}
             >
-              {themeMode === "dark" ? "☀️ Claro" : "🌙 Escuro"}
+              <AngelIcon name={themeMode === "dark" ? "sun" : "moon"} size={16} />
+              <span>{themeMode === "dark" ? "Claro" : "Escuro"}</span>
             </button>
-            <button className="secondary" onClick={logout}>Sair</button>
+            <button className="secondary" onClick={logout}><AngelIcon name="logout" size={16} /><span>Sair</span></button>
           </div>
         </header>
 
         <section className={isGlobalAdmin ? "accessScopeBanner global" : "accessScopeBanner scoped"}>
-          <div>
-            <strong>{isGlobalAdmin ? "Administrador da Polibon" : "Acesso por cliente"}</strong>
-            <span>{accessScopeDetail}</span>
+          <div className="accessScopeIdentity">
+            <span className="accessScopeIcon" aria-hidden="true"><AngelIcon name="users" size={19} /></span>
+            <div>
+              <strong>{isGlobalAdmin ? "Administrador da Polibon" : "Acesso por cliente"}</strong>
+              <span>{accessScopeDetail}</span>
+            </div>
           </div>
           <div className="accessScopeStats">
             <span>

@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AngelIcon from "../../ui/AngelIcon";
+import type { AngelIconName } from "../../ui/AngelIcon";
 import {
   DAILY_OPERATIONS_PERIOD_OPTIONS,
   normalizeDailyOperationsPayload,
 } from "./dailyOperations.model";
 import type {
   DailyOperationsFunnelItem,
+  DailyOperationsFunnelKey,
   DailyOperationsOutcomeItem,
+  DailyOperationsOutcomeKey,
   DailyOperationsPeriodDays,
   DailyOperationsSnapshot,
   DailyOperationsTopItem,
@@ -21,7 +25,37 @@ type DailyOperationsDashboardProps = {
   apiRequest: AdminApiRequest;
 };
 
+type KpiTone =
+  | "primary"
+  | "success"
+  | "trend"
+  | "warning"
+  | "purple"
+  | "critical";
+
 const POLIBON_TIME_ZONE = "America/Sao_Paulo";
+
+const FUNNEL_ICONS: Record<DailyOperationsFunnelKey, AngelIconName> = {
+  iniciaram_agendamento: "play",
+  paciente_identificado: "user",
+  cobertura_informada: "insurance",
+  especialidade_informada: "specialty",
+  horarios_exibidos: "slots",
+  horario_escolhido: "clock",
+  agendado_feegow: "booking",
+};
+
+const OUTCOME_ICONS: Record<DailyOperationsOutcomeKey, AngelIconName> = {
+  agendado: "booking",
+  orientado_recepcao: "reception",
+  saida_paciente: "logout",
+  timeout: "clock",
+  regra_assistencial: "shield",
+  cobertura_nao_validada: "insurance",
+  sem_horarios: "calendar",
+  falha_tecnica: "alert",
+  sem_desfecho_registrado: "info",
+};
 
 function formatGeneratedAt(value: string): string {
   const date = new Date(value);
@@ -51,8 +85,8 @@ function outcomeTone(
 ): string {
   if (key === "agendado") return "success";
   if (key === "falha_tecnica") return "critical";
+  if (key === "orientado_recepcao") return "reception";
   if (
-    key === "orientado_recepcao" ||
     key === "regra_assistencial" ||
     key === "cobertura_nao_validada" ||
     key === "sem_horarios"
@@ -67,17 +101,42 @@ function KpiCard({
   label,
   value,
   description,
-  tone = "default",
+  icon,
+  tone,
+  progress,
 }: {
   label: string;
   value: string | number;
   description: string;
-  tone?: "default" | "success" | "warning" | "critical";
+  icon: AngelIconName;
+  tone: KpiTone;
+  progress?: number;
 }) {
+  const safeProgress =
+    typeof progress === "number"
+      ? Math.max(0, Math.min(100, progress))
+      : null;
+
   return (
     <article className={`dailyKpiCard ${tone}`}>
-      <span>{label}</span>
+      <div className="dailyKpiHeading">
+        <span className="dailyKpiIcon" aria-hidden="true">
+          <AngelIcon name={icon} size={19} />
+        </span>
+        <span className="dailyKpiLabel">{label}</span>
+      </div>
+
       <strong>{value}</strong>
+
+      {safeProgress !== null && (
+        <div
+          className="dailyKpiProgress"
+          aria-label={`${formatPercent(safeProgress)} de conclusão`}
+        >
+          <i style={{ width: `${safeProgress}%` }} />
+        </div>
+      )}
+
       <small>{description}</small>
     </article>
   );
@@ -92,28 +151,35 @@ function FunnelRow({
 }) {
   const width =
     firstTotal > 0
-      ? Math.max(3, Math.min(100, (item.total / firstTotal) * 100))
+      ? Math.max(item.total > 0 ? 3 : 0, Math.min(100, (item.total / firstTotal) * 100))
       : 0;
 
   return (
-    <article className="dailyFunnelRow">
-      <div className="dailyFunnelLabel">
-        <strong>{item.label}</strong>
-        <span>{item.evidenceDefinition}</span>
+    <article className={`dailyFunnelRow stage-${item.key}`}>
+      <div className="dailyFunnelIdentity">
+        <span className="dailyFunnelIcon" aria-hidden="true">
+          <AngelIcon name={FUNNEL_ICONS[item.key]} size={17} />
+        </span>
+        <div className="dailyFunnelLabel">
+          <strong>{item.label}</strong>
+          <span>{item.evidenceDefinition}</span>
+        </div>
       </div>
 
       <div className="dailyFunnelMeasure">
         <div className="dailyFunnelTrack" aria-hidden="true">
           <i style={{ width: `${width}%` }} />
         </div>
+
         <div className="dailyFunnelNumbers">
           <strong>{item.total}</strong>
           {item.previousTotal !== null && (
             <span>
-              {formatPercent(item.conversionFromPrevious)} da etapa anterior
+              {formatPercent(item.conversionFromPrevious)}
               {item.lossFromPrevious !== null &&
-                item.lossFromPrevious > 0 &&
-                ` · perda de ${item.lossFromPrevious}`}
+                item.lossFromPrevious > 0 && (
+                  <em>perda de {item.lossFromPrevious}</em>
+                )}
             </span>
           )}
         </div>
@@ -126,18 +192,27 @@ function TopList({
   title,
   description,
   rows,
+  icon,
 }: {
   title: string;
   description: string;
   rows: DailyOperationsTopItem[];
+  icon: AngelIconName;
 }) {
   const max = Math.max(...rows.map((item) => item.total), 1);
 
   return (
     <section className="dailyPanel dailyTopList">
       <header>
-        <h4>{title}</h4>
-        <p>{description}</p>
+        <div className="dailySectionTitle">
+          <span aria-hidden="true">
+            <AngelIcon name={icon} size={18} />
+          </span>
+          <div>
+            <h4>{title}</h4>
+            <p>{description}</p>
+          </div>
+        </div>
       </header>
 
       {rows.length === 0 ? (
@@ -232,6 +307,9 @@ export default function DailyOperationsDashboard({
     return (
       <section className="dailyOperationsRoot" aria-busy="true">
         <div className="dailyLoading">
+          <span className="dailyLoadingIcon" aria-hidden="true">
+            <AngelIcon name="dashboard" size={28} />
+          </span>
           <strong>Carregando a Visão do dia</strong>
           <span>Consolidando sessões e agendamentos da Polibon.</span>
         </div>
@@ -242,13 +320,29 @@ export default function DailyOperationsDashboard({
   return (
     <section className="dailyOperationsRoot">
       <header className="dailyOperationsHeader">
-        <div>
+        <div className="dailyHeaderCopy">
           <span className="dailyEyebrow">OPERAÇÃO POLIBON</span>
           <h3>Visão do dia</h3>
           <p>
             Resultado dos fluxos de agendamento conduzidos pelo Angel,
             consolidado por atendimento e booking real.
           </p>
+        </div>
+
+        <div className="dailyHeaderVisual" aria-hidden="true">
+          <div className="dailyVisualScreen">
+            <div className="dailyVisualDots">
+              <i />
+              <i />
+              <i />
+            </div>
+            <AngelIcon name="trend" size={40} />
+            <span className="dailyVisualBar barOne" />
+            <span className="dailyVisualBar barTwo" />
+            <span className="dailyVisualBar barThree" />
+          </div>
+          <span className="dailyVisualLeaf leafOne" />
+          <span className="dailyVisualLeaf leafTwo" />
         </div>
 
         <div className="dailyHeaderActions">
@@ -275,6 +369,7 @@ export default function DailyOperationsDashboard({
             onClick={() => void loadDashboard(true)}
             disabled={refreshing}
           >
+            <AngelIcon name="refresh" size={16} />
             {refreshing ? "Atualizando..." : "Atualizar"}
           </button>
         </div>
@@ -282,6 +377,9 @@ export default function DailyOperationsDashboard({
 
       {error && (
         <div className="dailyError" role="alert">
+          <span className="dailyErrorIcon" aria-hidden="true">
+            <AngelIcon name="alert" size={19} />
+          </span>
           <div>
             <strong>Não foi possível atualizar os indicadores</strong>
             <span>{error}</span>
@@ -291,6 +389,7 @@ export default function DailyOperationsDashboard({
             onClick={() => void loadDashboard(true)}
             disabled={refreshing}
           >
+            <AngelIcon name="refresh" size={16} />
             Tentar novamente
           </button>
         </div>
@@ -303,7 +402,8 @@ export default function DailyOperationsDashboard({
               <strong>{snapshot.scope.clienteNome}</strong>
               <span>{snapshot.period.label}</span>
             </div>
-            <span>
+            <span className="dailyUpdatedAt">
+              <AngelIcon name="clock" size={14} />
               Atualizado em {formatGeneratedAt(snapshot.generatedAt)}
             </span>
           </div>
@@ -313,35 +413,43 @@ export default function DailyOperationsDashboard({
               label="Iniciaram agendamento"
               value={snapshot.summary.iniciaramAgendamento}
               description="Sessões que entraram efetivamente no fluxo de marcação."
+              icon="play"
+              tone="primary"
             />
             <KpiCard
               label="Agendados na Feegow"
               value={snapshot.summary.agendadosFeegow}
               description="Bookings únicos gravados com sucesso."
+              icon="booking"
               tone="success"
             />
             <KpiCard
               label="Taxa de conclusão"
               value={formatPercent(snapshot.summary.taxaConclusao)}
               description="Agendados divididos pelos fluxos iniciados."
-              tone="success"
+              icon="trend"
+              tone="trend"
+              progress={snapshot.summary.taxaConclusao}
             />
             <KpiCard
               label="Encerrados sem agendamento"
               value={snapshot.summary.encerradosSemAgendamento}
               description="Somente sessões com desfecho terminal conhecido."
+              icon="flag"
               tone="warning"
             />
             <KpiCard
               label="Orientados à recepção"
               value={snapshot.summary.orientadosRecepcao}
               description="Atendimentos que exigiram continuidade humana."
-              tone="warning"
+              icon="reception"
+              tone="purple"
             />
             <KpiCard
               label="Falhas técnicas"
               value={snapshot.summary.falhasTecnicas}
               description="Erros técnicos terminais, sem misturar regras assistenciais."
+              icon="alert"
               tone="critical"
             />
           </div>
@@ -374,11 +482,18 @@ export default function DailyOperationsDashboard({
 
             <section className="dailyPanel dailyOutcomesPanel">
               <header>
-                <h4>Desfechos do período</h4>
-                <p>
-                  Resultado terminal de cada fluxo iniciado, sem presumir
-                  abandono de sessões ainda abertas.
-                </p>
+                <div className="dailySectionTitle">
+                  <span aria-hidden="true">
+                    <AngelIcon name="flag" size={18} />
+                  </span>
+                  <div>
+                    <h4>Desfechos do período</h4>
+                    <p>
+                      Resultado terminal de cada fluxo iniciado, sem presumir
+                      abandono de sessões ainda abertas.
+                    </p>
+                  </div>
+                </div>
               </header>
 
               {snapshot.outcomes.length === 0 ? (
@@ -394,7 +509,15 @@ export default function DailyOperationsDashboard({
                       )}`}
                       key={item.key}
                     >
-                      <span>{item.label}</span>
+                      <span className="dailyOutcomeIdentity">
+                        <i aria-hidden="true">
+                          <AngelIcon
+                            name={OUTCOME_ICONS[item.key]}
+                            size={15}
+                          />
+                        </i>
+                        <span>{item.label}</span>
+                      </span>
                       <strong>{item.total}</strong>
                     </div>
                   ))}
@@ -402,7 +525,12 @@ export default function DailyOperationsDashboard({
               )}
 
               <div className="dailyOpenSessions">
-                <span>Sem desfecho registrado</span>
+                <span className="dailyOpenIdentity">
+                  <i aria-hidden="true">
+                    <AngelIcon name="info" size={15} />
+                  </i>
+                  <span>Sem desfecho registrado</span>
+                </span>
                 <strong>
                   {snapshot.summary.semDesfechoRegistrado}
                 </strong>
@@ -416,11 +544,16 @@ export default function DailyOperationsDashboard({
 
           <section className="dailyPanel dailyEvolutionPanel">
             <header>
-              <div>
-                <h4>Evolução no período</h4>
-                <p>
-                  Comparação entre fluxos iniciados e bookings concluídos.
-                </p>
+              <div className="dailySectionTitle">
+                <span aria-hidden="true">
+                  <AngelIcon name="trend" size={18} />
+                </span>
+                <div>
+                  <h4>Evolução no período</h4>
+                  <p>
+                    Comparação entre fluxos iniciados e bookings concluídos.
+                  </p>
+                </div>
               </div>
               <div className="dailyLegend" aria-label="Legenda">
                 <span className="started">Iniciados</span>
@@ -443,7 +576,7 @@ export default function DailyOperationsDashboard({
                           className="started"
                           style={{
                             width: `${Math.max(
-                              3,
+                              item.iniciados > 0 ? 3 : 0,
                               (item.iniciados / evolutionMax) * 100,
                             )}%`,
                           }}
@@ -476,22 +609,33 @@ export default function DailyOperationsDashboard({
               rows={
                 snapshot.breakdowns.agendadosPorEspecialidade
               }
+              icon="specialty"
             />
             <TopList
               title="Agendamentos por médico"
               description="Somente profissionais do booking final."
               rows={snapshot.breakdowns.agendadosPorMedico}
+              icon="doctor"
             />
             <TopList
               title="Agendamentos por convênio"
               description="Operadora, produto, rede ou plano do booking final."
               rows={snapshot.breakdowns.agendadosPorConvenio}
+              icon="insurance"
             />
           </div>
 
           <details className="dailyQualityPanel">
             <summary>
-              <span>Como estes indicadores são calculados</span>
+              <span className="dailyQualityTitle">
+                <i aria-hidden="true">
+                  <AngelIcon name="shield" size={18} />
+                </i>
+                <span>
+                  <strong>Qualidade e limitações dos dados</strong>
+                  <small>Como estes indicadores são calculados</small>
+                </span>
+              </span>
               <strong>
                 {snapshot.dataQuality.sessionsRead} sessões analisadas
               </strong>
