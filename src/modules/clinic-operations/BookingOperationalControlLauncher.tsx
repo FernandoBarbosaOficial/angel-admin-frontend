@@ -64,11 +64,15 @@ async function readJsonResponse(response: Response) {
     const message =
       payload?.message ||
       payload?.error ||
+      payload?.details ||
       (typeof payload === "string" ? payload : "") ||
       `Falha HTTP ${response.status}.`;
     throw new Error(message);
   }
-  return payload;
+
+  return payload && typeof payload === "object" && Object.prototype.hasOwnProperty.call(payload, "data")
+    ? payload.data
+    : payload;
 }
 
 function normalizeClientOptions(payload: any): ClientOption[] {
@@ -321,7 +325,7 @@ export default function BookingOperationalControlLauncher() {
         const fresh = await loadStatus(selectedClienteId);
         setStatus(fresh);
       } catch {
-        // Mantém a mensagem original; o próximo refresh automático tentará novamente.
+        // O próximo refresh automático tentará novamente.
       }
     } finally {
       setSaving(false);
