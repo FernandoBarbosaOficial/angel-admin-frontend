@@ -1,4 +1,5 @@
 import LegacyAdminPanel from "../legacy/LegacyAdminPanel";
+import BookingOperationalControlLauncher from "../modules/clinic-operations/BookingOperationalControlLauncher";
 import { MODULE_REGISTRY } from "./module-registry";
 
 const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
@@ -6,9 +7,9 @@ const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
 /**
  * Casca de transição Polibon-only.
  *
- * Nesta etapa o shell não altera autenticação, APIs, permissões ou fluxos do
- * painel atual. Ele apenas estabelece o ponto estável onde os novos módulos
- * serão montados de forma incremental.
+ * Nesta etapa o shell preserva o painel legado e permite montar recursos novos
+ * de forma isolada. O launcher do controle de agendamento injeta somente o
+ * acesso no menu existente; Tempo Real e Visão do Dia não são alterados.
  */
 export default function AppShell() {
   const legacyModule = MODULE_REGISTRY.find((module) => module.id === "legacy-admin");
@@ -22,5 +23,10 @@ export default function AppShell() {
     );
   }
 
-  return <LegacyAdminPanel />;
+  return (
+    <>
+      <LegacyAdminPanel />
+      <BookingOperationalControlLauncher />
+    </>
+  );
 }
