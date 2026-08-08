@@ -3,6 +3,7 @@ import LegacyAdminPanel from "../legacy/LegacyAdminPanel";
 import BookingOperationalControlLauncher from "../modules/clinic-operations/BookingOperationalControlLauncher";
 import AdminExperienceV2Launcher from "../modules/admin-v2/AdminExperienceV2Launcher";
 import AdminV3Preview from "../modules/admin-v3/AdminV3Preview";
+import "../modules/admin-v3/adminV3Overrides.css";
 import { MODULE_REGISTRY } from "./module-registry";
 
 const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
