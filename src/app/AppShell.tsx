@@ -2,6 +2,7 @@ import LegacyAdminPanel from "../legacy/LegacyAdminPanel";
 import BookingOperationalControlLauncher from "../modules/clinic-operations/BookingOperationalControlLauncher";
 import ProductionCoverageAudit from "../modules/prod-audit/ProductionCoverageAudit";
 import ProductionCanonicalHistoryAudit from "../modules/prod-audit/ProductionCanonicalHistoryAudit";
+import ProductionReceptionCausesAudit from "../modules/prod-audit/ProductionReceptionCausesAudit";
 import { MODULE_REGISTRY } from "./module-registry";
 
 const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
@@ -20,6 +21,9 @@ export default function AppShell() {
   }
   if (auditMode === "history-canonical") {
     return <ProductionCanonicalHistoryAudit />;
+  }
+  if (auditMode === "reception-causes") {
+    return <ProductionReceptionCausesAudit />;
   }
 
   const legacyModule = MODULE_REGISTRY.find((module) => module.id === "legacy-admin");
