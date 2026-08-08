@@ -1,0 +1,17 @@
+.v3QuickPeriods button{
+  color:#334155 !important;
+  background:#f8fafc !important;
+  border:1px solid #cbd5e1 !important;
+  opacity:1 !important;
+  text-shadow:none !important;
+}
+
+.v3QuickPeriods button:hover{
+  color:#1d4ed8 !important;
+  background:#eff6ff !important;
+  border-color:#93c5fd !important;
+}
+
+.v3PeriodBar input[type="date"]{
+  color:#0f172a !important;
+}
