@@ -1,6 +1,7 @@
 import LegacyAdminPanel from "../legacy/LegacyAdminPanel";
 import BookingOperationalControlLauncher from "../modules/clinic-operations/BookingOperationalControlLauncher";
 import AdminExperienceV2Launcher from "../modules/admin-v2/AdminExperienceV2Launcher";
+import AdminV3Preview from "../modules/admin-v3/AdminV3Preview";
 import { MODULE_REGISTRY } from "./module-registry";
 
 const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
@@ -13,6 +14,11 @@ const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
  */
 export default function AppShell() {
   const legacyModule = MODULE_REGISTRY.find((module) => module.id === "legacy-admin");
+  const preview = new URLSearchParams(window.location.search).get("adminv3");
+
+  if (preview === "coverage" || preview === "conversations") {
+    return <AdminV3Preview initialSection={preview} />;
+  }
 
   if (!legacyModule?.enabled) {
     return (
