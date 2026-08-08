@@ -1,5 +1,6 @@
 import LegacyAdminPanel from "../legacy/LegacyAdminPanel";
 import BookingOperationalControlLauncher from "../modules/clinic-operations/BookingOperationalControlLauncher";
+import ProductionCoverageAudit from "../modules/prod-audit/ProductionCoverageAudit";
 import { MODULE_REGISTRY } from "./module-registry";
 
 const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
@@ -12,6 +13,11 @@ const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
  * acesso no menu existente; Tempo Real e Visão do Dia não são alterados.
  */
 export default function AppShell() {
+  const auditMode = new URLSearchParams(window.location.search).get("audit");
+  if (auditMode === "coverage") {
+    return <ProductionCoverageAudit />;
+  }
+
   const legacyModule = MODULE_REGISTRY.find((module) => module.id === "legacy-admin");
 
   if (!legacyModule?.enabled) {
