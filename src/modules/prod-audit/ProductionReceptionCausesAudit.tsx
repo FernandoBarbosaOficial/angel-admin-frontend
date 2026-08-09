@@ -13,7 +13,7 @@ type Data={totals:Record<string,number>;calibration?:Calibration;causes:Cause[];
 
 async function apiGet(path:string,token:string){const r=await fetch(`${API_BASE}${path}?t=${Date.now()}`,{headers:{Authorization:`Bearer ${token}`,Accept:"application/json"},cache:"no-store"});const p=await r.json().catch(()=>null);if(!r.ok||!p?.ok)throw new Error(p?.details||p?.error||`HTTP ${r.status}`);return p.data as Data;}
 
-function MiniList({title,items,total}:{title:string;items:TopItem[];total:number}){return <div><h3>{title}</h3>{items.length?<div className="prod-audit-table-wrap"><table><thead><tr><th>Item</th><th>Casos</th><th>% do grupo</th></tr></thead><tbody>{items.map((x,i)=><tr key={`${x.label}-${i}`}><td>{x.label}</td><td>{x.total}</td><td>{total?Math.round((x.total/total)*1000)/10:0}%</td></tr>)}</tbody></table></div>:<p>Sem sinal agregado disponível.</p>}</div>}
+function MiniList({title,items,total}:{title:string;items:TopItem[];total:number}){return <div><h3>{title}</h3>{items.length?<div className="prod-audit-table-wrap"><table><thead><tr><th>Item</th><th>Casos</th><th>% do grupo</th></tr></thead><tbody>{items.map((x,i)=>{const p=total?Math.round((x.total/total)*1000)/10:0;return <tr key={`${x.label}-${i}`}><td><b>{x.label}</b><br/><small>{x.total} casos · {p}% do grupo</small></td><td>{x.total}</td><td>{p}%</td></tr>})}</tbody></table></div>:<p>Sem sinal agregado disponível.</p>}</div>}
 
 export default function ProductionReceptionCausesAudit(){
   const[data,setData]=useState<Data|null>(null);const[error,setError]=useState("");const[loading,setLoading]=useState(true);
