@@ -13,7 +13,37 @@ type Data={totals:Record<string,number>;calibration?:Calibration;causes:Cause[];
 
 async function apiGet(path:string,token:string){const r=await fetch(`${API_BASE}${path}?t=${Date.now()}`,{headers:{Authorization:`Bearer ${token}`,Accept:"application/json"},cache:"no-store"});const p=await r.json().catch(()=>null);if(!r.ok||!p?.ok)throw new Error(p?.details||p?.error||`HTTP ${r.status}`);return p.data as Data;}
 
-function MiniList({title,items,total}:{title:string;items:TopItem[];total:number}){return <div><h3>{title}</h3>{items.length?<div className="prod-audit-table-wrap"><table><thead><tr><th>Item</th><th>Casos</th><th>% do grupo</th></tr></thead><tbody>{items.map((x,i)=><tr key={`${x.label}-${i}`}><td>{x.label}</td><td>{x.total}</td><td>{total?Math.round((x.total/total)*1000)/10:0}%</td></tr>)}</tbody></table></div>:<p>Sem sinal agregado disponível.</p>}</div>}
+function bucketKey(label:string){
+  const normalized=label.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"");
+  return normalized||"naoidentificado";
+}
+
+function displayLabel(label:string){
+  const key=bucketKey(label);
+  const preferred:Record<string,string>={
+    bradesco:"Bradesco",
+    sulamerica:"SUL AMERICA",
+    dermatologia:"DERMATOLOGIA",
+    pediatria:"PEDIATRIA",
+  };
+  return preferred[key]||label;
+}
+
+function consolidate(items:TopItem[]){
+  const grouped=new Map<string,TopItem>();
+  for(const item of items){
+    const key=bucketKey(item.label);
+    const current=grouped.get(key);
+    if(current) current.total+=item.total;
+    else grouped.set(key,{label:displayLabel(item.label),total:item.total});
+  }
+  return Array.from(grouped.values()).sort((a,b)=>b.total-a.total||a.label.localeCompare(b.label,"pt-BR"));
+}
+
+function MiniList({title,items,total}:{title:string;items:TopItem[];total:number}){
+  const normalized=consolidate(items);
+  return <div><h3>{title}</h3>{normalized.length?<div className="prod-audit-table-wrap"><table><thead><tr><th>Item</th><th>Casos</th><th>% do grupo</th></tr></thead><tbody>{normalized.map((x,i)=>{const percent=total?Math.round((x.total/total)*1000)/10:0;return <tr key={`${x.label}-${i}`}><td><b>{x.label}</b><br/><small>{x.total} casos · {percent}% do grupo</small></td><td>{x.total}</td><td>{percent}%</td></tr>})}</tbody></table></div>:<p>Sem sinal agregado disponível.</p>}</div>
+}
 
 export default function ProductionReceptionCausesAudit(){
   const[data,setData]=useState<Data|null>(null);const[error,setError]=useState("");const[loading,setLoading]=useState(true);
