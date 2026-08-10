@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./productionCoverageAudit.css";
+import FeegowCrosswalkAuditPanel from "./FeegowCrosswalkAuditPanel";
 
 const API_BASE=(import.meta.env.VITE_API_BASE_URL||"").replace(/\/+$/,"");
 const TOKEN_KEY="agendai_admin_token";
@@ -193,6 +194,7 @@ export default function ProductionCorrectionCandidatesAudit(){
   return <main className="prod-audit-page">
     <header className="prod-audit-header"><div><span className="prod-audit-kicker">PRODUÇÃO · AUDITORIA + RECONCILIAÇÃO CONTROLADA</span><h1>Candidatos a correção</h1><p>Histórico real cruzado com o estado atual. A reconciliação de Ortopedia exige confirmação explícita e é estritamente aditiva.</p></div><button type="button" onClick={()=>window.location.href="/?audit=reception-causes"}>Voltar às causas</button></header>
     <OrtopediaReconciliationPanel/>
+    <FeegowCrosswalkAuditPanel/>
     {loading&&<section className="prod-audit-card">Cruzando histórico, cobertura e Feegow…</section>}
     {error&&<section className="prod-audit-error"><strong>Falha ao carregar.</strong><br/>{error}</section>}
     {data&&<>
