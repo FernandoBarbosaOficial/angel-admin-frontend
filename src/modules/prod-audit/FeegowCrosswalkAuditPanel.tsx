@@ -40,14 +40,17 @@ function normalize(value:unknown){
     .toUpperCase();
 }
 
-function authHeaders(extra?:Record<string,string>){
+function authHeaders(json=false){
   const token=localStorage.getItem(TOKEN_KEY);
   if(!token)throw new Error("Sessão administrativa não encontrada.");
-  return {Authorization:`Bearer ${token}`,Accept:"application/json",...(extra||{})};
+  return json
+    ? {Authorization:`Bearer ${token}`,Accept:"application/json","Content-Type":"application/json"}
+    : {Authorization:`Bearer ${token}`,Accept:"application/json"};
 }
 
 async function apiJson(path:string,init?:RequestInit){
-  const response=await fetch(`${API_BASE}${path}`,{...init,headers:{...authHeaders(),...(init?.headers||{})},cache:"no-store"});
+  const isJson=Boolean(init?.body);
+  const response=await fetch(`${API_BASE}${path}`,{...init,headers:authHeaders(isJson),cache:"no-store"});
   const payload=await response.json().catch(()=>null);
   if(!response.ok||payload?.ok===false)throw new Error(payload?.details||payload?.error||`HTTP ${response.status}`);
   return payload?.data??payload;
@@ -60,7 +63,6 @@ async function loadMappingCenter(){
 async function resolveSafeMappings(){
   return apiJson(`/api/admin/clientes/${CLIENTE_ID}/convenios/correspondencias-feegow/resolver-seguras`,{
     method:"POST",
-    headers:{"Content-Type":"application/json"},
     body:"{}",
   }) as Promise<ResolveResult>;
 }
@@ -95,6 +97,7 @@ export default function FeegowCrosswalkAuditPanel(){
   const[loading,setLoading]=useState(true);
   const[resolving,setResolving]=useState(false);
   const[exporting,setExporting]=useState(false);
+  const[armed,setArmed]=useState(false);
   const[error,setError]=useState("");
   const[notice,setNotice]=useState("");
 
@@ -131,11 +134,11 @@ export default function FeegowCrosswalkAuditPanel(){
   const safeCount=Number(data?.summary?.resolutiveis_automaticamente||0);
 
   const resolve=async()=>{
-    if(resolving)return;
+    if(resolving||!armed||safeCount<=0)return;
     setResolving(true);setError("");setNotice("");
     try{
       const result=await resolveSafeMappings();
-      setData(result);
+      setData(result);setArmed(false);
       setNotice(`${Number(result.resolvidos_agora||0)} correspondência(s) segura(s) resolvida(s). Somente nome normalizado exato + candidato único dentro do mesmo convênio Feegow.`);
     }catch(e){setError(e instanceof Error?e.message:String(e))}finally{setResolving(false)}
   };
@@ -199,8 +202,12 @@ export default function FeegowCrosswalkAuditPanel(){
       </div>
 
       <div style={{marginTop:18,padding:16,border:"1px solid rgba(148,163,184,.35)",borderRadius:14}}>
-        <p style={{marginTop:0}}>Há <b>{safeCount}</b> correspondência(s) que o próprio motor atual considera resolvíveis automaticamente. Ambíguas e não encontradas ficam intocadas.</p>
-        <button type="button" onClick={()=>void resolve()} disabled={resolving||safeCount<=0} style={{fontWeight:800}}>{resolving?"Resolvendo e auditando…":safeCount>0?`Resolver ${safeCount} correspondência(s) segura(s)`:"Nenhuma correspondência segura pendente"}</button>
+        <p style={{marginTop:0}}>Há <b>{safeCount}</b> correspondência(s) que o próprio motor atual considera resolvíveis automaticamente no catálogo Polibon inteiro. Ambíguas, não encontradas e vínculos já confirmados ficam intocados.</p>
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,margin:"12px 0",cursor:safeCount>0?"pointer":"default"}}>
+          <input type="checkbox" checked={armed} disabled={resolving||safeCount<=0} onChange={e=>setArmed(e.target.checked)} style={{marginTop:4}}/>
+          <span>Confirmo executar somente o critério <b>nome normalizado exato + candidato único + mesmo convênio Feegow</b> para as {safeCount} correspondência(s) acima.</span>
+        </label>
+        <button type="button" onClick={()=>void resolve()} disabled={resolving||safeCount<=0||!armed} style={{fontWeight:800}}>{resolving?"Resolvendo e auditando…":safeCount>0?`Resolver ${safeCount} correspondência(s) segura(s)`:"Nenhuma correspondência segura pendente"}</button>
       </div>
 
       <details style={{marginTop:16}}><summary>Ver itens que ainda precisam de revisão</summary><div style={{display:"grid",gap:8,marginTop:12}}>{(data.items||[]).filter(item=>item.resolucao_status!=="resolvido_automaticamente"&&item.resolucao_status!=="confirmado_clinica").slice(0,120).map((item,i)=><div key={`${item.convenio_nome}-${item.produto_nome}-${i}`} style={{padding:10,borderBottom:"1px solid rgba(148,163,184,.2)"}}><b>{item.convenio_nome||"Convênio não identificado"}</b> · {item.produto_nome||item.plano_nome||"Produto não identificado"} — {statusLabel(String(item.resolucao_status||""))}</div>)}</div></details>
