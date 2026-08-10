@@ -4,6 +4,7 @@ import "./productionCoverageAudit.css";
 const API_BASE=(import.meta.env.VITE_API_BASE_URL||"").replace(/\/+$/,"");
 const TOKEN_KEY="agendai_admin_token";
 const CLIENTE_ID=1;
+const ORTOPEDIA_CONFIRM_TOKEN="APLICAR_RECONCILIACAO_ORTOPEDIA_V1";
 
 type Candidate={
   cause:string;convenio:string;especialidade:string;signal:string;total:number;diagnosis:string;confidence:string;recommendedAction:string;
@@ -28,13 +29,61 @@ type Data={
   identification?:Identification;
 };
 
-async function loadData(){
+type ReconciliationItem={
+  medicoId:number;medicoNome:string;crm:string;especialidadeId:number;especialidadeNome:string;
+  convenioId:number;convenio:string;convenioTarget:string;convenioProdutoId:number;produto:string;
+  aceiteId?:number;reason?:string;
+};
+type ReconciliationPlan={
+  mode:string;
+  specialty:{id:number;nome:string};
+  totals:{
+    expectedDoctors:number;expectedConvenios:number;expectedDoctorConvenioPairs:number;
+    mappedAllowedAlreadyActive:number;insertCandidates:number;explicitInactiveConflicts:number;
+    unmappedProducts:number;businessExcludedProducts:number;existingGeneralAcceptances:number;
+  };
+  candidates:ReconciliationItem[];
+  conflicts:ReconciliationItem[];
+  unmapped:ReconciliationItem[];
+  excluded:ReconciliationItem[];
+  alreadyActive:ReconciliationItem[];
+  rules:{segurosUnimed:string;cnu:string;metrus:string;carePlus:string};
+  safety:{writesPerformed:boolean;strategy:string;confirmToken:string};
+};
+type ReconciliationApplyResult={
+  applied:boolean;inserted:number;preservedInactiveConflicts:number;
+  before:ReconciliationPlan["totals"];
+  after:ReconciliationPlan["totals"];
+  safety:string;
+};
+
+function authHeaders(extra?:Record<string,string>){
   const token=localStorage.getItem(TOKEN_KEY);
   if(!token)throw new Error("Sessão administrativa não encontrada.");
-  const response=await fetch(`${API_BASE}/api/admin/clientes/${CLIENTE_ID}/prod-audit/reception-correction-candidates-v1?t=${Date.now()}`,{headers:{Authorization:`Bearer ${token}`,Accept:"application/json"},cache:"no-store"});
+  return {Authorization:`Bearer ${token}`,Accept:"application/json",...(extra||{})};
+}
+
+async function apiJson(url:string,init?:RequestInit){
+  const response=await fetch(url,{...init,cache:"no-store"});
   const payload=await response.json().catch(()=>null);
   if(!response.ok||!payload?.ok)throw new Error(payload?.details||payload?.error||`HTTP ${response.status}`);
-  return payload.data as Data;
+  return payload.data;
+}
+
+async function loadData(){
+  return apiJson(`${API_BASE}/api/admin/clientes/${CLIENTE_ID}/prod-audit/reception-correction-candidates-v1?t=${Date.now()}`,{headers:authHeaders()}) as Promise<Data>;
+}
+
+async function loadOrtopediaReconciliation(){
+  return apiJson(`${API_BASE}/api/admin/clientes/${CLIENTE_ID}/prod-audit/ortopedia-reconciliation-v1?t=${Date.now()}`,{headers:authHeaders()}) as Promise<ReconciliationPlan>;
+}
+
+async function applyOrtopediaReconciliation(expectedCandidateCount:number){
+  return apiJson(`${API_BASE}/api/admin/clientes/${CLIENTE_ID}/prod-audit/ortopedia-reconciliation-v1/apply`,{
+    method:"POST",
+    headers:authHeaders({"Content-Type":"application/json"}),
+    body:JSON.stringify({confirm:ORTOPEDIA_CONFIRM_TOKEN,expectedCandidateCount}),
+  }) as Promise<ReconciliationApplyResult>;
 }
 
 function label(value:string){
@@ -73,12 +122,77 @@ function ActionableCard({item}:{item:ActionablePair}){
   </article>
 }
 
+function OrtopediaReconciliationPanel(){
+  const[plan,setPlan]=useState<ReconciliationPlan|null>(null);
+  const[loading,setLoading]=useState(true);
+  const[error,setError]=useState("");
+  const[armed,setArmed]=useState(false);
+  const[applying,setApplying]=useState(false);
+  const[result,setResult]=useState<ReconciliationApplyResult|null>(null);
+
+  const refresh=async()=>{
+    setLoading(true);setError("");
+    try{setPlan(await loadOrtopediaReconciliation())}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setLoading(false)}
+  };
+  useEffect(()=>{void refresh()},[]);
+
+  const apply=async()=>{
+    if(!plan||!armed||applying||plan.totals.insertCandidates<=0)return;
+    setApplying(true);setError("");setResult(null);
+    try{
+      const applied=await applyOrtopediaReconciliation(plan.totals.insertCandidates);
+      setResult(applied);setArmed(false);
+      setPlan(await loadOrtopediaReconciliation());
+    }catch(e){setError(e instanceof Error?e.message:String(e))}finally{setApplying(false)}
+  };
+
+  return <section className="prod-audit-card" style={{border:"2px solid rgba(37,99,235,.45)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
+      <div><span className="prod-audit-kicker">ETAPA 4/4 · ORTOPEDIA</span><h2 style={{marginTop:8}}>Reconciliação controlada com o caderno</h2><p>4 ortopedistas × 8 convênios. Só entram vínculos específicos inexistentes de produtos ativos, permitidos e com plano.id Feegow mapeado.</p></div>
+      <button type="button" onClick={()=>void refresh()} disabled={loading||applying}>{loading?"Atualizando…":"Atualizar preview"}</button>
+    </div>
+    {error&&<div className="prod-audit-error" style={{marginTop:14}}><strong>Reconciliação não executada.</strong><br/>{error}</div>}
+    {loading&&!plan&&<p>Carregando estado real dos aceites…</p>}
+    {plan&&<>
+      <div className="prod-audit-counts" style={{marginTop:16}}>
+        <span>Pares médico × convênio: <b>{plan.totals.expectedDoctorConvenioPairs}</b></span>
+        <span>Vínculos específicos já ativos: <b>{plan.totals.mappedAllowedAlreadyActive}</b></span>
+        <span>Candidatos seguros para inclusão: <b>{plan.totals.insertCandidates}</b></span>
+        <span>Exceções inativas preservadas: <b>{plan.totals.explicitInactiveConflicts}</b></span>
+        <span>Produtos sem plano.id: <b>{plan.totals.unmappedProducts}</b></span>
+        <span>Produtos excluídos pelo caderno: <b>{plan.totals.businessExcludedProducts}</b></span>
+        <span>Aceites gerais já existentes: <b>{plan.totals.existingGeneralAcceptances}</b></span>
+      </div>
+      <div style={{display:"grid",gap:6,marginTop:16}}>
+        <div><b>Seguros Unimed:</b> {plan.rules.segurosUnimed}</div>
+        <div><b>CNU:</b> {plan.rules.cnu}</div>
+        <div><b>Metrus:</b> {plan.rules.metrus}</div>
+        <div><b>Care Plus:</b> {plan.rules.carePlus}</div>
+      </div>
+      {plan.totals.unmappedProducts>0&&<p style={{marginTop:14}}><b>Atenção:</b> os itens sem plano.id não serão liberados por esta correção; permanecem na fila técnica de crosswalk.</p>}
+      {plan.totals.explicitInactiveConflicts>0&&<p><b>Exceções preservadas:</b> vínculos específicos já existentes como inativos não serão reativados.</p>}
+      <div style={{marginTop:18,padding:16,border:"1px solid rgba(148,163,184,.35)",borderRadius:14}}>
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:plan.totals.insertCandidates>0?"pointer":"default"}}>
+          <input type="checkbox" checked={armed} disabled={plan.totals.insertCandidates<=0||applying} onChange={e=>setArmed(e.target.checked)} style={{marginTop:4}}/>
+          <span>Confirmo a aplicação somente dos <b>{plan.totals.insertCandidates}</b> vínculos classificados acima como seguros. Nenhuma linha existente será removida ou reativada.</span>
+        </label>
+        <button type="button" onClick={()=>void apply()} disabled={!armed||applying||plan.totals.insertCandidates<=0} style={{marginTop:14,fontWeight:800}}>
+          {applying?"Aplicando e conferindo…":plan.totals.insertCandidates>0?`Aplicar ${plan.totals.insertCandidates} vínculo(s) seguro(s)`:"Nenhuma inclusão necessária"}
+        </button>
+      </div>
+      {result&&<div style={{marginTop:16,padding:16,border:"1px solid rgba(34,197,94,.45)",borderRadius:14}}><strong>Reconciliação aplicada.</strong><p>Inseridos: <b>{result.inserted}</b> · conflitos inativos preservados: <b>{result.preservedInactiveConflicts}</b> · candidatos restantes após conferência: <b>{result.after.insertCandidates}</b>.</p><p>{result.safety}</p></div>}
+      <p style={{marginTop:14,fontSize:13,opacity:.8}}>{plan.safety.strategy}</p>
+    </>}
+  </section>;
+}
+
 export default function ProductionCorrectionCandidatesAudit(){
   const[data,setData]=useState<Data|null>(null);const[error,setError]=useState("");const[loading,setLoading]=useState(true);
   useEffect(()=>{let cancelled=false;loadData().then(v=>{if(!cancelled)setData(v)}).catch(e=>{if(!cancelled)setError(e instanceof Error?e.message:String(e))}).finally(()=>{if(!cancelled)setLoading(false)});return()=>{cancelled=true};},[]);
   const identification=data?.identification;
   return <main className="prod-audit-page">
-    <header className="prod-audit-header"><div><span className="prod-audit-kicker">PRODUÇÃO · SOMENTE LEITURA</span><h1>Candidatos a correção</h1><p>Histórico real cruzado com o estado atual de aceites e mapeamentos. Nenhuma alteração é executada.</p></div><button type="button" onClick={()=>window.location.href="/?audit=reception-causes"}>Voltar às causas</button></header>
+    <header className="prod-audit-header"><div><span className="prod-audit-kicker">PRODUÇÃO · AUDITORIA + RECONCILIAÇÃO CONTROLADA</span><h1>Candidatos a correção</h1><p>Histórico real cruzado com o estado atual. A reconciliação de Ortopedia exige confirmação explícita e é estritamente aditiva.</p></div><button type="button" onClick={()=>window.location.href="/?audit=reception-causes"}>Voltar às causas</button></header>
+    <OrtopediaReconciliationPanel/>
     {loading&&<section className="prod-audit-card">Cruzando histórico, cobertura e Feegow…</section>}
     {error&&<section className="prod-audit-error"><strong>Falha ao carregar.</strong><br/>{error}</section>}
     {data&&<>
