@@ -3,6 +3,9 @@ import * as XLSX from "xlsx";
 import CoverageMedicalReadView from "../modules/coverage-admin/CoverageMedicalReadView";
 import OperationRealtimePanel from "../modules/clinic-operations/OperationRealtimePanel";
 import DailyOperationsDashboard from "../modules/daily-operations/DailyOperationsDashboard";
+import ConversationsPanel from "../modules/conversations/ConversationsPanel";
+
+// ANGEL_CONVERSATIONS_FRONTEND_V1
 import AngelIcon from "../ui/AngelIcon";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
@@ -2173,7 +2176,7 @@ export default function LegacyAdminPanel() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [importacaoMedicosStatus, setImportacaoMedicosStatus] = useState("");
   const [toast, setToast] = useState("");
-  const [activeTab, setActiveTab] = useState<"operacao_tempo_real" | "visao_dia" | "clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "dashboard_gerencial" | "followups" | "usuarios" | "auditoria">("operacao_tempo_real");
+  const [activeTab, setActiveTab] = useState<"operacao_tempo_real" | "visao_dia" | "conversas" | "clientes" | "medicos" | "whatsapp" | "whatsapp_operacao" | "dashboard_gerencial" | "followups" | "usuarios" | "auditoria">("operacao_tempo_real");
   const [authUser, setAuthUser] = useState<AdminUser | null>(null);
   const [accessScope, setAccessScope] = useState<AdminAccessScope | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
@@ -4138,7 +4141,7 @@ export default function LegacyAdminPanel() {
 
   useEffect(() => {
     if (activeTab === "whatsapp") {
-      Promise.all([loadWhatsappLogs(), loadWhatsappCanais(), loadWhatsappGruposUnidades()]).catch((error) => showToast(error.message, true));
+      Promise.all([loadWhatsappCanais(), loadWhatsappGruposUnidades()]).catch((error) => showToast(error.message, true));
     }
   }, [activeTab, selectedClienteId, isGlobalAdmin]);
 
@@ -5837,6 +5840,7 @@ export default function LegacyAdminPanel() {
           <div className="navSectionLabel">OPERAÇÃO CLÍNICA</div>
           <button className={activeTab === "operacao_tempo_real" ? "navActive" : ""} onClick={() => setActiveTab("operacao_tempo_real")}><AngelIcon name="activity" size={17} /><span>Operação em tempo real</span></button>
           <button className={activeTab === "visao_dia" ? "navActive" : ""} onClick={() => setActiveTab("visao_dia")}><AngelIcon name="dashboard" size={17} /><span>Visão do dia</span></button>
+          <button className={activeTab === "conversas" ? "navActive" : ""} onClick={() => setActiveTab("conversas")}><AngelIcon name="whatsapp" size={17} /><span>Conversas</span></button>
           <button className={activeTab === "followups" ? "navActive" : ""} onClick={() => setActiveTab("followups")}><AngelIcon name="calendar" size={17} /><span>Confirmações</span></button>
 
           {canManageCoverage && (
@@ -9471,6 +9475,10 @@ export default function LegacyAdminPanel() {
           <DailyOperationsDashboard apiRequest={api} />
         )}
 
+        {activeTab === "conversas" && (
+          <ConversationsPanel apiRequest={api} />
+        )}
+
         {/* @deprecated Dashboard gerencial legado: sem entrada de menu; remover após homologação da nova Visão do dia. */}
         {activeTab === "dashboard_gerencial" && (
           <>
@@ -10278,132 +10286,10 @@ export default function LegacyAdminPanel() {
               )}
             </section>
 
-            <section className="card">
-              <div className="sectionHeader">
-                <div>
-                  <h3>Logs WhatsApp</h3>
-                  <p>Auditoria das mensagens, etapas do fluxo, respostas enviadas e erros. A consulta é global; use filtros para investigar.</p>
-                </div>
-                <button onClick={() => loadWhatsappLogs()} disabled={whatsappLogsLoading}>
-                  {whatsappLogsLoading ? "Atualizando..." : "Atualizar logs"}
-                </button>
-              </div>
 
-              <div className="toolbar">
-                <input value={whatsappLogFilters.phone} onChange={(event) => { setWhatsappLogFilters({ ...whatsappLogFilters, phone: event.target.value }); setWhatsappLogGroupsPage(1); }} placeholder="Buscar por telefone" />
-                <select value={whatsappLogFilters.status} onChange={(event) => { setWhatsappLogFilters({ ...whatsappLogFilters, status: event.target.value }); setWhatsappLogGroupsPage(1); }}>
-                  <option value="todos">Todos os status</option>
-                  <option value="received">received</option><option value="queued">queued</option><option value="processing">processing</option><option value="processed">processed</option><option value="sent">sent</option><option value="failed">failed</option><option value="duplicate">duplicate</option><option value="ignored">ignored</option>
-                </select>
-                <label className="inlineCheckbox"><input type="checkbox" checked={whatsappLogFilters.onlyErrors} onChange={(event) => setWhatsappLogFilters({ ...whatsappLogFilters, onlyErrors: event.target.checked })} /> Só erros</label>
-                <button type="button" className="secondary" onClick={() => loadWhatsappLogs()}>Filtrar</button>
-              </div>
+            {/* Logs técnicos removidos da interface operacional.
+                O histórico humano fica no menu Conversas. */}
 
-              {whatsappLogs.length ? (
-                <>
-                <PaginationBar
-                  page={whatsappLogGroupsPageSafe}
-                  pageCount={totalWhatsappLogGroupPages}
-                  total={whatsappLogGroups.length}
-                  label="Conversas/logs"
-                  onPrev={() => setWhatsappLogGroupsPage((page) => Math.max(1, page - 1))}
-                  onNext={() => setWhatsappLogGroupsPage((page) => Math.min(totalWhatsappLogGroupPages, page + 1))}
-                />
-                <div className="conversationLogList">
-                  {whatsappLogGroupsPaginados.map((group) => {
-                    const expanded = Boolean(expandedWhatsappLogGroups[group.key]);
-                    const hasErrors = group.errorCount > 0;
-                    const latestInbound = group.latest.inbound_text || "";
-                    const latestOutbound = group.latest.outbound_text || "";
-                    const previewText = latestInbound || latestOutbound || group.latest.error_message || "Sem texto registrado";
-                    const orderedLogs = [...group.logs].sort((a, b) => {
-                      const aTime = new Date(a.created_at).getTime();
-                      const bTime = new Date(b.created_at).getTime();
-                      return (Number.isNaN(aTime) ? 0 : aTime) - (Number.isNaN(bTime) ? 0 : bTime);
-                    });
-
-                    return (
-                      <article key={group.key} className={hasErrors ? "conversationGroup criticalConversation" : "conversationGroup"}>
-                        <button
-                          type="button"
-                          className="conversationGroupHeader"
-                          onClick={() => setExpandedWhatsappLogGroups((current) => ({ ...current, [group.key]: !current[group.key] }))}
-                          aria-expanded={expanded}
-                        >
-                          <span className="conversationChevron">{expanded ? "▾" : "▸"}</span>
-                          <span className="conversationAvatar">{hasErrors ? "⚠️" : "💬"}</span>
-                          <span className="conversationMain">
-                            <strong>{group.phone}</strong>
-                            <span>{group.cliente} · canal {group.canal}</span>
-                          </span>
-                          <span className="conversationMeta">
-                            <strong>{group.count} evento(s)</strong>
-                            <span>{formatDateTimeShort(group.latest.created_at)}</span>
-                          </span>
-                          <span className={hasErrors ? "conversationStatus danger" : "conversationStatus ok"}>
-                            {hasErrors ? `${group.errorCount} alerta(s)` : (group.statuses[0] || "ok")}
-                          </span>
-                        </button>
-
-                        <div className="conversationPreview">
-                          <span className="conversationPreviewLabel">Último registro</span>
-                          <span>{previewText}</span>
-                        </div>
-
-                        {expanded && (
-                          <div className="conversationTimeline">
-                            {orderedLogs.map((log) => {
-                              const inbound = log.inbound_text;
-                              const outbound = log.outbound_text;
-                              const isSystem = Boolean(log.error_message) || log.status === "ignored" || log.status === "failed";
-                              const displayPhone = log.from_number || log.from_phone || log.to_phone || group.phone;
-                              return (
-                                <div key={`${group.key}-${log.id}`} className={isSystem ? "timelineEvent systemEvent" : "timelineEvent"}>
-                                  <div className="timelineMarker">{isSystem ? "🛡️" : inbound ? "👤" : "🤖"}</div>
-                                  <div className="timelineContent">
-                                    <div className="timelineTopline">
-                                      <strong>{isSystem ? "Sistema" : inbound ? "Paciente" : "Angel"}</strong>
-                                      <span>{formatDateTimeShort(log.created_at)}</span>
-                                      <Badge active={!log.error_message}>{log.status || "-"}</Badge>
-                                    </div>
-                                    <div className="timelineDetails">
-                                      <span>{displayPhone}</span>
-                                      {log.intent ? <span>Intenção: {log.intent}</span> : null}
-                                      {log.stage ? <span>Etapa: {log.stage}</span> : null}
-                                    </div>
-                                    {inbound ? (
-                                      <div className="chatBubble patientBubble">
-                                        <span>Paciente</span>
-                                        <p>{inbound}</p>
-                                      </div>
-                                    ) : null}
-                                    {outbound ? (
-                                      <div className="chatBubble botBubble">
-                                        <span>Angel</span>
-                                        <p>{outbound}</p>
-                                      </div>
-                                    ) : null}
-                                    {log.error_message ? (
-                                      <div className="chatBubble systemBubble">
-                                        <span>Evento do sistema</span>
-                                        <p>{log.error_message}</p>
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-                </>
-              ) : (
-                <div className="emptyState">{whatsappLogsLoading ? "Carregando logs..." : "Nenhum log encontrado."}</div>
-              )}
-            </section>
           </>
         )}
       </main>

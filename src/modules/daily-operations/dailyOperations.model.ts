@@ -60,7 +60,10 @@ export type DailyOperationsSnapshot = {
     resolution: string;
   };
   period: {
-    days: DailyOperationsPeriodDays;
+    days: DailyOperationsPeriodDays | null;
+    mode: "preset" | "custom";
+    startDate: string;
+    endDate: string;
     startAt: string;
     endAt: string;
     label: string;
@@ -301,6 +304,14 @@ export function normalizeDailyOperationsPayload(
   const booked = nonNegativeInteger(summary.agendadosFeegow);
   const calculatedRate = started > 0 ? (booked / started) * 100 : 0;
 
+  const periodMode =
+    text(period.mode) === "custom"
+      ? "custom"
+      : "preset";
+
+  const normalizedPeriodDays =
+    normalizeDays(period.days);
+
   return {
     generatedAt: text(candidate.generatedAt, new Date(0).toISOString()),
     contractVersion: "2.0",
@@ -314,14 +325,28 @@ export function normalizeDailyOperationsPayload(
       ),
     },
     period: {
-      days: normalizeDays(period.days),
-      startAt: text(period.startAt, new Date(0).toISOString()),
-      endAt: text(period.endAt, new Date(0).toISOString()),
+      days:
+        periodMode === "custom"
+          ? null
+          : normalizedPeriodDays,
+      mode: periodMode,
+      startDate: text(period.startDate),
+      endDate: text(period.endDate),
+      startAt: text(
+        period.startAt,
+        new Date(0).toISOString(),
+      ),
+      endAt: text(
+        period.endAt,
+        new Date(0).toISOString(),
+      ),
       label: text(
         period.label,
-        normalizeDays(period.days) === 1
-          ? "Hoje"
-          : `Últimos ${normalizeDays(period.days)} dias`,
+        periodMode === "custom"
+          ? "Período personalizado"
+          : normalizedPeriodDays === 1
+            ? "Hoje"
+            : `Últimos ${normalizedPeriodDays} dias`,
       ),
     },
     summary: {

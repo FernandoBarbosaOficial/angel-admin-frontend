@@ -1155,3 +1155,35 @@ html[data-theme="dark"] .dailyOutcomeRow.critical {
 html[data-theme="dark"] .dailyOutcomeRow {
   border-color: var(--angel-border, #253650);
 }
+
+
+/* ANGEL_DAILY_CUSTOM_PERIOD_FRONTEND_V1 */
+
+.dailyCustomPeriod {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.dailyCustomPeriod label {
+  display: grid;
+  gap: 4px;
+  color: var(--angel-muted, #687791);
+  font-size: .68rem;
+  font-weight: 800;
+}
+
+.dailyCustomPeriod input {
+  min-height: 38px;
+}
+
+@media (max-width: 760px) {
+  .dailyCustomPeriod {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .dailyCustomPeriod label {
+    flex: 1 1 150px;
+  }
+}

@@ -248,8 +248,31 @@ function TopList({
 export default function DailyOperationsDashboard({
   apiRequest,
 }: DailyOperationsDashboardProps) {
+  // ANGEL_DAILY_CUSTOM_PERIOD_FRONTEND_V1
+
   const [periodDays, setPeriodDays] =
     useState<DailyOperationsPeriodDays>(1);
+
+  const [periodMode, setPeriodMode] =
+    useState<"preset" | "custom">("preset");
+
+  const businessToday = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: POLIBON_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+    [],
+  );
+
+  const [customStartDate, setCustomStartDate] =
+    useState(businessToday);
+
+  const [customEndDate, setCustomEndDate] =
+    useState(businessToday);
+
   const [snapshot, setSnapshot] =
     useState<DailyOperationsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -262,9 +285,48 @@ export default function DailyOperationsDashboard({
       else setLoading(true);
 
       try {
-        const payload = await apiRequest<unknown>(
-          `/api/admin/operacao/visao-dia?days=${periodDays}`,
-        );
+        const params =
+          new URLSearchParams();
+
+        if (periodMode === "custom") {
+          if (
+            !customStartDate ||
+            !customEndDate
+          ) {
+            throw new Error(
+              "Informe a data inicial e a data final.",
+            );
+          }
+
+          if (
+            customStartDate >
+            customEndDate
+          ) {
+            throw new Error(
+              "A data inicial não pode ser posterior à data final.",
+            );
+          }
+
+          params.set(
+            "startDate",
+            customStartDate,
+          );
+
+          params.set(
+            "endDate",
+            customEndDate,
+          );
+        } else {
+          params.set(
+            "days",
+            String(periodDays),
+          );
+        }
+
+        const payload =
+          await apiRequest<unknown>(
+            `/api/admin/operacao/visao-dia?${params.toString()}`,
+          );
         const normalized = normalizeDailyOperationsPayload(payload);
         setSnapshot(normalized);
         setError("");
@@ -279,7 +341,13 @@ export default function DailyOperationsDashboard({
         setRefreshing(false);
       }
     },
-    [apiRequest, periodDays],
+    [
+      apiRequest,
+      customEndDate,
+      customStartDate,
+      periodDays,
+      periodMode,
+    ],
   );
 
   useEffect(() => {
@@ -322,7 +390,11 @@ export default function DailyOperationsDashboard({
       <header className="dailyOperationsHeader">
         <div className="dailyHeaderCopy">
           <span className="dailyEyebrow">OPERAÇÃO POLIBON</span>
-          <h3>Visão do dia</h3>
+          <h3>
+            {periodMode === "custom"
+              ? "Visão do período"
+              : "Visão do dia"}
+          </h3>
           <p>
             Resultado dos fluxos de agendamento conduzidos pelo Angel,
             consolidado por atendimento e booking real.
@@ -349,20 +421,92 @@ export default function DailyOperationsDashboard({
           <label>
             Período
             <select
-              value={periodDays}
-              onChange={(event) =>
-                setPeriodDays(
-                  Number(event.target.value) as DailyOperationsPeriodDays,
-                )
+              value={
+                periodMode === "custom"
+                  ? "custom"
+                  : String(periodDays)
               }
+              onChange={(event) => {
+                const value =
+                  event.target.value;
+
+                if (value === "custom") {
+                  setPeriodMode(
+                    "custom",
+                  );
+
+                  return;
+                }
+
+                setPeriodMode(
+                  "preset",
+                );
+
+                setPeriodDays(
+                  Number(
+                    value,
+                  ) as DailyOperationsPeriodDays,
+                );
+              }}
             >
-              {DAILY_OPERATIONS_PERIOD_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              {DAILY_OPERATIONS_PERIOD_OPTIONS.map(
+                (option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ),
+              )}
+
+              <option value="custom">
+                Personalizado
+              </option>
             </select>
           </label>
+
+          {periodMode === "custom" && (
+            <div className="dailyCustomPeriod">
+              <label>
+                Data inicial
+                <input
+                  type="date"
+                  value={
+                    customStartDate
+                  }
+                  max={
+                    customEndDate ||
+                    undefined
+                  }
+                  onChange={(event) =>
+                    setCustomStartDate(
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                Data final
+                <input
+                  type="date"
+                  value={
+                    customEndDate
+                  }
+                  min={
+                    customStartDate ||
+                    undefined
+                  }
+                  onChange={(event) =>
+                    setCustomEndDate(
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+            </div>
+          )}
 
           <button
             type="button"
