@@ -7,6 +7,8 @@ import {
 import AngelIcon from "../../ui/AngelIcon";
 import "./ConversationsPanel.css";
 
+// ANGEL_CONVERSATIONS_BY_ATTENDANCE_FRONTEND_V3
+
 type AdminApiRequest = <T>(
   path: string,
   options?: RequestInit,
@@ -288,6 +290,19 @@ export default function ConversationsPanel({
     null,
   );
 
+  /*
+   * session_id não identifica mais visualmente
+   * um atendimento.
+   *
+   * firstAt distingue cada episódio.
+   */
+  const [
+    selectedEpisodeStartAt,
+    setSelectedEpisodeStartAt,
+  ] = useState<string | null>(
+    null,
+  );
+
   const [detail, setDetail] =
     useState<ConversationDetail | null>(
       null,
@@ -436,6 +451,7 @@ export default function ConversationsPanel({
 
       setPage(1);
       setSelectedSessionId(null);
+      setSelectedEpisodeStartAt(null);
       setDetail(null);
 
       setAppliedFilters({
@@ -457,9 +473,15 @@ export default function ConversationsPanel({
       async (
         sessionId: string,
         clienteId: number | null,
+        episodeStartAt: string,
+        episodeEndAt: string,
       ) => {
         setSelectedSessionId(
           sessionId,
+        );
+
+        setSelectedEpisodeStartAt(
+          episodeStartAt,
         );
 
         setDetailLoading(true);
@@ -474,6 +496,16 @@ export default function ConversationsPanel({
               String(clienteId),
             );
           }
+
+          params.set(
+            "episodeStartAt",
+            episodeStartAt,
+          );
+
+          params.set(
+            "episodeEndAt",
+            episodeEndAt,
+          );
 
           const suffix =
             params.toString()
@@ -770,10 +802,12 @@ export default function ConversationsPanel({
                 (item) => (
                   <button
                     type="button"
-                    key={`${item.clienteId || 0}:${item.sessionId}`}
+                    key={`${item.clienteId || 0}:${item.sessionId}:${item.firstAt}`}
                     className={
                       selectedSessionId ===
-                      item.sessionId
+                        item.sessionId &&
+                      selectedEpisodeStartAt ===
+                        item.firstAt
                         ? "conversationListItem active"
                         : "conversationListItem"
                     }
@@ -781,6 +815,8 @@ export default function ConversationsPanel({
                       void openConversation(
                         item.sessionId,
                         item.clienteId,
+                        item.firstAt,
+                        item.lastAt,
                       )
                     }
                   >
@@ -842,6 +878,9 @@ export default function ConversationsPanel({
                 setSelectedSessionId(
                   null,
                 );
+                setSelectedEpisodeStartAt(
+                  null,
+                );
                 setDetail(null);
 
                 setPage(
@@ -870,6 +909,9 @@ export default function ConversationsPanel({
               }
               onClick={() => {
                 setSelectedSessionId(
+                  null,
+                );
+                setSelectedEpisodeStartAt(
                   null,
                 );
                 setDetail(null);

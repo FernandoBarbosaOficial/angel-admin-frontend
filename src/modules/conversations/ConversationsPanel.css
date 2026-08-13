@@ -396,3 +396,27 @@
     max-width: 92%;
   }
 }
+
+
+/*
+ * ANGEL_CONVERSATIONS_BY_ATTENDANCE_FRONTEND_V3
+ *
+ * O balão da Angel permanece exatamente como está no tema claro.
+ * No tema escuro o fundo dele continua claro; portanto o texto
+ * precisa usar contraste escuro explicitamente.
+ */
+
+html[data-theme="dark"]
+.conversationBubble.angel {
+  color: #20314f;
+}
+
+html[data-theme="dark"]
+.conversationBubble.angel p {
+  color: #20314f;
+}
+
+html[data-theme="dark"]
+.conversationBubble.angel time {
+  color: #64748b;
+}
