@@ -57,6 +57,33 @@ const OUTCOME_ICONS: Record<DailyOperationsOutcomeKey, AngelIconName> = {
   sem_desfecho_registrado: "info",
 };
 
+function businessDateInputValue(value = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: POLIBON_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+
+  return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
+}
+
+function normalizeDateInput(value: string): string {
+  const text = value.trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return text;
+  }
+
+  const ptBr = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (ptBr) {
+    return `${ptBr[3]}-${ptBr[2]}-${ptBr[1]}`;
+  }
+
+  throw new Error("Informe uma data válida.");
+}
+
 function formatGeneratedAt(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Horário indisponível";
@@ -151,7 +178,10 @@ function FunnelRow({
 }) {
   const width =
     firstTotal > 0
-      ? Math.max(item.total > 0 ? 3 : 0, Math.min(100, (item.total / firstTotal) * 100))
+      ? Math.max(
+          item.total > 0 ? 3 : 0,
+          Math.min(100, (item.total / firstTotal) * 100),
+        )
       : 0;
 
   return (
@@ -245,31 +275,95 @@ function TopList({
   );
 }
 
+function buildBookingFunnel(
+  snapshot: DailyOperationsSnapshot | null,
+): DailyOperationsFunnelItem[] {
+  if (!snapshot) return [];
+
+  const sourceByKey = new Map(
+    snapshot.funnel.map((item) => [item.key, item]),
+  );
+  const eligibleTotal = snapshot.summary.iniciaramAgendamento;
+
+  const stages: Array<{
+    key: DailyOperationsFunnelKey;
+    label: string;
+    total: number;
+    evidenceDefinition: string;
+  }> = [
+    {
+      key: "iniciaram_agendamento",
+      label: "Iniciaram agendamento",
+      total: eligibleTotal,
+      evidenceDefinition:
+        "Somente sessões elegíveis após validação de cobertura, especialidade/profissional e regras de negócio.",
+    },
+    {
+      key: "horarios_exibidos",
+      label: "Horários exibidos",
+      total: sourceByKey.get("horarios_exibidos")?.total || 0,
+      evidenceDefinition:
+        sourceByKey.get("horarios_exibidos")?.evidenceDefinition ||
+        "Sessões elegíveis que receberam opções de agenda.",
+    },
+    {
+      key: "horario_escolhido",
+      label: "Horário escolhido",
+      total: sourceByKey.get("horario_escolhido")?.total || 0,
+      evidenceDefinition:
+        sourceByKey.get("horario_escolhido")?.evidenceDefinition ||
+        "Sessões com horário selecionado pelo paciente.",
+    },
+    {
+      key: "agendado_feegow",
+      label: "Sessões com agendamento",
+      total: sourceByKey.get("agendado_feegow")?.total || 0,
+      evidenceDefinition:
+        sourceByKey.get("agendado_feegow")?.evidenceDefinition ||
+        "Sessões com pelo menos um booking confirmado na Feegow.",
+    },
+  ];
+
+  let previousTotal: number | null = null;
+
+  return stages.map((stage) => {
+    const total = Math.max(0, stage.total);
+    const item: DailyOperationsFunnelItem = {
+      ...stage,
+      total,
+      previousTotal,
+      lossFromPrevious:
+        previousTotal === null ? null : Math.max(0, previousTotal - total),
+      conversionFromPrevious:
+        previousTotal === null
+          ? null
+          : previousTotal > 0
+            ? Math.round((total / previousTotal) * 1000) / 10
+            : 0,
+    };
+
+    previousTotal = total;
+    return item;
+  });
+}
+
 export default function DailyOperationsDashboard({
   apiRequest,
 }: DailyOperationsDashboardProps) {
-  // ANGEL_DAILY_CUSTOM_PERIOD_FRONTEND_V1
+  // ANGEL_DAILY_CUSTOM_PERIOD_FRONTEND_V2
 
   const [periodDays, setPeriodDays] =
     useState<DailyOperationsPeriodDays>(1);
-
   const [periodMode, setPeriodMode] =
     useState<"preset" | "custom">("preset");
 
   const businessToday = useMemo(
-    () =>
-      new Intl.DateTimeFormat("en-CA", {
-        timeZone: POLIBON_TIME_ZONE,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date()),
+    () => businessDateInputValue(),
     [],
   );
 
   const [customStartDate, setCustomStartDate] =
     useState(businessToday);
-
   const [customEndDate, setCustomEndDate] =
     useState(businessToday);
 
@@ -285,48 +379,33 @@ export default function DailyOperationsDashboard({
       else setLoading(true);
 
       try {
-        const params =
-          new URLSearchParams();
+        const params = new URLSearchParams();
 
         if (periodMode === "custom") {
-          if (
-            !customStartDate ||
-            !customEndDate
-          ) {
+          if (!customStartDate || !customEndDate) {
             throw new Error(
               "Informe a data inicial e a data final.",
             );
           }
 
-          if (
-            customStartDate >
-            customEndDate
-          ) {
+          const startDate = normalizeDateInput(customStartDate);
+          const endDate = normalizeDateInput(customEndDate);
+
+          if (startDate > endDate) {
             throw new Error(
               "A data inicial não pode ser posterior à data final.",
             );
           }
 
-          params.set(
-            "startDate",
-            customStartDate,
-          );
-
-          params.set(
-            "endDate",
-            customEndDate,
-          );
+          params.set("startDate", startDate);
+          params.set("endDate", endDate);
         } else {
-          params.set(
-            "days",
-            String(periodDays),
-          );
+          params.set("days", String(periodDays));
         }
 
-        const payload =
-          await apiRequest<unknown>(
-            `/api/admin/operacao/visao-dia?${params.toString()}`,
-          );
+        const payload = await apiRequest<unknown>(
+          `/api/admin/operacao/visao-dia?${params.toString()}`,
+        );
         const normalized = normalizeDailyOperationsPayload(payload);
         setSnapshot(normalized);
         setError("");
@@ -354,10 +433,13 @@ export default function DailyOperationsDashboard({
     void loadDashboard();
   }, [loadDashboard]);
 
+  const bookingFunnel = useMemo(
+    () => buildBookingFunnel(snapshot),
+    [snapshot],
+  );
+
   const firstFunnelTotal =
-    snapshot?.funnel[0]?.total ||
-    snapshot?.summary.iniciaramAgendamento ||
-    0;
+    snapshot?.summary.iniciaramAgendamento || 0;
 
   const evolutionMax = useMemo(
     () =>
@@ -396,8 +478,8 @@ export default function DailyOperationsDashboard({
               : "Visão do dia"}
           </h3>
           <p>
-            Resultado dos fluxos de agendamento conduzidos pelo Angel,
-            consolidado por atendimento e booking real.
+            Resultado dos atendimentos e do funil elegível de agendamento,
+            consolidado por sessão e booking real.
           </p>
         </div>
 
@@ -427,42 +509,25 @@ export default function DailyOperationsDashboard({
                   : String(periodDays)
               }
               onChange={(event) => {
-                const value =
-                  event.target.value;
+                const value = event.target.value;
 
                 if (value === "custom") {
-                  setPeriodMode(
-                    "custom",
-                  );
-
+                  setPeriodMode("custom");
                   return;
                 }
 
-                setPeriodMode(
-                  "preset",
-                );
-
+                setPeriodMode("preset");
                 setPeriodDays(
-                  Number(
-                    value,
-                  ) as DailyOperationsPeriodDays,
+                  Number(value) as DailyOperationsPeriodDays,
                 );
               }}
             >
-              {DAILY_OPERATIONS_PERIOD_OPTIONS.map(
-                (option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </option>
-                ),
-              )}
-
-              <option value="custom">
-                Personalizado
-              </option>
+              {DAILY_OPERATIONS_PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+              <option value="custom">Personalizado</option>
             </select>
           </label>
 
@@ -472,17 +537,10 @@ export default function DailyOperationsDashboard({
                 Data inicial
                 <input
                   type="date"
-                  value={
-                    customStartDate
-                  }
-                  max={
-                    customEndDate ||
-                    undefined
-                  }
+                  value={customStartDate}
+                  max={customEndDate || undefined}
                   onChange={(event) =>
-                    setCustomStartDate(
-                      event.target.value,
-                    )
+                    setCustomStartDate(event.target.value)
                   }
                 />
               </label>
@@ -491,17 +549,10 @@ export default function DailyOperationsDashboard({
                 Data final
                 <input
                   type="date"
-                  value={
-                    customEndDate
-                  }
-                  min={
-                    customStartDate ||
-                    undefined
-                  }
+                  value={customEndDate}
+                  min={customStartDate || undefined}
                   onChange={(event) =>
-                    setCustomEndDate(
-                      event.target.value,
-                    )
+                    setCustomEndDate(event.target.value)
                   }
                 />
               </label>
@@ -554,11 +605,18 @@ export default function DailyOperationsDashboard({
 
           <div className="dailyKpiGrid">
             <KpiCard
-              label="Iniciaram agendamento"
-              value={snapshot.summary.iniciaramAgendamento}
-              description="Sessões que entraram efetivamente no fluxo de marcação."
+              label="Atendimentos iniciados"
+              value={snapshot.summary.sessoesNoEscopo}
+              description="Sessões que tiveram atendimento no período, com ou sem intenção de marcar."
               icon="play"
               tone="primary"
+            />
+            <KpiCard
+              label="Iniciaram agendamento"
+              value={snapshot.summary.iniciaramAgendamento}
+              description="Somente pacientes elegíveis que chegaram ao gate real de agenda."
+              icon="slots"
+              tone="success"
             />
             <KpiCard
               label="Agendados na Feegow"
@@ -570,7 +628,7 @@ export default function DailyOperationsDashboard({
             <KpiCard
               label="Taxa de conclusão"
               value={formatPercent(snapshot.summary.taxaConclusao)}
-              description="Agendados divididos pelos fluxos iniciados."
+              description="Sessões com booking divididas apenas pelas sessões elegíveis."
               icon="trend"
               tone="trend"
               progress={snapshot.summary.taxaConclusao}
@@ -589,32 +647,26 @@ export default function DailyOperationsDashboard({
               icon="reception"
               tone="purple"
             />
-            <KpiCard
-              label="Falhas técnicas"
-              value={snapshot.summary.falhasTecnicas}
-              description="Erros técnicos terminais, sem misturar regras assistenciais."
-              icon="alert"
-              tone="critical"
-            />
           </div>
 
           <div className="dailyPrimaryGrid">
             <section className="dailyPanel dailyFunnelPanel">
               <header>
                 <div>
-                  <h4>Funil de agendamento</h4>
+                  <h4>Funil de agendamento elegível</h4>
                   <p>
-                    Cada etapa representa evidência persistida na sessão.
-                    As perdas mostram onde o fluxo deixou de avançar.
+                    O funil começa somente após a elegibilidade. Dúvidas,
+                    consultas informativas, coberturas recusadas e regras
+                    anteriores ao gate de agenda não são tratadas como perda.
                   </p>
                 </div>
                 <span className="dailyPanelBadge">
-                  {snapshot.summary.iniciaramAgendamento} iniciados
+                  {snapshot.summary.iniciaramAgendamento} elegíveis
                 </span>
               </header>
 
               <div className="dailyFunnelRows">
-                {snapshot.funnel.map((item) => (
+                {bookingFunnel.map((item) => (
                   <FunnelRow
                     key={item.key}
                     item={item}
@@ -633,7 +685,7 @@ export default function DailyOperationsDashboard({
                   <div>
                     <h4>Desfechos do período</h4>
                     <p>
-                      Resultado terminal de cada fluxo iniciado, sem presumir
+                      Resultado terminal dos fluxos observados, sem presumir
                       abandono de sessões ainda abertas.
                     </p>
                   </div>
@@ -695,12 +747,12 @@ export default function DailyOperationsDashboard({
                 <div>
                   <h4>Evolução no período</h4>
                   <p>
-                    Comparação entre fluxos iniciados e bookings concluídos.
+                    Comparação entre fluxos detectados e bookings concluídos.
                   </p>
                 </div>
               </div>
               <div className="dailyLegend" aria-label="Legenda">
-                <span className="started">Iniciados</span>
+                <span className="started">Fluxos</span>
                 <span className="booked">Agendados</span>
               </div>
             </header>
@@ -725,7 +777,7 @@ export default function DailyOperationsDashboard({
                             )}%`,
                           }}
                         />
-                        <span>{item.iniciados} iniciados</span>
+                        <span>{item.iniciados} fluxos</span>
                       </div>
                       <div>
                         <i
@@ -750,9 +802,7 @@ export default function DailyOperationsDashboard({
             <TopList
               title="Agendamentos por especialidade"
               description="Somente especialidades do booking final."
-              rows={
-                snapshot.breakdowns.agendadosPorEspecialidade
-              }
+              rows={snapshot.breakdowns.agendadosPorEspecialidade}
               icon="specialty"
             />
             <TopList
@@ -794,27 +844,19 @@ export default function DailyOperationsDashboard({
                   {snapshot.dataQuality.rowsRead} registros lidos
                 </span>
                 <span>
-                  {
-                    snapshot.dataQuality
-                      .sessionsWithBookingEvidence
-                  }{" "}
+                  {snapshot.dataQuality.sessionsWithBookingEvidence}{" "}
                   sessões com evidência de booking
                 </span>
                 <span>
-                  {
-                    snapshot.dataQuality
-                      .sessionsWithFinalBookingPayload
-                  }{" "}
+                  {snapshot.dataQuality.sessionsWithFinalBookingPayload}{" "}
                   bookings com payload final
                 </span>
               </div>
               {snapshot.dataQuality.limitations.length > 0 && (
                 <ul>
-                  {snapshot.dataQuality.limitations.map(
-                    (limitation) => (
-                      <li key={limitation}>{limitation}</li>
-                    ),
-                  )}
+                  {snapshot.dataQuality.limitations.map((limitation) => (
+                    <li key={limitation}>{limitation}</li>
+                  ))}
                 </ul>
               )}
             </div>
