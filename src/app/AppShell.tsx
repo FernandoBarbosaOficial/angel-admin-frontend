@@ -1,5 +1,6 @@
 import LegacyAdminPanel from "../legacy/LegacyAdminPanel";
 import BookingOperationalControlLauncher from "../modules/clinic-operations/BookingOperationalControlLauncher";
+import WhatsAppBillingLauncher from "../modules/technical-admin/WhatsAppBillingLauncher";
 import ProductionCoverageAudit from "../modules/prod-audit/ProductionCoverageAudit";
 import ProductionCanonicalHistoryAudit from "../modules/prod-audit/ProductionCanonicalHistoryAudit";
 import ProductionReceptionCausesAudit from "../modules/prod-audit/ProductionReceptionCausesAudit";
@@ -11,9 +12,9 @@ const POLIBON_DISPLAY_NAME = "POLICLÍNICA BONFIGLIOLI";
 /**
  * Casca de transição Polibon-only.
  *
- * Nesta etapa o shell preserva o painel legado e permite montar recursos novos
- * de forma isolada. O launcher do controle de agendamento injeta somente o
- * acesso no menu existente; Tempo Real e Visão do Dia não são alterados.
+ * O shell preserva o painel legado e monta recursos novos de forma isolada.
+ * Os launchers apenas injetam acessos no menu existente; não alteram Tempo Real,
+ * Visão do Dia nem a jornada operacional do paciente.
  */
 export default function AppShell() {
   const auditMode = new URLSearchParams(window.location.search).get("audit");
@@ -45,6 +46,7 @@ export default function AppShell() {
     <>
       <LegacyAdminPanel />
       <BookingOperationalControlLauncher />
+      <WhatsAppBillingLauncher />
     </>
   );
 }
