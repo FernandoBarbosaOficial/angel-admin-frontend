@@ -13,9 +13,44 @@ type BillingDashboard = {
   pricing?: {
     currency?: string;
     serviceUnitRate?: number;
+    configuredServiceUnitRate?: number;
     monthlyFreeAllowancePerPhone?: number;
     effectiveDate?: string;
     effectiveNow?: boolean;
+  };
+  metaActual?: {
+    available?: boolean;
+    source?: string;
+    asOf?: string;
+    currency?: string;
+    volume?: number;
+    freeVolume?: number;
+    paidVolume?: number;
+    actualCostBrl?: number;
+    brazilVolume?: number;
+    brazilCostBrl?: number;
+    observedBrazilUnitRate?: number;
+    error?: string | null;
+  };
+  flowProjection?: {
+    confidence?: "baixa" | "media" | "alta" | string;
+    healthyFlowDays?: number;
+    observedMessagesPerJourney?: number;
+    weekdayAverageJourneys?: number;
+    weekendAverageJourneys?: number;
+    projectedMonthCloseCostBrl?: number;
+    projectedAdditionalMonthMessages?: number;
+    projected30DayJourneys?: number;
+    projected30DayMessages?: number;
+    projected30DayPaid?: number;
+    projected30DayFlowCostBrl?: number;
+    freeAllowance?: number;
+    unitRateBrl?: number;
+  };
+  reconciliation?: {
+    localDeliveredMonth?: number;
+    metaVolumeMonth?: number | null;
+    volumeDelta?: number | null;
   };
   currentMonth?: {
     accepted?: number;
@@ -54,6 +89,12 @@ type BillingDashboard = {
     projectedDelivered30d?: number;
     freeAllowance?: number;
     projectedTariffed30d?: number;
+  }>;
+  bySourceCurrentMonth?: Array<{
+    source?: string;
+    accepted?: number;
+    deliveredObserved?: number;
+    failedObserved?: number;
   }>;
   bySource30Days?: Array<{
     source?: string;
@@ -248,8 +289,11 @@ export default function WhatsAppBillingLauncher() {
     return () => window.clearInterval(timer);
   }, [open]);
 
-  const confidence = data?.deliveryQuality?.confidence || "baixa";
-  const confidenceText = useMemo(() => confidence === "alta" ? "Alta" : confidence === "media" ? "Média" : "Baixa", [confidence]);
+  const projectionConfidence = data?.flowProjection?.confidence || "baixa";
+  const projectionConfidenceText = useMemo(
+    () => projectionConfidence === "alta" ? "Alta" : projectionConfidence === "media" ? "Média" : "Baixa",
+    [projectionConfidence],
+  );
 
   const launcher = navHost
     ? createPortal(
@@ -272,7 +316,7 @@ export default function WhatsAppBillingLauncher() {
                 <div style={{ ...styles.label, marginBottom: 3 }}>ADMINISTRAÇÃO TÉCNICA</div>
                 <h2 style={{ margin: "3px 0 4px", fontSize: 27 }}>Faturamento WhatsApp</h2>
                 <p style={{ margin: 0, color: "#64748b", maxWidth: 780 }}>
-                  Projeção baseada em WAMIDs únicos e callbacks reais de entrega da Meta. O histórico anterior à instrumentação permanece identificado como estimativa.
+                  Custo realizado direto da Meta Graph API e projeção baseada na operação atual com WhatsApp Flow, sem contaminar a estimativa com o tráfego legado.
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -292,19 +336,30 @@ export default function WhatsAppBillingLauncher() {
 
             {data?.instrumentationReady ? (
               <>
-                <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: "#eff6ff", border: "1px solid #bfdbfe", color: "#1e3a8a" }}>
-                  <strong>Previsão comparável de 30 dias:</strong> {brl(data.forecastComparable30Days?.postEffectiveSimulationCostBrl)} · confiança {confidenceText.toLowerCase()} · tarifa {brl(data.pricing?.serviceUnitRate)} por mensagem de serviço entregue após a franquia.
+                <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: data.metaActual?.available ? "#ecfdf5" : "#fffbeb", border: `1px solid ${data.metaActual?.available ? "#a7f3d0" : "#fde68a"}`, color: data.metaActual?.available ? "#065f46" : "#92400e" }}>
+                  <strong>{data.metaActual?.available ? "Meta Graph conectado" : "Meta Graph indisponível"}:</strong>{" "}
+                  {data.metaActual?.available
+                    ? `custo real no mês ${brl(data.metaActual?.actualCostBrl)} · projeção de fechamento ${brl(data.flowProjection?.projectedMonthCloseCostBrl)}`
+                    : "usando ledger local como contingência; o custo oficial será exibido assim que a leitura da Meta voltar."}
                 </div>
 
-                <h3 style={{ margin: "22px 0 10px" }}>Previsão pós-01/10</h3>
+                <h3 style={{ margin: "22px 0 10px" }}>Custo real Meta — mês atual</h3>
                 <div style={styles.grid}>
-                  <Metric label="Entregues projetadas" value={integer(data.forecastComparable30Days?.projectedServiceDelivered)} />
-                  <Metric label="Franquia projetada" value={integer(data.forecastComparable30Days?.projectedFree)} detail={`${integer(data.pricing?.monthlyFreeAllowancePerPhone)} por número/mês`} />
-                  <Metric label="Tarifadas projetadas" value={integer(data.forecastComparable30Days?.projectedTariffed)} />
-                  <Metric label="Custo projetado" value={brl(data.forecastComparable30Days?.postEffectiveSimulationCostBrl)} detail={`vigência ${data.pricing?.effectiveDate || "—"}`} />
+                  <Metric label="Volume Meta" value={integer(data.metaActual?.volume)} detail="pricing_analytics oficial" />
+                  <Metric label="Gratuitas" value={integer(data.metaActual?.freeVolume)} detail="FREE_CUSTOMER_SERVICE" />
+                  <Metric label="Cobradas" value={integer(data.metaActual?.paidVolume)} detail={`tarifa BR observada ${brl(data.metaActual?.observedBrazilUnitRate)}`} />
+                  <Metric label="Custo real Meta" value={brl(data.metaActual?.actualCostBrl)} detail={`atualizado ${dateTime(data.metaActual?.asOf)}`} />
                 </div>
 
-                <h3 style={{ margin: "22px 0 10px" }}>Mês atual</h3>
+                <h3 style={{ margin: "22px 0 10px" }}>Projeção na realidade do Flow</h3>
+                <div style={styles.grid}>
+                  <Metric label="Fechamento do mês" value={brl(data.flowProjection?.projectedMonthCloseCostBrl)} detail={`confiança ${projectionConfidenceText.toLowerCase()}`} />
+                  <Metric label="30 dias estabilizados" value={brl(data.flowProjection?.projected30DayFlowCostBrl)} detail="sem tráfego legado no cálculo" />
+                  <Metric label="Mensagens em 30 dias" value={integer(data.flowProjection?.projected30DayMessages)} detail={`${integer(data.flowProjection?.projected30DayJourneys)} jornadas projetadas`} />
+                  <Metric label="Mensagens / jornada" value={Number(data.flowProjection?.observedMessagesPerJourney || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} detail={`${integer(data.flowProjection?.healthyFlowDays)} dia(s) saudável(is) de Flow`} />
+                </div>
+
+                <h3 style={{ margin: "22px 0 10px" }}>Ledger local — mês atual</h3>
                 <div style={styles.grid}>
                   <Metric label="Aceitas pela Meta" value={integer(data.currentMonth?.accepted)} />
                   <Metric label="Entregues" value={integer(data.currentMonth?.delivered)} />
@@ -313,19 +368,19 @@ export default function WhatsAppBillingLauncher() {
                   <Metric label="Status pendente" value={integer(data.currentMonth?.pending)} />
                 </div>
 
-                <h3 style={{ margin: "22px 0 10px" }}>Qualidade da previsão</h3>
+                <h3 style={{ margin: "22px 0 10px" }}>Base da projeção Flow</h3>
                 <div style={styles.grid}>
-                  <Metric label="Amostra live" value={integer(data.deliveryQuality?.liveAccepted)} />
-                  <Metric label="Cobertura callbacks" value={percent(data.deliveryQuality?.callbackCoverage)} />
-                  <Metric label="Taxa observada de entrega" value={percent(data.deliveryQuality?.observedDeliveryRatio)} />
-                  <Metric label="Confiança" value={confidenceText} detail={data.deliveryQuality?.adjustmentApplied ? "ajuste por entrega aplicado" : "teto conservador por accepted"} />
+                  <Metric label="Jornadas / dia útil" value={Number(data.flowProjection?.weekdayAverageJourneys || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} detail="média histórica anterior ao Flow" />
+                  <Metric label="Jornadas / fim de semana" value={Number(data.flowProjection?.weekendAverageJourneys || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} detail="média histórica anterior ao Flow" />
+                  <Metric label="Dias Flow saudáveis" value={integer(data.flowProjection?.healthyFlowDays)} detail="sem falha operacional relevante" />
+                  <Metric label="Confiança da projeção" value={projectionConfidenceText} detail={`Meta x ledger: diferença ${integer(data.reconciliation?.volumeDelta)} msg`} />
                 </div>
 
-                <h3 style={{ margin: "22px 0 10px" }}>Origem das mensagens — 30 dias</h3>
+                <h3 style={{ margin: "22px 0 10px" }}>Origem das mensagens — mês atual</h3>
                 <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 12 }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-                    <thead><tr style={{ background: "#f8fafc", textAlign: "left" }}><th style={{ padding: 10 }}>Origem</th><th style={{ padding: 10 }}>Aceitas</th><th style={{ padding: 10 }}>Entregues observadas</th></tr></thead>
-                    <tbody>{(data.bySource30Days || []).map((row, index) => <tr key={`${row.source}-${index}`} style={{ borderTop: "1px solid #e2e8f0" }}><td style={{ padding: 10 }}>{sourceLabel(row.source)}</td><td style={{ padding: 10 }}>{integer(row.accepted)}</td><td style={{ padding: 10 }}>{integer(row.deliveredObserved)}</td></tr>)}</tbody>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
+                    <thead><tr style={{ background: "#f8fafc", textAlign: "left" }}><th style={{ padding: 10 }}>Origem</th><th style={{ padding: 10 }}>Aceitas</th><th style={{ padding: 10 }}>Entregues</th><th style={{ padding: 10 }}>Falhas</th></tr></thead>
+                    <tbody>{(data.bySourceCurrentMonth || data.bySource30Days || []).map((row: any, index) => <tr key={`${row.source}-${index}`} style={{ borderTop: "1px solid #e2e8f0" }}><td style={{ padding: 10 }}>{sourceLabel(row.source)}</td><td style={{ padding: 10 }}>{integer(row.accepted)}</td><td style={{ padding: 10 }}>{integer(row.deliveredObserved)}</td><td style={{ padding: 10 }}>{integer(row.failedObserved)}</td></tr>)}</tbody>
                   </table>
                 </div>
 
