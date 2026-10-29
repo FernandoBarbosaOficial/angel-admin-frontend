@@ -1,4 +1,5 @@
 import LegacyAdminPanel from "../legacy/LegacyAdminPanel";
+import FeegowNuclearAlarm from "../modules/clinic-operations/FeegowNuclearAlarm";
 import BookingOperationalControlLauncher from "../modules/clinic-operations/BookingOperationalControlLauncher";
 import WhatsAppBillingLauncher from "../modules/technical-admin/WhatsAppBillingLauncher";
 import ProductionCoverageAudit from "../modules/prod-audit/ProductionCoverageAudit";
@@ -47,6 +48,7 @@ export default function AppShell() {
       <LegacyAdminPanel />
       <BookingOperationalControlLauncher />
       <WhatsAppBillingLauncher />
+      <FeegowNuclearAlarm />
     </>
   );
 }
