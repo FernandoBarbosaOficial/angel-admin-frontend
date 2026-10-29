@@ -1,0 +1,64 @@
+.feegowHealthChip {
+  position: fixed; bottom: 14px; right: 18px; z-index: 4000;
+  border-radius: 100px; box-shadow: 0 6px 20px rgba(0, 0, 0, .14);
+  border: 1px solid #80dab1; background: #e8fff3; color: #065f46;
+  padding: 9px 15px; font: 700 12px/1.2 system-ui, sans-serif;
+  display: flex; align-items: center; gap: 7px;
+  pointer-events: none;
+}
+.feegowHealthChip.degraded, .feegowHealthChip.unknown {
+  background: #fff4d9; border-color: #efbd50; color: #713f12;
+}
+.feegowHealthDot {
+  display: inline-block; width: 9px; height: 9px;
+  border-radius: 100%; background: #10b981;
+}
+.feegowHealthChip.degraded .feegowHealthDot,
+.feegowHealthChip.unknown .feegowHealthDot { background: #e09318; }
+.feegowHealthChecked { opacity: .8; font-weight: 500; }
+
+.feegowNuclearAlarm {
+  position: fixed; z-index: 100000; top: 0; right: 0; left: 0;
+  min-height: 94px; padding: 14px 20px;
+  display: flex; align-items: center; gap: 15px;
+  background: #9c101b; color: white;
+  border-bottom: 5px solid #ffed56;
+  box-shadow: 0 12px 40px rgba(70, 0, 0, .55);
+  font-family: system-ui, sans-serif;
+  animation: feegowNuclearGlow 1.5s ease-in-out infinite;
+}
+.feegowNuclearAlarmPulse {
+  font-size: 35px; flex: none;
+  animation: feegowNuclearPulse .9s infinite;
+}
+.feegowNuclearAlarmText { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.feegowNuclearAlarmText strong { font-size: 17px; letter-spacing: .02em; }
+.feegowNuclearAlarmText span { font-size: 13px; line-height: 1.5; }
+.feegowNuclearAlarmText small { font-size: 11px; color: #fff0bc; }
+.feegowNuclearAlarmActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.feegowNuclearAlarmActions button {
+  cursor: pointer; border-radius: 9px; padding: 9px 12px;
+  background: #fff; color: #7f0b18; border: 0;
+  font-size: 12px; font-weight: 800; white-space: nowrap;
+}
+.feegowNuclearAlarmActions button:focus-visible { outline: 3px solid #ffe45c; }
+@keyframes feegowNuclearPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .42; transform: scale(1.13); }
+}
+@keyframes feegowNuclearGlow {
+  0%, 100% { box-shadow: 0 12px 40px rgba(70,0,0,.55); }
+  50% { box-shadow: 0 12px 58px rgba(255,0,0,.9); }
+}
+@media (max-width: 760px) {
+  .feegowNuclearAlarm {
+    flex-wrap: wrap; padding: 12px; gap: 8px;
+  }
+  .feegowNuclearAlarmText strong { font-size: 14px; }
+  .feegowNuclearAlarmText span { font-size: 12px; }
+  .feegowNuclearAlarmActions { width: 100%; }
+  .feegowHealthChip { right: 8px; bottom: 8px; font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feegowNuclearAlarm, .feegowNuclearAlarmPulse { animation: none; }
+}
