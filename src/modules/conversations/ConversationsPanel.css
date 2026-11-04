@@ -420,3 +420,45 @@ html[data-theme="dark"]
 .conversationBubble.angel time {
   color: #64748b;
 }
+
+/* Histórico operacional do formulário, separado das mensagens reais do WhatsApp. */
+.conversationFlowTimeline {
+  margin: 14px 16px;
+  border: 1px solid var(--angel-border, #e1e8f2);
+  border-radius: 12px;
+  background: var(--angel-surface-soft, #f7f9fc);
+  overflow: hidden;
+}
+.conversationFlowTimelineHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--angel-border, #e1e8f2);
+}
+.conversationFlowTimelineHeader strong { font-size: .91rem; }
+.conversationFlowTimelineHeader span,
+.conversationFlowTimelineNote { font-size: .75rem; color: var(--angel-muted, #687791); }
+.conversationFlowTimelineNote { margin: 9px 14px; line-height: 1.5; }
+.conversationFlowTimelineWarning { margin: 9px 14px; font-size: .75rem; color: #a86112; }
+.conversationFlowTimelineList {
+  list-style: none;
+  padding: 0 14px 14px;
+  margin: 0;
+  max-height: 350px;
+  overflow-y: auto;
+}
+.conversationFlowTimelineList li {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--angel-border, #e1e8f2);
+}
+.conversationFlowTimelineList time { font-size: .72rem; color: var(--angel-muted, #687791); }
+.conversationFlowTimelineList strong { font-size: .78rem; }
+.conversationFlowTimelineList p { margin: 3px 0 0; font-size: .75rem; color: var(--angel-muted, #687791); }
+@media (max-width: 680px) {
+  .conversationFlowTimelineList li { grid-template-columns: 1fr; gap: 4px; }
+}
