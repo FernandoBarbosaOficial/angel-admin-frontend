@@ -95,9 +95,24 @@ type ConversationSummary = {
   lastIntent: string | null;
 };
 
+type FlowTimeline = {
+  events: Array<{
+    id: string;
+    createdAt: string;
+    eventType: string;
+    screenId: string | null;
+    screenLabel: string | null;
+    description: string;
+    source: "recorded_event";
+  }>;
+  truncated: boolean;
+  provenance: string;
+};
+
 type ConversationDetail = {
   conversation: ConversationSummary;
   messages: ConversationMessage[];
+  flowTimeline?: FlowTimeline | null;
   logs?: unknown[];
 };
 
@@ -1014,6 +1029,35 @@ export default function ConversationsPanel({
                   </span>
                 )}
               </div>
+
+              {detail.flowTimeline && (
+                <section className="conversationFlowTimeline" aria-label="Jornada do formulário WhatsApp">
+                  <header className="conversationFlowTimelineHeader">
+                    <strong>Jornada do Flow</strong>
+                    <span>{detail.flowTimeline.events.length} eventos registrados</span>
+                  </header>
+                  <p className="conversationFlowTimelineNote">{detail.flowTimeline.provenance}</p>
+                  {detail.flowTimeline.truncated && (
+                    <p className="conversationFlowTimelineWarning">
+                      Histórico limitado: os eventos restantes não foram carregados.
+                    </p>
+                  )}
+                  <ol className="conversationFlowTimelineList">
+                    {detail.flowTimeline.events.map((event) => (
+                      <li key={event.id}>
+                        <time>{formatDateTime(event.createdAt)}</time>
+                        <div>
+                          <strong>{event.screenLabel || "Fluxo de atendimento"}</strong>
+                          <p>{event.description}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                  {!detail.flowTimeline.events.length && (
+                    <p className="conversationFlowTimelineNote">Sem eventos gravados para este episódio.</p>
+                  )}
+                </section>
+              )}
 
               <div className="conversationTranscript">
                 {detail.messages.length ? (
